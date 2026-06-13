@@ -697,20 +697,67 @@
 
           <!-- STATE A: Not linked -->
           <div id="sync-state-unlinked">
-            <p class="sync-unlinked-text">
-              Link your <strong>Dropbox account</strong> to automatically back up every closing to the cloud.
-              Your data stays safe across devices — one tap to restore anywhere.
-            </p>
-            <button class="btn-dropbox" onclick="dbxAuthStart()">
-              <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 2L16 7.5L8 13L0 7.5L8 2Z" fill="#fff"/>
-                <path d="M24 2L32 7.5L24 13L16 7.5L24 2Z" fill="#fff"/>
-                <path d="M0 18.5L8 13L16 18.5L8 24L0 18.5Z" fill="#fff"/>
-                <path d="M16 18.5L24 13L32 18.5L24 24L16 18.5Z" fill="#fff"/>
-                <path d="M8 25.5L16 20L24 25.5L16 31L8 25.5Z" fill="#fff"/>
-              </svg>
-              Link Dropbox Account
-            </button>
+
+            <!-- STEP 1: Enter App Key (shown if no key saved yet) -->
+            <div id="sync-setup-step" class="hidden">
+              <p class="sync-unlinked-text" style="margin-bottom:10px;">
+                <strong>One-time setup:</strong> You need a free Dropbox App Key to enable sync.
+              </p>
+              <!-- How to get key — collapsible instructions -->
+              <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+                <p style="font-size:0.73rem;color:#94a3b8;line-height:1.7;margin:0;">
+                  <strong style="color:#e2e8f0;">How to get your App Key (2 min):</strong><br>
+                  1. Open <strong style="color:#60a5fa;">apps.dropbox.com</strong> on a computer<br>
+                  2. Click <strong style="color:#e2e8f0;">Create app</strong><br>
+                  3. Choose <strong style="color:#e2e8f0;">Scoped access → App folder</strong><br>
+                  4. Give it any name (e.g. PharmaSync)<br>
+                  5. Under <strong style="color:#e2e8f0;">OAuth 2 → Redirect URIs</strong>, add:<br>
+                  <span style="color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:0.68rem;word-break:break-all;" id="dbx-redirect-hint"></span><br>
+                  6. Copy the <strong style="color:#e2e8f0;">App Key</strong> and paste below
+                </p>
+              </div>
+              <input
+                type="text"
+                id="dbx-app-key-input"
+                placeholder="Paste App Key here (e.g. abc123xyz789)"
+                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
+                oninput="dbxShowKeyError('')"
+              >
+              <div id="dbx-key-error" style="display:none;color:#f87171;font-size:0.75rem;margin-bottom:8px;"></div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-dropbox" style="flex:1;" onclick="dbxSaveAppKey()">
+                  ✓ Save & Connect Dropbox
+                </button>
+                <button onclick="dbxShowConnectStep()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#94a3b8;border-radius:8px;padding:10px 14px;font-size:0.8rem;cursor:pointer;font-family:'Inter',sans-serif;">
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- STEP 2: Connect button (shown when key already saved or first visit) -->
+            <div id="sync-connect-step">
+              <p class="sync-unlinked-text">
+                Link your <strong>Dropbox account</strong> to automatically back up every closing to the cloud.
+                Your data stays safe across devices — one tap to restore anywhere.
+              </p>
+              <button class="btn-dropbox" onclick="dbxAuthStart()">
+                <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 2L16 7.5L8 13L0 7.5L8 2Z" fill="#fff"/>
+                  <path d="M24 2L32 7.5L24 13L16 7.5L24 2Z" fill="#fff"/>
+                  <path d="M0 18.5L8 13L16 18.5L8 24L0 18.5Z" fill="#fff"/>
+                  <path d="M16 18.5L24 13L32 18.5L24 24L16 18.5Z" fill="#fff"/>
+                  <path d="M8 25.5L16 20L24 25.5L16 31L8 25.5Z" fill="#fff"/>
+                </svg>
+                Link Dropbox Account
+              </button>
+              <div style="margin-top:8px;text-align:center;">
+                <button onclick="document.getElementById('sync-setup-step').classList.remove('hidden');document.getElementById('sync-connect-step').classList.add('hidden');document.getElementById('dbx-redirect-hint').textContent=window.location.href.split('#')[0].split('?')[0];"
+                  style="background:none;border:none;color:#64748b;font-size:0.72rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
+                  ⚙ Change App Key
+                </button>
+              </div>
+            </div>
+
           </div>
 
           <!-- STATE B: Linked -->
@@ -737,6 +784,11 @@
             <button class="btn-sync-disconnect" onclick="dbxDisconnect()">
               Disconnect Account
             </button>
+            <div style="text-align:center;margin-top:4px;">
+              <button onclick="dbxClearAppKey()" style="background:none;border:none;color:#475569;font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
+                ⚙ Change App Key
+              </button>
+            </div>
           </div>
 
         </div>
@@ -2988,10 +3040,15 @@ function refreshCreditLedger() {
 ══════════════════════════════════════════════════════════ -->
 <script>
 /* ── CONFIGURATION ─────────────────────────────────────── */
-const DBX_APP_KEY      = 'YOUR_DROPBOX_APP_KEY'; /* ← Paste your Dropbox App Key here */
-const DBX_SYNC_PATH    = '/pharmpos_sync_data.json';
-const DBX_TOKEN_KEY    = 'dropbox_access_token';
-const DBX_ACCOUNT_KEY  = 'dropbox_account_name';
+const DBX_APP_KEY_STORE = 'dropbox_app_key';          /* localStorage key for app key */
+const DBX_SYNC_PATH     = '/pharmpos_sync_data.json';
+const DBX_TOKEN_KEY     = 'dropbox_access_token';
+const DBX_ACCOUNT_KEY   = 'dropbox_account_name';
+
+/* Dynamic getter — reads from localStorage so user can set it from UI */
+function dbxGetAppKey() {
+  return (localStorage.getItem(DBX_APP_KEY_STORE) || '').trim();
+}
 
 /* ── STATE ──────────────────────────────────────────────── */
 let dbxClient     = null;
@@ -3046,22 +3103,55 @@ function dbxGetToken() {
 function dbxClearToken() {
   localStorage.removeItem(DBX_TOKEN_KEY);
   localStorage.removeItem(DBX_ACCOUNT_KEY);
+  /* Note: DBX_APP_KEY_STORE is intentionally NOT cleared here — user keeps their key */
 }
 
-/* ── OAUTH2 IMPLICIT GRANT FLOW ─────────────────────────── */
+/* ── OAUTH2 TOKEN PARSING ───────────────────────────────── */
+function dbxSaveAppKey() {
+  const inp = document.getElementById('dbx-app-key-input');
+  const key = (inp?.value || '').trim();
+  if(!key) { dbxShowKeyError('Please paste your App Key first.'); return; }
+  localStorage.setItem(DBX_APP_KEY_STORE, key);
+  dbxShowKeyError('');
+  /* Immediately start auth */
+  dbxAuthStart();
+}
+
+function dbxShowKeyError(msg) {
+  const el = document.getElementById('dbx-key-error');
+  if(el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+}
+
 function dbxAuthStart() {
-  if(!DBX_APP_KEY || DBX_APP_KEY === 'YOUR_DROPBOX_APP_KEY') {
-    alert('Dropbox App Key not configured.\n\nOpen the HTML file, find DBX_APP_KEY near the top of the sync engine section, and replace the placeholder with your key from the Dropbox Developer Console (apps.dropbox.com).');
+  const appKey = dbxGetAppKey();
+  if(!appKey) {
+    /* Show the App Key input panel instead of the connect button */
+    document.getElementById('sync-setup-step').classList.remove('hidden');
+    document.getElementById('sync-connect-step').classList.add('hidden');
     return;
   }
   const redirectUri = window.location.href.split('#')[0].split('?')[0];
   const authUrl =
     'https://www.dropbox.com/oauth2/authorize' +
-    '?client_id='     + encodeURIComponent(DBX_APP_KEY) +
+    '?client_id='     + encodeURIComponent(appKey) +
     '&response_type=token' +
     '&redirect_uri='  + encodeURIComponent(redirectUri) +
     '&token_access_type=legacy';
   window.location.href = authUrl;
+}
+
+function dbxShowConnectStep() {
+  document.getElementById('sync-setup-step').classList.add('hidden');
+  document.getElementById('sync-connect-step').classList.remove('hidden');
+}
+
+function dbxClearAppKey() {
+  localStorage.removeItem(DBX_APP_KEY_STORE);
+  dbxClearToken();
+  dbxClient = null;
+  dbxShowUnlinked();
+  document.getElementById('sync-setup-step').classList.add('hidden');
+  document.getElementById('sync-connect-step').classList.remove('hidden');
 }
 
 function dbxParseTokenFromHash() {
@@ -3087,29 +3177,41 @@ async function dbxInit() {
     dbxSaveToken(freshToken);
   }
 
+  /* 2. Pre-fill app key input if we have one saved */
+  const savedKey = dbxGetAppKey();
+  const keyInput = document.getElementById('dbx-app-key-input');
+  if(keyInput && savedKey) keyInput.value = savedKey;
+  /* Always show current URL as redirect hint */
+  const hintEl = document.getElementById('dbx-redirect-hint');
+  if(hintEl) hintEl.textContent = window.location.href.split('#')[0].split('?')[0];
+
   const token = dbxGetToken();
   if(!token) {
     dbxShowUnlinked();
+    /* Show connect button (not setup panel) if key already saved */
+    if(savedKey) {
+      document.getElementById('sync-setup-step')?.classList.add('hidden');
+      document.getElementById('sync-connect-step')?.classList.remove('hidden');
+    }
     return;
   }
 
-  /* 2. Build client */
+  /* 3. Build client */
   try {
     dbxClient = new Dropbox.Dropbox({ accessToken: token });
 
-    /* 3. Verify token by fetching account info */
+    /* 4. Verify token by fetching account info */
     const account = await dbxClient.usersGetCurrentAccount();
     const name    = account.result?.name?.display_name || account.result?.email || 'Dropbox User';
     localStorage.setItem(DBX_ACCOUNT_KEY, name);
     dbxShowLinked(name);
     dbxSetStatus('Checking for updates…', 'busy', true);
 
-    /* 4. Background pull on load */
+    /* 5. Background pull on load */
     await syncPullFromCloud(false);
 
   } catch(err) {
     console.warn('[DBX] Init failed:', err);
-    /* Token expired or invalid — reset */
     dbxClearToken();
     dbxClient = null;
     dbxShowUnlinked();
