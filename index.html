@@ -659,12 +659,45 @@
   .btn-sync-disconnect:hover { background: rgba(248,113,113,.1); border-color: #f87171; }
   .sync-spinner { display: inline-block; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SYNC MINI TOP STATUS BAR ── */
+  #sync-topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 9999;
+    height: 28px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: 0.2px;
+    transition: background 0.25s;
+  }
+  #sync-topbar.tb-show  { display: flex; }
+  #sync-topbar.tb-ok    { background: rgba(5,150,105,0.94); color: #fff; }
+  #sync-topbar.tb-busy  { background: rgba(217,119,6,0.94); color: #fff; }
+  #sync-topbar.tb-error { background: rgba(220,38,38,0.94); color: #fff; }
+  .tb-spin { display: inline-block; animation: spin .7s linear infinite; }
+  body.topbar-on { padding-top: 46px; }
 </style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.11.0/Dropbox-sdk.min.js"></script>
 <body>
+
+<!-- ══ SYNC MINI TOP STATUS BAR ══ -->
+<div id="sync-topbar" onclick="syncPullFromCloud(true)" title="Tap to sync now">
+  <span id="sync-tb-icon">☁</span>
+  <span id="sync-tb-text">Checking…</span>
+</div>
+
 <div class="shell">
 
   <!-- ══ HEADER BAR ══ -->
@@ -706,14 +739,19 @@
               <!-- How to get key — collapsible instructions -->
               <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
                 <p style="font-size:0.73rem;color:#94a3b8;line-height:1.7;margin:0;">
-                  <strong style="color:#e2e8f0;">How to get your App Key (2 min):</strong><br>
+                  <strong style="color:#e2e8f0;">How to get your App Key (3 min):</strong><br>
                   1. Open <strong style="color:#60a5fa;">apps.dropbox.com</strong> on a computer<br>
                   2. Click <strong style="color:#e2e8f0;">Create app</strong><br>
                   3. Choose <strong style="color:#e2e8f0;">Scoped access → App folder</strong><br>
                   4. Give it any name (e.g. PharmaSync)<br>
-                  5. Under <strong style="color:#e2e8f0;">OAuth 2 → Redirect URIs</strong>, add:<br>
+                  5. Click the <strong style="color:#fbbf24;">Permissions</strong> tab → enable:<br>
+                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">account_info.read</strong><br>
+                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">files.content.read</strong><br>
+                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">files.content.write</strong><br>
+                  &nbsp;&nbsp;→ Click <strong style="color:#e2e8f0;">Submit</strong> to save<br>
+                  6. Go to <strong style="color:#e2e8f0;">Settings</strong> tab → under <strong style="color:#e2e8f0;">OAuth 2 → Redirect URIs</strong>, add:<br>
                   <span style="color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:0.68rem;word-break:break-all;" id="dbx-redirect-hint"></span><br>
-                  6. Copy the <strong style="color:#e2e8f0;">App Key</strong> and paste below
+                  7. Copy the <strong style="color:#e2e8f0;">App Key</strong> and paste below
                 </p>
               </div>
               <input
@@ -1486,7 +1524,13 @@ function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 }
-function goToDashboard() { showPage('page-dashboard'); buildCalendar(); renderManifest(); }
+function goToDashboard() {
+  _draftReady = false;          /* stop auto-draft when leaving ledger */
+  clearTimeout(_draftTimer);
+  showPage('page-dashboard');
+  buildCalendar();
+  renderManifest();
+}
 function goToSettings()  {
   let pin = prompt("Enter settings PIN:");
   if(pin !== PIN) { alert("Incorrect PIN."); return; }
@@ -2013,6 +2057,9 @@ function initLedger(ds, shift, mode) {
     if(mode === 'shift' || mode === 'final') zeroCreditEntries();
   }
   calc();
+  /* enable real-time auto-draft after ledger has fully settled */
+  _draftReady = false;
+  setTimeout(() => { _draftReady = true; }, 600);
 }
 
 /* ═══════════════════════════════════════════
@@ -2330,6 +2377,8 @@ function calc() {
     banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
     banEl.className = 'val neg';
   }
+  /* ── real-time auto-draft ── */
+  scheduleAutoSave();
 }
 
 /* ═══════════════════════════════════════════
@@ -2637,12 +2686,43 @@ function cascadeDownstream(originKey) {
 /* ═══════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════ */
-function persist() {
-  localStorage.setItem("pharmpos_v2", JSON.stringify(db));
-  /* ── Cloud sync hook: push after every local write ── */
-  if(dbxClient) {
+/* ═══════════════════════════════════════════
+   DEBOUNCED CLOUD PUSH
+═══════════════════════════════════════════ */
+let _pushTimer = null;
+function scheduleSyncPush(delay = 0) {
+  if(!dbxClient) return;
+  clearTimeout(_pushTimer);
+  if(delay === 0) {
     syncPushToCloud(false).catch(() => {});
+  } else {
+    _pushTimer = setTimeout(() => syncPushToCloud(false).catch(() => {}), delay);
   }
+}
+
+/* ═══════════════════════════════════════════
+   REAL-TIME AUTO DRAFT (from calc)
+═══════════════════════════════════════════ */
+let _draftTimer  = null;
+let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
+
+function scheduleAutoSave() {
+  if(!activeKey || !_draftReady) return;
+  clearTimeout(_draftTimer);
+  _draftTimer = setTimeout(() => {
+    try {
+      const record = buildSheetRecord();
+      record.draft = true;
+      db.sheets[activeKey] = record;
+      localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+      scheduleSyncPush(0); /* push draft immediately */
+    } catch(e) { /* silent — draft save is best-effort */ }
+  }, 3000); /* 3 s idle after last keystroke */
+}
+
+function persist() {
+  localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+  scheduleSyncPush(0); /* immediate push on every explicit save */
 }
 function g(id) { return document.getElementById(id); }
 function set(id, v) { const el=g(id); if(el) el.value=v; }
@@ -3056,15 +3136,29 @@ let dbxSyncBusy   = false;
 
 /* ── UI HELPERS ─────────────────────────────────────────── */
 function dbxSetStatus(text, type = 'ok', spinner = false) {
+  /* ── in-card status ── */
   const line = document.getElementById('sync-status-line');
   const icon = document.getElementById('sync-status-icon');
   const msg  = document.getElementById('sync-status-text');
-  if(!line) return;
-  line.className = 'sync-status-line status-' + type;
-  icon.innerHTML = spinner
-    ? '<span class="sync-spinner">⟳</span>'
-    : (type === 'ok' ? '✓' : type === 'error' ? '✕' : '⟳');
-  msg.textContent = text;
+  if(line) {
+    line.className = 'sync-status-line status-' + type;
+    icon.innerHTML = spinner
+      ? '<span class="sync-spinner">⟳</span>'
+      : (type === 'ok' ? '✓' : type === 'error' ? '✕' : '⟳');
+    msg.textContent = text;
+  }
+  /* ── top mini-bar ── */
+  const tb     = document.getElementById('sync-topbar');
+  const tbIcon = document.getElementById('sync-tb-icon');
+  const tbText = document.getElementById('sync-tb-text');
+  if(tb) {
+    tb.className = 'tb-show tb-' + type;
+    document.body.classList.add('topbar-on');
+    tbIcon.innerHTML = (spinner || type === 'busy')
+      ? '<span class="tb-spin">⟳</span>'
+      : (type === 'ok' ? '☁' : '✕');
+    tbText.textContent = text.length > 48 ? text.substring(0, 46) + '…' : text;
+  }
 }
 
 function dbxSetBusy(busy) {
@@ -3257,8 +3351,13 @@ async function syncPushToCloud(manual = false) {
     }
   } catch(err) {
     console.error('[DBX] Push failed:', err);
+    const status = err?.status || err?.error?.status;
     const msg = err?.error?.error_summary || err?.message || 'Unknown error';
-    dbxSetStatus(`Upload failed: ${msg.substring(0,40)}`, 'error');
+    if(status === 400 || (typeof msg === 'string' && msg.includes('400'))) {
+      dbxSetStatus('Upload failed: Missing file permissions — go to apps.dropbox.com → Permissions tab → enable files.content.write', 'error');
+    } else {
+      dbxSetStatus(`Upload failed: ${msg.substring(0,50)}`, 'error');
+    }
   } finally {
     dbxSetBusy(false);
   }
@@ -3306,8 +3405,13 @@ async function syncPullFromCloud(manual = false) {
       await syncPushToCloud(false);
     } else {
       console.error('[DBX] Pull failed:', err);
+      const status = err?.status || err?.error?.status;
       const msg = err?.error?.error_summary || err?.message || 'Network error';
-      dbxSetStatus(`Sync error: ${msg.substring(0,40)}`, 'error');
+      if(status === 400 || (typeof msg === 'string' && msg.includes('400'))) {
+        dbxSetStatus('Sync error: Missing permissions — go to apps.dropbox.com → Permissions tab → enable files.content.read & files.content.write, then Disconnect & reconnect here', 'error');
+      } else {
+        dbxSetStatus(`Sync error: ${msg.substring(0,50)}`, 'error');
+      }
       dbxSetBusy(false);
     }
   } finally {
