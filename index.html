@@ -1637,7 +1637,41 @@ function openSheetFromPicker() {
   const ds    = document.getElementById('lbl-picker-date').dataset.date;
   const shift = document.getElementById('pick-shift').value;
   activeMode  = document.getElementById('pick-mode').value;
-  activeKey   = `${ds}_${shift}`;
+  const key   = `${ds}_${shift}`;
+
+  /* ── FORWARD-OPEN GUARD ──────────────────────────────────────────
+     Only block if this key does NOT already have a saved record.
+     (Opening a saved sheet for viewing is always allowed.)
+     Check if the immediately previous shift exists and is saved.
+  ────────────────────────────────────────────────────────────────── */
+  if(!getRealSheet(key)) {
+    /* Walk backwards: find the most recent real (saved) sheet */
+    const prev = timelineStep(ds, shift, -1);
+    /* If there IS a previous slot and it only has an unsaved draft (or nothing),
+       we need to scan further back to find whether there's ANY previous day
+       that should have been saved first. */
+    const prevSheet = db.sheets[prev.key];
+    const prevIsDraft  = prevSheet && prevSheet.draft === true;
+    const prevIsMissing = !prevSheet;
+
+    /* Check two slots back as well — in case prev slot was intentionally skipped
+       but the one before it is a pending draft */
+    const prev2 = timelineStep(prev.date, prev.shift, -1);
+    const prev2Sheet = db.sheets[prev2.key];
+    const prev2IsDraft = prev2Sheet && prev2Sheet.draft === true;
+
+    if(prevIsDraft) {
+      /* Previous shift exists but is only auto-saved as draft — block */
+      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes.\n\nPlease open it, review, and press Save & Close before opening this one.`);
+      return;
+    }
+    if(prevIsMissing && prev2IsDraft) {
+      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes.\n\nPlease save it first.`);
+      return;
+    }
+  }
+
+  activeKey   = key;
   overrides   = db.sheets[activeKey]?.overrides || {};
   initLedger(ds, shift, activeMode);
 }
@@ -2199,19 +2233,42 @@ function pullPreviousShift(ds, shift, mode) {
     return;
   }
 
-  /* CC logic:
-     - Same date: all shifts on the same day share the SAME carried CC from the previous night's final CC.
-       i.e. carried CC = prevSheet.outPrevCC + prevSheet.outCurrCC  (the total CC as of prev shift)
-       but we don't add again if same date — we always carry the SAME total from the prev sheet.
-     - Date changed (new day starts at Night shift): carry sum = prevSheet.outPrevCC + prevSheet.outCurrCC
-       which equals the total CC balance at end of last shift.
-  */
-  const ccCurr = parseFloat(hs.outCurrCC) || 0;
-  const ccPrev = parseFloat(hs.outPrevCC) || 0;
-  /* Total CC balance at end of previous sheet = ccPrev + ccCurr.
-     Always carry this total forward regardless of whether date changed.
-     (same date or new date — both get the running total) */
-  const carriedCC = ccPrev + ccCurr;
+  /* ── CC CARRY-FORWARD LOGIC ────────────────────────────────────────
+     Day cycle: Night → Morning → Evening  (Night = START of new day)
+
+     Rule:
+       • Night shift (new day start):
+           Carried CC = prevDayEvening.outPrevCC + prevDayEvening.outCurrCC
+           (full running total from end of previous day's Evening)
+       • Morning shift (same day as Night):
+           Carried CC = SAME value Night carried (prevDayEvening total).
+           Night's own currCC is NOT added.
+       • Evening shift (same day):
+           Carried CC = SAME value — neither Night's nor Morning's currCC added.
+
+     Implementation:
+       Night: prev is previous day's Evening → carry prev.outPrevCC + prev.outCurrCC.
+       Morning / Evening: look up this day's Night sheet and use Night.outPrevCC
+       (which equals the prevDayEvening total — the shared base for the whole day).
+  ────────────────────────────────────────────────────────────────── */
+  let carriedCC = 0;
+
+  if(shift === 'Night') {
+    /* Night = new day start. prev is previous day's Evening. */
+    carriedCC = (parseFloat(hs.outPrevCC) || 0) + (parseFloat(hs.outCurrCC) || 0);
+
+  } else {
+    /* Morning or Evening: all same-day shifts share the CC base that Night carried.
+       Night.outPrevCC = prevDayEvening total = the shared base for the whole day. */
+    const nightSheet = getRealSheet(ds + '_Night');
+    if(nightSheet) {
+      carriedCC = parseFloat(nightSheet.outPrevCC) || 0;
+    } else {
+      /* Night not saved yet — use immediate previous shift's prevCC as fallback */
+      carriedCC = parseFloat(hs.outPrevCC) || 0;
+    }
+  }
+
   set('out-prev-cc', carriedCC);
 
   /* credit, deposits, cash — always pulled in both shift and final */
@@ -2588,6 +2645,20 @@ function moveLedgerShift(n) {
   autoSave();
   const parts = activeKey.split('_');
   const next  = timelineStep(parts[0], parts[1], n);
+
+  /* ── FORWARD-OPEN GUARD on pagination ──────────────────────────
+     When navigating forward (n > 0) to a slot that has no saved record,
+     block if the current sheet is not yet saved (still a draft or unsaved). */
+  if(n > 0 && !getRealSheet(next.key)) {
+    const currSheet = db.sheets[activeKey];
+    const currIsDraft = currSheet && currSheet.draft === true;
+    const currIsUnsaved = !currSheet;
+    if(currIsDraft || currIsUnsaved) {
+      alert(`⛔ Cannot navigate forward.\n\nThe current closing "${parts[0]} — ${srLabel(parts[1])}" has not been saved yet.\n\nPress "Save & Close This Shift" first.`);
+      return;
+    }
+  }
+
   activeKey   = next.key;
   activeMode  = db.sheets[activeKey]?.profileMode || 'shift';
   overrides   = db.sheets[activeKey]?.overrides || {};
@@ -3163,7 +3234,8 @@ function saveDraft() {
   rec.locked = false;
   db.sheets[activeKey] = rec;
   persist();
-  isSavedSheet = true;
+  /* NOTE: isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
+     This ensures carry-over fields remain live (not frozen) while drafting. */
   setLockedState(false);
   const status = document.getElementById('pdf-status');
   status.style.display='block'; status.textContent='Draft saved ✓';
