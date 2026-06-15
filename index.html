@@ -1312,7 +1312,7 @@
           <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Pre-date POS Sales (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
           <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
 
           <!-- VARIANCE -->
@@ -2436,13 +2436,15 @@ function aggregateSinceLastFinal(ds, shift) {
     if(lfDate === ds) { lfSameDateSale = lfSale; lfSameDateCust = lfCust; lfSameDateSysRet = lfSysR; }
     else              { lfPreDateSale  = lfSale; lfPreDateCust  = lfCust; }
 
-    /* ── Include previous final closing's own manual returns & book bills ──
+    /* ── Include previous final closing's own manual returns, book bills & extra cash ──
        These were recorded on the final closing itself and must carry into the
        next period's cumulative totals. */
-    const lfManRet = (parseFloat(lf.posRet1)||0) + (parseFloat(lf.posRet2)||0) + (parseFloat(lf.posRet3)||0);
-    const lfBooks  = (parseFloat(lf.inBook1)||0)  + (parseFloat(lf.inBook2)||0);
+    const lfManRet    = (parseFloat(lf.posRet1)||0) + (parseFloat(lf.posRet2)||0) + (parseFloat(lf.posRet3)||0);
+    const lfBooks     = (parseFloat(lf.inBook1)||0)  + (parseFloat(lf.inBook2)||0);
+    const lfExtraCash = parseFloat(lf.extraCash) || 0;
     totalManualReturns += lfManRet;
     totalBookBills     += lfBooks;
+    totalExtraCash     += lfExtraCash;
   }
   return {
     lastFinal,
