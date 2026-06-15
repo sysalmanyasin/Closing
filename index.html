@@ -1312,12 +1312,13 @@
           <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Pre-date POS Sales (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Less Pre-date System Return (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
           <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
 
           <!-- VARIANCE -->
           <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
-          <div class="row computed"><label>Pre-date Total (POS ＋ Customers before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          <div class="row computed"><label>Pre-date Total (POS ＋ Customers ＋ Sys Return, before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
           <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
 
         </div>
@@ -2396,7 +2397,7 @@ function aggregateSinceLastFinal(ds, shift) {
   /* date-split: "same-date" = date === ds, "pre-date" = date < ds */
   let sameDateShiftSale = 0, preDateShiftSale = 0;
   let sameDateCustomers = 0, preDateCustomers = 0;
-  let sameDateSysReturns = 0;
+  let sameDateSysReturns = 0, preDateSysReturns = 0;
   const labels = [];
   let cur = {date: ds, shift: shift};
   for(let i = 0; i < 400; i++) {
@@ -2421,12 +2422,12 @@ function aggregateSinceLastFinal(ds, shift) {
     shiftCount++;
     labels.unshift(srLabel(cur.shift).replace('Closing','C') + ' ' + cur.date);
     if(isToday) { sameDateShiftSale += shiftSale; sameDateCustomers += customers; sameDateSysReturns += sysRet; }
-    else        { preDateShiftSale  += shiftSale; preDateCustomers  += customers; }
+    else        { preDateShiftSale  += shiftSale; preDateCustomers  += customers; preDateSysReturns += sysRet; }
   }
   /* categorise last final's own values by date */
   let lfSameDateSale = 0, lfPreDateSale = 0;
   let lfSameDateCust = 0, lfPreDateCust = 0;
-  let lfSameDateSysRet = 0;
+  let lfSameDateSysRet = 0, lfPreDateSysRet = 0;
   if(lastFinal) {
     const lf     = lastFinal.rec;
     const lfDate = lastFinal.key.split('_')[0];
@@ -2434,7 +2435,7 @@ function aggregateSinceLastFinal(ds, shift) {
     const lfCust = parseFloat(lf.outCust)      || 0;
     const lfSysR = parseFloat(lf.posRetSys)    || 0;
     if(lfDate === ds) { lfSameDateSale = lfSale; lfSameDateCust = lfCust; lfSameDateSysRet = lfSysR; }
-    else              { lfPreDateSale  = lfSale; lfPreDateCust  = lfCust; }
+    else              { lfPreDateSale  = lfSale; lfPreDateCust  = lfCust; lfPreDateSysRet = lfSysR; }
 
     /* ── Include previous final closing's own manual returns, book bills & extra cash ──
        These were recorded on the final closing itself and must carry into the
@@ -2451,9 +2452,9 @@ function aggregateSinceLastFinal(ds, shift) {
     totalCustomers, totalShiftSale, totalManualReturns, totalSysReturns,
     totalExtraCash, totalShiftNetCash, totalBookBills, shiftCount, labels,
     sameDateShiftSale, preDateShiftSale,
-    sameDateCustomers, preDateCustomers, sameDateSysReturns,
+    sameDateCustomers, preDateCustomers, sameDateSysReturns, preDateSysReturns,
     lfSameDateSale, lfPreDateSale,
-    lfSameDateCust, lfPreDateCust, lfSameDateSysRet
+    lfSameDateCust, lfPreDateCust, lfSameDateSysRet, lfPreDateSysRet
   };
 }
 
@@ -2642,13 +2643,15 @@ function calc() {
     /* ─── PART 2: Net Final Cash Available ───────────────── */
     const preDateSys        = agg.preDateShiftSale + agg.lfPreDateSale;
     const preDateCust       = agg.preDateCustomers  + agg.lfPreDateCust;
-    const preDateTotal      = preDateSys + preDateCust;
+    const preDateSysRet     = agg.preDateSysReturns + agg.lfPreDateSysRet;
+    const preDateTotal      = preDateSys + preDateCust + preDateSysRet;
     const totalExtraCashPeriod = agg.totalExtraCash + extraCash;
     const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod;
 
     set('out-final-net-cash-base', liquid);
     set('out-final-pre-sys',       preDateSys);
     set('out-final-pre-cust',      preDateCust);
+    set('out-final-pre-sysret',    preDateSysRet);
     set('out-final-pre-total',     preDateTotal);
     set('out-final-extra-cash',    totalExtraCashPeriod);
     set('out-final-net-cash',      finalNetCash);
