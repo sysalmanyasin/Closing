@@ -574,6 +574,75 @@
   .ltb-more-menu button:last-child { border-bottom: none; }
   .ltb-more-menu button:hover { background: var(--teal-pale); color: var(--teal-dark); }
 
+  /* ══ MOBILE PORTRAIT IMPROVEMENTS ══ */
+  @media (max-width: 480px) {
+    body { padding: 8px 4px 40px; }
+    .shell { border-radius: var(--radius-lg); }
+    .app-bar { padding: 14px 16px 12px; gap: 10px; }
+    .app-bar-icon { width: 36px; height: 36px; font-size: 1.1rem; }
+    .app-bar-text h1 { font-size: 0.95rem; }
+    .app-bar-text p  { font-size: 0.68rem; }
+    .page-body { padding: 14px 12px 24px; }
+
+    /* ── ONE-LINE COLLAPSED BLOCK HEADERS ── */
+    .card-head { padding: 10px 12px; flex-wrap: nowrap; min-height: 44px; }
+    .card-head h3 {
+      font-size: 0.72rem; letter-spacing: .3px;
+      flex: 1; min-width: 0;
+      display: block; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+      line-height: 1.5;
+    }
+    .card-head h3 .step {
+      display: inline-flex; align-items: center; justify-content: center;
+      vertical-align: middle; margin-right: 4px;
+    }
+    .card-head-right { flex-shrink: 0; gap: 6px; }
+    .card-total-badge { font-size: 0.68rem; padding: 2px 6px; white-space: nowrap; }
+
+    /* ── ROWS ── */
+    .row { padding: 8px 12px; font-size: 0.8rem; }
+    .row label, .row .row-lbl { font-size: 0.8rem; }
+    .row input[type="number"], .row input[type="text"], .row select {
+      width: 100px; font-size: 0.8rem; padding: 5px 8px;
+    }
+    .strips-header { padding: 6px 12px; font-size: 0.68rem; }
+    .row.strip-row input { width: 68px; }
+
+    /* ── NOTICE BOX ── */
+    .notice { font-size: 0.75rem; padding: 8px 10px; }
+
+    /* ── TOOLBAR ── */
+    .ledger-toolbar { padding: 8px 10px; }
+    .ltb-title { font-size: 0.85rem; }
+    .ltb-meta { font-size: 0.65rem; }
+    .ltb-icon-btn { width: 32px; height: 32px; font-size: 0.9rem; }
+    .ltb-back { width: 30px; height: 30px; }
+
+    /* ── PAGER ── */
+    .pager { padding: 8px 10px; }
+    .btn-nav { padding: 5px 10px; font-size: 0.75rem; }
+    .pager-label { font-size: 0.72rem; }
+
+    /* ── BUTTONS ── */
+    .btn { padding: 9px 14px; font-size: 0.82rem; }
+    .btn-row { gap: 8px; }
+
+    /* ── CALENDAR ── */
+    .cal-cell { font-size: 0.72rem; padding: 4px 2px 3px; }
+    .cal-day-lbl { font-size: 0.65rem; }
+
+    /* ── SUMMARY BANNER ── */
+    .summary-banner { padding: 14px; }
+    .banner-row { font-size: 0.8rem; }
+
+    /* ── MODAL PICKER ── */
+    .modal-picker-item { padding: 11px 16px; font-size: 0.85rem; }
+
+    /* ── SETTINGS ── */
+    .settings-item { padding: 6px 12px; }
+  }
+
   /* ── PRINT MODE ── */
   @media print {
     body { padding: 0; background: #fff; }
@@ -714,12 +783,11 @@
     <div class="page-body">
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
-        <button class="btn btn-teal" onclick="goToCredit()">💳 Credit Ledger</button>
       </div>
 
       <!-- ── CLOUD SYNC CARD ── -->
       <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0f2744 0%,#0d3d2e 100%);border-radius:var(--radius-lg);overflow:hidden;">
-        <div class="card-head" onclick="toggleCard('card-cloud-sync')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+        <div class="card-head" onclick="toggleSyncCard()" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="sync-card-icon" style="font-size:1.3rem;">☁️</div>
             <div>
@@ -849,7 +917,10 @@
         <div class="cal-grid" id="cal-grid"></div>
       </div>
       <div id="shift-picker" class="date-picker-panel hidden">
-        <h4 id="lbl-picker-date">Open shift for: 2026-06-12</h4>
+        <h4 id="lbl-picker-date">Open shift for: —</h4>
+        <!-- Existing closings for this date (populated by openDatePicker) -->
+        <div id="picker-existing-closings" style="display:none;margin-bottom:12px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);"></div>
+        <div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">New Closing</div>
         <div class="form-row" style="margin-bottom:12px;">
           <div class="form-field">
             <label>Shift</label>
@@ -869,6 +940,7 @@
         </div>
         <div class="btn-row">
           <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Sheet</button>
+          <button class="btn btn-teal" onclick="openExtraClosing()" title="Create an additional closing for the same shift">➕ Extra Closing</button>
           <button class="btn btn-ghost" onclick="document.getElementById('shift-picker').classList.add('hidden')">Cancel</button>
         </div>
       </div>
@@ -899,43 +971,6 @@
     </div>
   </div>
 
-  <!-- ══ PAGE 2 — CREDIT LEDGER (PIN protected) ══ -->
-  <div id="page-credit" class="view-pane hidden">
-    <div class="pager">
-      <button class="btn btn-nav" onclick="goToDashboard()">⬅ Dashboard</button>
-      <span class="pager-label">💳 CREDIT LEDGER</span>
-      <button class="btn btn-nav" onclick="refreshCreditLedger()">🔄 Refresh</button>
-    </div>
-    <div class="page-body">
-      <div class="card">
-        <div class="card-head" style="cursor:default; background: linear-gradient(135deg,var(--navy) 0%,#1e3a5f 100%);">
-          <h3 style="color:#fff;">📊 Cumulative Credit Totals — All Shifts</h3>
-        </div>
-        <div class="card-body">
-          <p style="font-size:0.75rem;color:var(--muted);padding:8px 16px 4px;">
-            Running totals from the first ever closing. Each row shows the cumulative credit balance after that shift's closing.
-          </p>
-          <div id="credit-ledger-rows"></div>
-          <div class="row computed highlight-blue">
-            <label style="font-weight:800;">TOTAL CREDIT (ALL TIME):</label>
-            <input type="text" id="credit-grand-total" readonly style="font-weight:800;font-size:1rem;color:var(--blue);">
-          </div>
-        </div>
-      </div>
-      <!-- Summary cards -->
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>📈 Credit Summary</h3></div>
-        <div class="card-body">
-          <div class="row computed"><label>Total Shifts Recorded:</label><input type="text" id="credit-shift-count" readonly></div>
-          <div class="row computed"><label>Last Final Closing Credit:</label><input type="text" id="credit-last-final" readonly></div>
-          <div class="row computed highlight-green"><label>Net Sale (all time, computer):</label><input type="text" id="credit-net-sale" readonly></div>
-          <div class="row computed"><label>Total Book Sales:</label><input type="text" id="credit-book-sale" readonly></div>
-          <div class="row computed"><label>Total Customers (all time):</label><input type="text" id="credit-customers" readonly></div>
-          <div class="row computed highlight-red"><label>Total Returns (manual):</label><input type="text" id="credit-returns" readonly></div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- ══ PAGE 3 — SETTINGS ══ -->
   <div id="page-settings" class="view-pane hidden">
@@ -943,6 +978,21 @@
       <div class="flex-between" style="margin-bottom:16px;">
         <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">⬅ Back</button>
         <span class="text-muted text-sm">System Settings</span>
+      </div>
+      <!-- PIN Change -->
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>🔑 Change Access PIN</h3></div>
+        <div class="card-body">
+          <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+            This PIN protects Settings, Cloud Sync, and deletion of saved records. Default PIN is <b>SALMAN</b>.
+          </p>
+          <div class="row"><label>Current PIN</label><input type="password" id="set-pin-current" placeholder="Enter current PIN" style="width:140px;letter-spacing:2px;"></div>
+          <div class="row"><label>New PIN</label><input type="password" id="set-pin-new" placeholder="Min 4 characters" maxlength="12" style="width:140px;letter-spacing:2px;"></div>
+          <div class="row"><label>Confirm New PIN</label><input type="password" id="set-pin-confirm" placeholder="Repeat new PIN" maxlength="12" style="width:140px;letter-spacing:2px;"></div>
+          <div style="padding:8px 16px 14px;">
+            <button class="btn btn-teal" onclick="changePin()">🔑 Update PIN</button>
+          </div>
+        </div>
       </div>
       <!-- Final Closing automation -->
       <div class="card">
@@ -1067,13 +1117,6 @@
           <div class="row"><label>Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
           <div class="row"><label>Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
           <div class="row"><label>Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
-          <!-- Returns (3 cells) -->
-          <div style="background:#f8fafc; padding:6px 16px 2px; font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;">Returns / Refunds</div>
-          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
-          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
         </div>
       </div>
 
@@ -1091,6 +1134,13 @@
           <div class="row"><label>Book Bill 1:</label><input type="number" id="in-book-1" oninput="calc()"></div>
           <div class="row"><label>Book Bill 2:</label><input type="number" id="in-book-2" oninput="calc()"></div>
           <div class="row computed" id="box-out-cust"><label>Customers This Shift (delta):</label><input type="number" id="out-cust" oninput="setOverride('out-cust')"></div>
+          <!-- Returns / Refunds (moved from POS Block) -->
+          <div style="background:#f8fafc; padding:6px 16px 2px; font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;">Returns / Refunds</div>
+          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
+          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
           <div class="row highlight-blue"><label>Net Sale (this shift):</label><input type="number" id="out-net-sale" readonly value="0"></div>
         </div>
       </div>
@@ -1114,7 +1164,7 @@
       <!-- BLOCK 2: Inventory Strips / Block Revenue (B) -->
       <div class="card" id="card-strips">
         <div class="card-head" onclick="toggleCard('card-strips')">
-          <h3><span class="step">2</span> Inventory Strips / Block Revenue (B)</h3>
+          <h3><span class="step">2</span> Inventory / Block Revenue (B)</h3>
           <div class="card-head-right">
             <span class="card-total-badge" id="badge-strips">Rs. 0</span>
             <span class="collapse-icon">▼</span>
@@ -1134,7 +1184,7 @@
       <!-- BLOCK 3: Ongoing / Misc Charges (C) -->
       <div class="card" id="card-misc">
         <div class="card-head" onclick="toggleCard('card-misc')">
-          <h3><span class="step">3</span> Ongoing / Miscellaneous Charges (C)</h3>
+          <h3><span class="step">3</span> Misc / Ongoing Charges (C)</h3>
           <div class="card-head-right">
             <span class="card-total-badge" id="badge-misc">Rs. 0</span>
             <span class="collapse-icon">▼</span>
@@ -1380,10 +1430,50 @@
 /* ═══════════════════════════════════════════
    CONSTANTS & STATE
 ═══════════════════════════════════════════ */
-const PIN    = "1218";
 const SHIFTS = ["Night","Morning","Evening"];
 const SHIFT_SR = {Morning:1, Evening:2, Night:3};
 function srLabel(shift) { return `Closing ${SHIFT_SR[shift]||'?'} — ${shift}`; }
+
+/* ═══════════════════════════════════════════
+   PIN SYSTEM — FNV-1a hash stored in db.settings.pinHash
+   Default PIN: SALMAN  (6 chars, case-insensitive)
+═══════════════════════════════════════════ */
+function hashPin(raw) {
+  if(!raw) return '';
+  let h = 0x811c9dc5;
+  const s = String(raw).toUpperCase();
+  for(let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+function checkPin(input) {
+  if(!input) return false;
+  const stored = db.settings.pinHash || hashPin('SALMAN');
+  return hashPin(input) === stored;
+}
+function changePin() {
+  const cur  = document.getElementById('set-pin-current')?.value || '';
+  const nw   = document.getElementById('set-pin-new')?.value     || '';
+  const conf = document.getElementById('set-pin-confirm')?.value || '';
+  if(!checkPin(cur)) { alert('❌ Current PIN is incorrect.'); return; }
+  if(nw.length < 4)  { alert('❌ New PIN must be at least 4 characters.'); return; }
+  if(nw.toUpperCase() !== conf.toUpperCase()) { alert('❌ New PIN and confirmation do not match.'); return; }
+  db.settings.pinHash = hashPin(nw);
+  persist();
+  alert('✅ PIN changed successfully.');
+  document.getElementById('set-pin-current').value = '';
+  document.getElementById('set-pin-new').value     = '';
+  document.getElementById('set-pin-confirm').value = '';
+}
+/* Initialise PIN hash on first run */
+(function initPinHash() {
+  if(!db.settings.pinHash) {
+    db.settings.pinHash = hashPin('SALMAN');
+    localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+  }
+})();
 const DENOMS = [
   {label:"Rs. 5,000 notes", mult:5000},
   {label:"Rs. 1,000 notes", mult:1000},
@@ -1556,15 +1646,24 @@ function closeModalPicker() {
 function toggleCard(id) {
   const card = document.getElementById(id);
   if(!card) return;
-  /* Cloud sync card uses a separate explicit body div */
-  if(id === 'card-cloud-sync') {
-    const body = document.getElementById('card-cloud-sync-body');
-    const icon = card.querySelector('.collapse-icon');
-    const hidden = body.style.display === 'none';
-    body.style.display = hidden ? 'block' : 'none';
-    if(icon) icon.textContent = hidden ? '▼' : '▶';
+  card.classList.toggle('collapsed');
+}
+
+/* Cloud Sync toggle — PIN protected to EXPAND */
+function toggleSyncCard() {
+  const body = document.getElementById('card-cloud-sync-body');
+  const card = document.getElementById('card-cloud-sync');
+  const icon = card ? card.querySelector('.collapse-icon') : null;
+  const isHidden = body.style.display === 'none';
+  if(isHidden) {
+    const pin = prompt('Enter PIN to access Cloud Sync:');
+    if(pin === null) return;
+    if(!checkPin(pin)) { alert('❌ Incorrect PIN.'); return; }
+    body.style.display = 'block';
+    if(icon) icon.textContent = '▼';
   } else {
-    card.classList.toggle('collapsed');
+    body.style.display = 'none';
+    if(icon) icon.textContent = '▶';
   }
 }
 
@@ -1593,8 +1692,9 @@ function goToDashboard() {
   renderManifest();
 }
 function goToSettings()  {
-  let pin = prompt("Enter settings PIN:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
+  const pin = prompt('Enter PIN to access Settings:');
+  if(pin === null) return;
+  if(!checkPin(pin)) { alert('❌ Incorrect PIN.'); return; }
   showPage('page-settings');
   buildSettingsUI();
 }
@@ -1647,10 +1747,63 @@ function buildCalendar() {
 function shiftMonth(n) { calViewDate.setMonth(calViewDate.getMonth()+n); buildCalendar(); }
 
 function openDatePicker(ds) {
-  const panel = document.getElementById('shift-picker');
+  const panel   = document.getElementById('shift-picker');
+  const labelEl = document.getElementById('lbl-picker-date');
+  labelEl.textContent  = `Open shift for: ${formatDisplayDate(ds)}`;
+  labelEl.dataset.date = ds;
+
+  /* ── Show existing closings for this date ── */
+  const existingDiv = document.getElementById('picker-existing-closings');
+  if(existingDiv) {
+    const dayKeys = Object.keys(db.sheets)
+      .filter(k => k.startsWith(ds + '_') && isRealSheet(db.sheets[k]))
+      .sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
+
+    if(dayKeys.length > 0) {
+      existingDiv.style.display = 'block';
+      existingDiv.innerHTML = `<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Existing closings — ${formatDisplayDate(ds)}</div>`;
+      dayKeys.forEach(key => {
+        const rec    = db.sheets[key];
+        const kp     = key.split('_');
+        const extra  = kp[2] ? ' (Extra)' : '';
+        const srLbl  = srLabel(kp[1]) + extra;
+        const icon   = rec.profileMode === 'final' ? '🔴' : '🔵';
+        const row    = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e2e8f0;';
+        row.innerHTML = `<span style="font-size:0.82rem;color:var(--slate);">${icon} ${srLbl}</span>
+          <button class="btn btn-teal btn-sm" onclick="loadKey('${key}');document.getElementById('shift-picker').classList.add('hidden')">Open</button>`;
+        existingDiv.appendChild(row);
+      });
+    } else {
+      existingDiv.style.display = 'none';
+    }
+  }
+
   panel.classList.remove('hidden');
-  document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
-  document.getElementById('lbl-picker-date').dataset.date = ds;
+}
+
+/* ── Extra Closing: additional closing for same shift/date ── */
+function openExtraClosing() {
+  const ds    = document.getElementById('lbl-picker-date').dataset.date;
+  const shift = document.getElementById('pick-shift').value;
+  const mode  = document.getElementById('pick-mode').value;
+  const baseKey = `${ds}_${shift}`;
+
+  if(!db.sheets[baseKey]) {
+    alert(`ℹ️ No existing closing found for ${formatDisplayDate(ds)} — ${srLabel(shift)}.\n\nUse "Open Sheet" to create the regular closing first.`);
+    return;
+  }
+
+  /* find next available extra slot */
+  let n = 2;
+  while(db.sheets[`${baseKey}_x${n}`]) n++;
+  const extraKey = `${baseKey}_x${n}`;
+
+  activeKey  = extraKey;
+  activeMode = mode;
+  overrides  = db.sheets[extraKey]?.overrides || {};
+  document.getElementById('shift-picker').classList.add('hidden');
+  initLedger(ds, shift, mode);
 }
 
 function openSheetFromPicker() {
@@ -1679,11 +1832,11 @@ function openSheetFromPicker() {
     const prev2IsDraft = prev2Sheet && prev2Sheet.draft === true;
 
     if(prevIsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
+      alert(`⛔ Cannot open this closing.\n\n"${formatDisplayDate(prev.date)} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
       return;
     }
     if(prevIsMissing && prev2IsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
+      alert(`⛔ Cannot open this closing.\n\n"${formatDisplayDate(prev2.date)} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
       return;
     }
   }
@@ -1719,12 +1872,58 @@ function clearManifestFilter() {
 const SHIFT_CHRONO = {Night: 0, Morning: 1, Evening: 2};
 function sheetSortKey(k) {
   const parts = k.split('_');
-  return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9);
+  const extraSuffix = parts[2] ? '_' + parts[2] : '';
+  return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9) + extraSuffix;
+}
+
+/* Format ISO date YYYY-MM-DD → DD-MM-YYYY for display */
+function formatDisplayDate(isoDate) {
+  if(!isoDate) return '';
+  const p = isoDate.split('-');
+  if(p.length < 3) return isoDate;
+  return `${p[2]}-${p[1]}-${p[0]}`;
 }
 
 /* ═══════════════════════════════════════════
    MANIFEST
 ═══════════════════════════════════════════ */
+function renderManifestItem(box, k) {
+  const rec = db.sheets[k];
+  if(!rec) return;
+  const isDraft = rec.draft === true;
+  const mode    = rec.profileMode || 'shift';
+  const parts   = k.split('_');
+  const extra   = parts[2] ? ' (Extra)' : '';
+  const sr      = srLabel(parts[1]) + extra;
+  const div = document.createElement('div');
+  div.className = "manifest-item";
+  if(isDraft) div.style.opacity = '0.75';
+  const badgeHtml = isDraft
+    ? `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`
+    : mode === 'final'
+      ? `<span class="badge badge-final">FINAL</span>`
+      : `<span class="badge badge-shift">SHIFT</span>`;
+  div.innerHTML = `
+    <span class="key-label" style="display:flex;align-items:center;gap:6px;">
+      ${isDraft ? '✏️' : '📦'} ${formatDisplayDate(parts[0])} — ${sr}
+    </span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      ${badgeHtml}
+      <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
+    </div>`;
+  box.appendChild(div);
+}
+
+function manifestShowMore() {
+  const moreDiv = document.getElementById('manifest-show-more');
+  if(!moreDiv) return;
+  const hiddenKeys = JSON.parse(moreDiv.dataset.hiddenKeys || '[]');
+  const box = document.getElementById('manifest-list');
+  moreDiv.remove();
+  hiddenKeys.forEach(k => renderManifestItem(box, k));
+}
+
 function renderManifest() {
   const box = document.getElementById('manifest-list');
 
@@ -1732,7 +1931,7 @@ function renderManifest() {
   const fromDate = document.getElementById('filter-date-from')?.value || '';
   const toDate   = document.getElementById('filter-date-to')?.value   || '';
 
-  /* include BOTH saved sheets AND drafts (draft=true) */
+  /* include BOTH saved sheets AND drafts */
   const allKeys = Object.keys(db.sheets).filter(k => {
     const rec = db.sheets[k];
     if(!rec) return false;
@@ -1742,51 +1941,36 @@ function renderManifest() {
     return true;
   });
 
-  /* sort chronologically: date asc, then Night→Morning→Evening */
-  allKeys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+  /* sort DESCENDING — most recent first */
+  allKeys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
 
   /* update filter badge */
   const badge = document.getElementById('manifest-filter-badge');
   if(badge) {
     const active = fromDate || toDate;
     badge.style.display = active ? 'inline-flex' : 'none';
-    badge.textContent = active ? `Filtered` : '';
+    badge.textContent = active ? 'Filtered' : '';
   }
 
   if(!allKeys.length) {
     box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
   }
   box.innerHTML = "";
-  allKeys.forEach(k => {
-    const rec  = db.sheets[k];
-    const isDraft = rec.draft === true;
-    const mode = rec.profileMode || 'shift';
-    const parts = k.split('_');
-    const sr = srLabel(parts[1]);
-    const div = document.createElement('div');
-    div.className = "manifest-item";
-    if(isDraft) div.style.opacity = '0.75';
 
-    let badgeHtml = '';
-    if(isDraft) {
-      badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
-    } else if(mode === 'final') {
-      badgeHtml = `<span class="badge badge-final">FINAL</span>`;
-    } else {
-      badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
-    }
+  const SHOW_N  = 3;
+  const visible = allKeys.slice(0, SHOW_N);
+  const hidden  = allKeys.slice(SHOW_N);
 
-    div.innerHTML = `
-      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
-        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
-      </span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        ${badgeHtml}
-        <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
-      </div>`;
-    box.appendChild(div);
-  });
+  visible.forEach(k => renderManifestItem(box, k));
+
+  if(hidden.length) {
+    const moreDiv = document.createElement('div');
+    moreDiv.id = 'manifest-show-more';
+    moreDiv.style.cssText = 'padding:10px 16px;text-align:center;';
+    moreDiv.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="manifestShowMore()">▼ Show ${hidden.length} older record${hidden.length!==1?'s':''}</button>`;
+    moreDiv.dataset.hiddenKeys = JSON.stringify(hidden);
+    box.appendChild(moreDiv);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -2148,9 +2332,9 @@ function openTierPicker(num) { /* triggered by change, handled via mousedown */ 
 function initLedger(ds, shift, mode) {
   showPage('page-ledger');
 
-  document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
+  document.getElementById('lbl-ledger-pager').textContent = `${formatDisplayDate(ds)} — ${srLabel(shift)}`;
   document.getElementById('lbl-ledger-title').textContent = `${srLabel(shift)} Register`;
-  document.getElementById('lbl-ledger-meta').textContent  = `${ds} · BT-PHARMA`;
+  document.getElementById('lbl-ledger-meta').textContent  = `${formatDisplayDate(ds)} · BT-PHARMA`;
   document.getElementById('ledger-badge').innerHTML = `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
@@ -2331,8 +2515,9 @@ function setLockedState(locked) {
 }
 
 function unlockForEditing() {
-  let pin = prompt("Enter PIN to edit this saved closing:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
+  const pin = prompt("Enter PIN to edit this saved closing:");
+  if(pin === null) return;
+  if(!checkPin(pin)) { alert("❌ Incorrect PIN."); return; }
   setLockedState(false);
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
@@ -2830,7 +3015,7 @@ function moveLedgerShift(n) {
     const currIsDraft = currSheet && currSheet.draft === true;
     const currIsUnsaved = !currSheet;
     if(currIsDraft || currIsUnsaved) {
-      alert(`⛔ Cannot navigate forward.\n\nThe current closing "${parts[0]} — ${srLabel(parts[1])}" has not been saved yet.\n\nPress "Save & Close This Shift" first.`);
+      alert(`⛔ Cannot navigate forward.\n\nThe current closing "${formatDisplayDate(parts[0])} — ${srLabel(parts[1])}" has not been saved yet.\n\nPress "Save & Close This Shift" first.`);
       return;
     }
   }
@@ -2963,7 +3148,7 @@ function saveSheet(silent=false) {
       const n = db.settings.finalEveryN || 3;
       if((agg.shiftCount + 1) >= n) {
         setTimeout(() => {
-          if(confirm(`${agg.shiftCount + 1} shift closings done since the last Final Closing.\nOpen the next shift (${nxt.date} — ${srLabel(nxt.shift)}) as a Final Closing?`)) {
+          if(confirm(`${agg.shiftCount + 1} shift closings done since the last Final Closing.\nOpen the next shift (${formatDisplayDate(nxt.date)} — ${srLabel(nxt.shift)}) as a Final Closing?`)) {
             activeKey  = nxt.key;
             activeMode = 'final';
             overrides  = db.sheets[activeKey]?.overrides || {};
@@ -2971,7 +3156,7 @@ function saveSheet(silent=false) {
           } else {
             /* Still offer to open next as shift */
             setTimeout(() => {
-              if(confirm(`Open next shift closing?\n${nxt.date} — ${srLabel(nxt.shift)}`)) {
+              if(confirm(`Open next shift closing?\n${formatDisplayDate(nxt.date)} — ${srLabel(nxt.shift)}`)) {
                 activeKey  = nxt.key;
                 activeMode = 'shift';
                 overrides  = db.sheets[activeKey]?.overrides || {};
@@ -2987,7 +3172,7 @@ function saveSheet(silent=false) {
       /* Not yet at final threshold — just offer to open next shift */
       setTimeout(() => {
         const nxtHasRecord = !!db.sheets[nxt.key];
-        if(!nxtHasRecord && confirm(`✅ Saved!\n\nOpen next shift?\n${nxt.date} — ${srLabel(nxt.shift)}`)) {
+        if(!nxtHasRecord && confirm(`✅ Saved!\n\nOpen next shift?\n${formatDisplayDate(nxt.date)} — ${srLabel(nxt.shift)}`)) {
           activeKey  = nxt.key;
           activeMode = 'shift';
           overrides  = {};
@@ -3340,7 +3525,7 @@ function buildPrintSheet() {
   document.getElementById('print-sheet').innerHTML = `
     <div class="ps-title">
       <h1>FAZAL DINS PHARMA PLUS</h1>
-      <h2>${db.settings.branchName || 'BAHRIA TOWN BRANCH'} — ${ds || '—'} — ${srLabel(shift)}</h2>
+      <h2>${db.settings.branchName || 'BAHRIA TOWN BRANCH'} — ${formatDisplayDate(ds) || '—'} — ${srLabel(shift)}</h2>
     </div>
     <div class="ps-grid">
       <div>
@@ -3445,8 +3630,12 @@ function saveDraft() {
 function deleteCurrentSheet() {
   if(!activeKey) return;
   if(!db.sheets[activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
+  const pin = prompt('Enter PIN to delete this record:');
+  if(pin === null) return;
+  if(!checkPin(pin)) { alert('❌ Incorrect PIN. Deletion cancelled.'); return; }
   const parts = activeKey.split('_');
-  if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
+  const extra = parts[2] ? ` (Extra)` : '';
+  if(!confirm(`⚠️ Delete permanently?\n\n${formatDisplayDate(parts[0])} — ${srLabel(parts[1])}${extra}\n\nThis cannot be undone.`)) return;
   delete db.sheets[activeKey];
   persist();
   goToDashboard();
@@ -3455,9 +3644,13 @@ function deleteCurrentSheet() {
 
 function deleteSheet(key) {
   if(!db.sheets[key]) return;
+  const pin = prompt('Enter PIN to delete this record:');
+  if(pin === null) return;
+  if(!checkPin(pin)) { alert('❌ Incorrect PIN. Deletion cancelled.'); return; }
   const parts = key.split('_');
-  const sr = srLabel(parts[1]);
-  if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
+  const extra = parts[2] ? ` (Extra)` : '';
+  const sr = srLabel(parts[1]) + extra;
+  if(!confirm(`⚠️ Delete permanently?\n\n${formatDisplayDate(parts[0])} — ${sr}\n\nThis cannot be undone.`)) return;
   delete db.sheets[key];
   persist();
   if(activeKey === key) { activeKey = null; goToDashboard(); }
@@ -3510,66 +3703,6 @@ function clearAllFields() {
   calc();
 }
 
-/* ═══════════════════════════════════════════
-   CREDIT LEDGER (PIN protected)
-═══════════════════════════════════════════ */
-function goToCredit() {
-  let pin = prompt("Enter Credit Ledger PIN:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
-  showPage('page-credit');
-  refreshCreditLedger();
-}
-
-function refreshCreditLedger() {
-  const box = document.getElementById('credit-ledger-rows');
-  box.innerHTML = "";
-  const keys = Object.keys(db.sheets).filter(k => isRealSheet(db.sheets[k])).sort();
-  if(!keys.length) {
-    box.innerHTML = '<div class="empty-state"><span>📭</span>No records saved yet.</div>';
-    document.getElementById('credit-grand-total').value = 'Rs. 0';
-    return;
-  }
-
-  let runningCredit = 0;
-  let totalShifts = 0;
-  let lastFinalCredit = 0;
-  let totalNetSale = 0;
-  let totalBook = 0;
-  let totalCustomers = 0;
-  let totalReturns = 0;
-
-  keys.forEach(key => {
-    const rec  = db.sheets[key];
-    const parts = key.split('_');
-    const mode = rec.profileMode || 'shift';
-    const creditThisShift = parseFloat(rec.outTotalE)||0;
-    runningCredit += creditThisShift;
-    totalShifts++;
-    totalNetSale += parseFloat(rec.outNetSale)||0;
-    totalBook += (parseFloat(rec.inBook1)||0) + (parseFloat(rec.inBook2)||0);
-    totalCustomers += parseFloat(rec.outCust)||0;
-    totalReturns += (parseFloat(rec.posRet1)||0)+(parseFloat(rec.posRet2)||0)+(parseFloat(rec.posRet3)||0);
-    if(mode === 'final') lastFinalCredit = runningCredit;
-
-    const div = document.createElement('div');
-    div.className = 'row' + (mode==='final' ? ' highlight-blue' : '');
-    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid #f1f5f9;font-size:0.82rem;';
-    div.innerHTML = `
-      <span style="flex:1;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--slate);">${parts[0]} — ${srLabel(parts[1])}</span>
-      <span style="width:80px;text-align:right;font-size:0.75rem;color:var(--muted);">${mode==='final'?'🔴 FINAL':'🔵 shift'}</span>
-      <span style="width:100px;text-align:right;font-weight:600;color:var(--navy);font-family:'JetBrains Mono',monospace;">Rs.${creditThisShift.toLocaleString('en-PK')}</span>
-      <span style="width:110px;text-align:right;font-weight:700;color:var(--teal-dark);font-family:'JetBrains Mono',monospace;">∑ Rs.${runningCredit.toLocaleString('en-PK')}</span>`;
-    box.appendChild(div);
-  });
-
-  document.getElementById('credit-grand-total').value = 'Rs. ' + runningCredit.toLocaleString('en-PK');
-  document.getElementById('credit-shift-count').value = totalShifts + ' closings';
-  document.getElementById('credit-last-final').value = 'Rs. ' + lastFinalCredit.toLocaleString('en-PK');
-  document.getElementById('credit-net-sale').value = 'Rs. ' + totalNetSale.toLocaleString('en-PK');
-  document.getElementById('credit-book-sale').value = 'Rs. ' + totalBook.toLocaleString('en-PK');
-  document.getElementById('credit-customers').value = totalCustomers.toLocaleString('en-PK') + ' customers';
-  document.getElementById('credit-returns').value = 'Rs. ' + totalReturns.toLocaleString('en-PK');
-}
 </script>
 
 <!-- ══════════════════════════════════════════════════════════
