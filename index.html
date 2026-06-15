@@ -2357,14 +2357,21 @@ function pullPreviousShift(ds, shift, mode) {
 
   set('out-prev-cc', carriedCC);
 
-  /* credit, deposits, cash — always pulled in both shift and final */
+  /* credit — always pulled in both shift and final */
   set('out-prev-credit', parseFloat(hs.outTotalE) || 0);
-  set('out-prev-dep',    parseFloat(hs.outTotalF) || 0);
-  set('out-prev-cash',   parseFloat(hs.outTotalCash) || 0);
 
-  /* misc carry-over (shift only behaviour — skip in final)
+  /* deposits & previous cash position — NOT carried in final mode (reset to 0) */
+  if(mode === 'final') {
+    set('out-prev-dep',  0);
+    set('out-prev-cash', 0);
+  } else {
+    set('out-prev-dep',  parseFloat(hs.outTotalF) || 0);
+    set('out-prev-cash', parseFloat(hs.outTotalCash) || 0);
+  }
+
+  /* misc carry-over — now carried in BOTH shift and final modes
      Always carries ALL rows from the previous sheet, creating new rows as needed */
-  if(mode !== 'final' && hs.miscRows && hs.miscRows.length) {
+  if(hs.miscRows && hs.miscRows.length) {
     /* clear any default blank rows that flushInputs() added */
     document.getElementById('ledger-misc').innerHTML = "";
     miscCount = 0;
