@@ -718,14 +718,18 @@
       </div>
 
       <!-- ── CLOUD SYNC CARD ── -->
-      <div class="sync-card">
-        <div class="sync-card-head">
-          <div class="sync-card-icon">☁️</div>
-          <div>
-            <h3>Cloud Synchronization</h3>
-            <p>Dropbox · Secure · Real-time</p>
+      <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0f2744 0%,#0d3d2e 100%);border-radius:var(--radius-lg);overflow:hidden;">
+        <div class="card-head" onclick="toggleCard('card-cloud-sync')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="sync-card-icon" style="font-size:1.3rem;">☁️</div>
+            <div>
+              <h3 style="color:#e2e8f0;margin:0;font-size:0.95rem;">Cloud Synchronization</h3>
+              <p style="color:#64748b;margin:0;font-size:0.72rem;">Dropbox · Secure · Real-time</p>
+            </div>
           </div>
+          <span class="collapse-icon" style="color:#64748b;">▶</span>
         </div>
+        <div class="card-body collapsed" id="card-cloud-sync-body" style="display:none;">
         <div class="sync-card-body">
 
           <!-- STATE A: Not linked -->
@@ -829,6 +833,7 @@
             </div>
           </div>
 
+        </div>
         </div>
       </div>
       <!-- /CLOUD SYNC CARD -->
@@ -990,6 +995,12 @@
       ✏️ <strong>Final Closing Mode</strong> — All carried values are editable. Fill fresh.
     </div>
 
+    <!-- View-only (locked) notice bar -->
+    <div id="locked-mode-bar" class="final-mode-bar hidden" style="background:linear-gradient(90deg, #475569 0%, #64748b 100%);">
+      🔒 <strong>View Only</strong> — This closing has been saved.
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);" onclick="unlockForEditing()">✏️ Edit (PIN)</button>
+    </div>
+
     <!-- Compact ledger toolbar -->
     <div class="ledger-toolbar">
       <div class="ledger-toolbar-left">
@@ -1002,7 +1013,7 @@
       <div class="ledger-toolbar-right">
         <div id="ledger-badge"></div>
         <!-- Primary actions -->
-        <button class="ltb-icon-btn" onclick="saveDraft()" title="Save Draft">💾</button>
+        <button class="ltb-icon-btn" id="btn-save-draft" onclick="saveDraft()" title="Save Draft">💾</button>
         <button class="ltb-icon-btn" onclick="sendWhatsApp()" title="WhatsApp PDF">📤</button>
         <button class="ltb-icon-btn" onclick="exportPDF()" title="PDF & Print">🖨</button>
         <!-- More menu -->
@@ -1011,8 +1022,9 @@
           <div class="ltb-more-menu hidden" id="ltb-more-menu">
             <button onclick="expandAllCards();toggleMoreMenu()">⊞ Expand All</button>
             <button onclick="collapseAllCards();toggleMoreMenu()">⊟ Collapse All</button>
-            <button onclick="clearAllFields();toggleMoreMenu()">🧹 Clear Fields</button>
-            <button onclick="deleteCurrentSheet();toggleMoreMenu()" style="color:var(--red);">🗑 Delete Sheet</button>
+            <button id="menu-edit-pin" class="hidden" onclick="unlockForEditing();toggleMoreMenu()">✏️ Edit (PIN)</button>
+            <button id="menu-clear-fields" onclick="clearAllFields();toggleMoreMenu()">🧹 Clear Fields</button>
+            <button id="menu-delete-sheet" onclick="deleteCurrentSheet();toggleMoreMenu()" style="color:var(--red);">🗑 Delete Sheet</button>
           </div>
         </div>
       </div>
@@ -1264,23 +1276,41 @@
           <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
         </div>
         <div class="card-body">
+
           <div class="row computed"><label>Shifts since last Final:</label><input type="text" id="out-final-shifts" readonly value="—"></div>
-          <div class="row computed"><label>Total Customers (period):</label><input type="number" id="out-final-customers" readonly value="0"></div>
-          <div class="row computed"><label>Manual Returns — Return 1+2+3 (period + this shift):</label><input type="number" id="out-final-manual-returns" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>System Returns — POS (period + this shift):</label><input type="number" id="out-final-sys-returns-pos" readonly value="0"></div>
-          <div class="row"><label>Additional System Returns (entered this Final):</label><input type="number" id="in-final-sys-returns" oninput="calc()"></div>
-          <div class="row computed"><label>Net Cash Available:</label><input type="number" id="out-final-net-cash" readonly value="0"></div>
-          <div class="row highlight-green"><label>Less: Net Sale (this Final):</label><input type="number" id="out-final-net-sale" readonly value="0"></div>
-          <div class="row highlight-green"><label>Previous Sale (grand cumulative):</label><input type="number" id="out-final-prev-sale" readonly value="0"></div>
-          <div class="row computed"><label>Less: Extra Cash Added to Pharmacy (period + this shift):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
-          <div class="row highlight-blue"><label id="out-final-diff-label">Plus / Less (Final Audit):</label><input type="number" id="out-final-diff" readonly value="0"></div>
+
+          <!-- PART 1 -->
+          <div style="background:#0f172a;padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
+          <div class="row computed"><label>＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
+          <div class="row computed"><label>＋ Book Bills — all periods:</label><input type="number" id="out-final-books" readonly value="0"></div>
+          <div class="row computed"><label>＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Manual Returns — all periods:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
+          <div class="row highlight-red"><label>－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
+          <div class="row highlight-green"><label><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
+
+          <!-- PART 2 -->
+          <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
+          <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Pre-date POS Sales (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
+          <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
+
+          <!-- VARIANCE -->
+          <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
+          <div class="row computed"><label>Pre-date Total (POS ＋ Customers before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
+
         </div>
       </div>
+      <!-- hidden compat fields -->
       <input type="hidden" id="out-final-net-sale-adj" value="0">
       <input type="hidden" id="out-final-net-cash-adj" value="0">
+      <input type="hidden" id="out-final-prev-sale"    value="0">
 
       <div style="margin-top:20px;">
-        <button class="btn btn-green btn-full" onclick="saveSheet()">💾 Save &amp; Close This Shift</button>
+        <button class="btn btn-green btn-full" id="btn-save-close" onclick="saveSheet()">💾 Save &amp; Close This Shift</button>
       </div>
 
     </div>
@@ -1385,6 +1415,7 @@ let overrides      = {};
 let isSavedSheet   = false;
 let calViewDate    = new Date();
 let summaryDateStr = "";
+let isSheetLocked  = false; /* true = view-only snapshot, false = editable */
 
 /* dynamic row counters */
 let auxCreditCount = 0;
@@ -1504,7 +1535,17 @@ function closeModalPicker() {
 ═══════════════════════════════════════════ */
 function toggleCard(id) {
   const card = document.getElementById(id);
-  card.classList.toggle('collapsed');
+  if(!card) return;
+  /* Cloud sync card uses a separate explicit body div */
+  if(id === 'card-cloud-sync') {
+    const body = document.getElementById('card-cloud-sync-body');
+    const icon = card.querySelector('.collapse-icon');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? 'block' : 'none';
+    if(icon) icon.textContent = hidden ? '▼' : '▶';
+  } else {
+    card.classList.toggle('collapsed');
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -1573,7 +1614,7 @@ function buildCalendar() {
     cell.innerHTML = `<span>${d}</span>`;
     const dots = document.createElement('div'); dots.className="cal-dots";
     SHIFTS.forEach(s => {
-      if(db.sheets[`${ds}_${s}`]) {
+      if(isRealSheet(db.sheets[`${ds}_${s}`])) {
         const dot = document.createElement('span'); dot.className=`dot dot-${s.toLowerCase()}`; dots.appendChild(dot);
       }
     });
@@ -1606,7 +1647,7 @@ function openSheetFromPicker() {
 ═══════════════════════════════════════════ */
 function renderManifest() {
   const box  = document.getElementById('manifest-list');
-  const keys = Object.keys(db.sheets).sort();
+  const keys = Object.keys(db.sheets).filter(k => isRealSheet(db.sheets[k])).sort();
   if(!keys.length) {
     box.innerHTML = `<div class="empty-state"><span>📭</span>No records saved yet.</div>`; return;
   }
@@ -1620,7 +1661,7 @@ function renderManifest() {
     div.innerHTML = `
       <span class="key-label">📦 ${parts[0]} — ${sr}</span>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}${db.sheets[k].draft?' · draft':''}</span>
+        <span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>
         <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
       </div>`;
@@ -1643,7 +1684,7 @@ function renderSummaryPage() {
   let totalSale=0, totalCash=0;
   SHIFTS.forEach(shift => {
     const key = `${summaryDateStr}_${shift}`;
-    const rec = db.sheets[key];
+    const rec = getRealSheet(key);
     const card = document.createElement('div');
     card.className = "card"; card.style.marginBottom = "12px";
     if(rec) {
@@ -2060,6 +2101,9 @@ function initLedger(ds, shift, mode) {
   /* enable real-time auto-draft after ledger has fully settled */
   _draftReady = false;
   setTimeout(() => { _draftReady = true; }, 600);
+
+  /* apply view-only / editable state based on the saved record */
+  setLockedState(!!db.sheets[activeKey]?.locked);
 }
 
 /* ═══════════════════════════════════════════
@@ -2075,11 +2119,79 @@ function zeroCreditEntries() {
 }
 
 /* ═══════════════════════════════════════════
+   VIEW-ONLY (LOCK) STATE
+   A saved closing ("Save & Close This Shift") becomes a
+   read-only snapshot. It can only be edited again after
+   entering the PIN via "Edit (PIN)".
+═══════════════════════════════════════════ */
+function setLockedState(locked) {
+  isSheetLocked = locked;
+  const scope = document.querySelector('#page-ledger .page-body');
+  if(!scope) return;
+
+  /* number / text inputs and label inputs that are normally editable
+     (i.e. not already readonly by design — computed/output fields) */
+  scope.querySelectorAll('input[type="number"], input[type="text"]').forEach(el => {
+    if(locked) {
+      if(!el.readOnly) {
+        el.readOnly = true;
+        el.classList.add('locked-editable');
+      }
+    } else {
+      if(el.classList.contains('locked-editable')) {
+        el.readOnly = false;
+        el.classList.remove('locked-editable');
+      }
+    }
+  });
+
+  /* selects (tier/name pickers, misc status) — these are driven by
+     mousedown→modal-picker handlers, so pointer-events:none blocks them too */
+  scope.querySelectorAll('select').forEach(el => {
+    el.disabled = locked;
+    el.style.pointerEvents = locked ? 'none' : '';
+  });
+
+  /* hide add-row / delete-row / sign-toggle controls while locked */
+  scope.querySelectorAll('.add-row-btn-wrap, .del-row-btn').forEach(el => {
+    el.classList.toggle('hidden', locked);
+  });
+  scope.querySelectorAll('.row button.btn-ghost.btn-sm').forEach(el => {
+    /* the ± sign-toggle button on Credit Adjustment */
+    if(el.textContent.trim() === '±') el.classList.toggle('hidden', locked);
+  });
+
+  /* toolbar / action buttons */
+  const btnDraft  = document.getElementById('btn-save-draft');
+  const btnClose  = document.getElementById('btn-save-close');
+  const menuEdit  = document.getElementById('menu-edit-pin');
+  const menuClear = document.getElementById('menu-clear-fields');
+  const menuDel   = document.getElementById('menu-delete-sheet');
+  const lockedBar = document.getElementById('locked-mode-bar');
+
+  if(btnDraft)  btnDraft.classList.toggle('hidden', locked);
+  if(btnClose)  btnClose.classList.toggle('hidden', locked);
+  if(menuEdit)  menuEdit.classList.toggle('hidden', !locked);
+  if(menuClear) menuClear.classList.toggle('hidden', locked);
+  if(menuDel)   menuDel.classList.toggle('hidden', locked);
+  if(lockedBar) lockedBar.classList.toggle('hidden', !locked);
+}
+
+function unlockForEditing() {
+  let pin = prompt("Enter PIN to edit this saved closing:");
+  if(pin !== PIN) { alert("Incorrect PIN."); return; }
+  setLockedState(false);
+  /* close more menu if open */
+  const mm = document.getElementById('ltb-more-menu');
+  if(mm) mm.classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════
    CARRY-OVER PULL
 ═══════════════════════════════════════════ */
 function pullPreviousShift(ds, shift, mode) {
   const prev      = timelineStep(ds, shift, -1);
-  const hs        = db.sheets[prev.key];
+  const hs        = getRealSheet(prev.key);
   const dayChanged = (ds !== prev.date);
 
   if(!hs) {
@@ -2129,7 +2241,7 @@ function findLastFinal(ds, shift) {
   let cur = {date: ds, shift: shift};
   for(let i=0;i<400;i++) {
     cur = timelineStep(cur.date, cur.shift, -1);
-    const rec = db.sheets[cur.key];
+    const rec = getRealSheet(cur.key);
     if(rec && rec.profileMode === 'final') return {key: cur.key, rec};
     if(!rec && i>200) break; /* safety: avoid endless scan into empty history */
   }
@@ -2138,25 +2250,60 @@ function findLastFinal(ds, shift) {
 
 function aggregateSinceLastFinal(ds, shift) {
   const lastFinal = findLastFinal(ds, shift);
-  let cur = {date: ds, shift: shift};
-  let totalCustomers = 0, totalShiftSale = 0, totalManualReturns = 0, totalSysReturns = 0, totalExtraCash = 0, totalShiftNetCash = 0, shiftCount = 0;
+  let totalCustomers = 0, totalShiftSale = 0, totalManualReturns = 0, totalSysReturns = 0,
+      totalExtraCash = 0, totalShiftNetCash = 0, totalBookBills = 0, shiftCount = 0;
+  /* date-split: "same-date" = date === ds, "pre-date" = date < ds */
+  let sameDateShiftSale = 0, preDateShiftSale = 0;
+  let sameDateCustomers = 0, preDateCustomers = 0;
+  let sameDateSysReturns = 0;
   const labels = [];
-  for(let i=0;i<400;i++) {
+  let cur = {date: ds, shift: shift};
+  for(let i = 0; i < 400; i++) {
     cur = timelineStep(cur.date, cur.shift, -1);
     if(lastFinal && cur.key === lastFinal.key) break;
-    const rec = db.sheets[cur.key];
+    const rec = getRealSheet(cur.key);
     if(!rec) { if(!lastFinal) break; else continue; }
-    if(rec.profileMode === 'final') break; /* hit an earlier final, stop */
-    totalCustomers += parseFloat(rec.outCust)||0;
-    totalShiftSale += parseFloat(rec.outShiftSale)||0;
-    totalManualReturns += (parseFloat(rec.posRet1)||0) + (parseFloat(rec.posRet2)||0) + (parseFloat(rec.posRet3)||0);
-    totalSysReturns += parseFloat(rec.posRetSys)||0;
-    totalExtraCash += parseFloat(rec.extraCash)||0;
-    totalShiftNetCash += parseFloat(rec.outNetCash)||0;
+    if(rec.profileMode === 'final') break;
+    const shiftSale = parseFloat(rec.outShiftSale) || 0;
+    const customers = parseFloat(rec.outCust)      || 0;
+    const sysRet    = parseFloat(rec.posRetSys)    || 0;
+    const manRet    = (parseFloat(rec.posRet1)||0) + (parseFloat(rec.posRet2)||0) + (parseFloat(rec.posRet3)||0);
+    const books     = (parseFloat(rec.inBook1)||0) + (parseFloat(rec.inBook2)||0);
+    const isToday   = (cur.date === ds);
+    totalCustomers     += customers;
+    totalShiftSale     += shiftSale;
+    totalManualReturns += manRet;
+    totalSysReturns    += sysRet;
+    totalExtraCash     += parseFloat(rec.extraCash) || 0;
+    totalShiftNetCash  += parseFloat(rec.outNetCash) || 0;
+    totalBookBills     += books;
     shiftCount++;
     labels.unshift(srLabel(cur.shift).replace('Closing','C') + ' ' + cur.date);
+    if(isToday) { sameDateShiftSale += shiftSale; sameDateCustomers += customers; sameDateSysReturns += sysRet; }
+    else        { preDateShiftSale  += shiftSale; preDateCustomers  += customers; }
   }
-  return {lastFinal, totalCustomers, totalShiftSale, totalManualReturns, totalSysReturns, totalExtraCash, totalShiftNetCash, shiftCount, labels};
+  /* categorise last final's own values by date */
+  let lfSameDateSale = 0, lfPreDateSale = 0;
+  let lfSameDateCust = 0, lfPreDateCust = 0;
+  let lfSameDateSysRet = 0;
+  if(lastFinal) {
+    const lf     = lastFinal.rec;
+    const lfDate = lastFinal.key.split('_')[0];
+    const lfSale = parseFloat(lf.outShiftSale) || 0;
+    const lfCust = parseFloat(lf.outCust)      || 0;
+    const lfSysR = parseFloat(lf.posRetSys)    || 0;
+    if(lfDate === ds) { lfSameDateSale = lfSale; lfSameDateCust = lfCust; lfSameDateSysRet = lfSysR; }
+    else              { lfPreDateSale  = lfSale; lfPreDateCust  = lfCust; }
+  }
+  return {
+    lastFinal,
+    totalCustomers, totalShiftSale, totalManualReturns, totalSysReturns,
+    totalExtraCash, totalShiftNetCash, totalBookBills, shiftCount, labels,
+    sameDateShiftSale, preDateShiftSale,
+    sameDateCustomers, preDateCustomers, sameDateSysReturns,
+    lfSameDateSale, lfPreDateSale,
+    lfSameDateCust, lfPreDateCust, lfSameDateSysRet
+  };
 }
 
 /* ═══════════════════════════════════════════
@@ -2213,7 +2360,7 @@ function calc() {
   /* Shift sale delta */
   const parts     = activeKey ? activeKey.split('_') : ['',''];
   const prevNode  = timelineStep(parts[0], parts[1], -1);
-  const prevSheet = db.sheets[prevNode.key];
+  const prevSheet = getRealSheet(prevNode.key);
   const dayChanged = (parts[0] !== prevNode.date);
 
   let shiftSale = 0;
@@ -2315,31 +2462,48 @@ function calc() {
   let bannerTarget = netSale, bannerCash = netCash;
   if(activeKey) {
     const parts2 = activeKey.split('_');
-    const agg = aggregateSinceLastFinal(parts2[0], parts2[1]);
+    const agg    = aggregateSinceLastFinal(parts2[0], parts2[1]);
     set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
-    set('out-final-customers', agg.totalCustomers + custVal);
-    set('out-final-manual-returns', agg.totalManualReturns + ret1 + ret2 + ret3);
-    set('out-final-sys-returns-pos', agg.totalSysReturns + retSys);
-    const finalReturns = val('in-final-sys-returns');
-    /* netSale already accounts for this shift's own sysCash, book bills, customers and returns */
-    const finalNetSale = netSale + agg.totalShiftSale + agg.totalCustomers - agg.totalManualReturns - agg.totalSysReturns - finalReturns;
-    set('out-final-net-sale', finalNetSale);
 
-    const lf = agg.lastFinal;
-    const prevBase    = lf ? (parseFloat(lf.rec.finalNetSale)||0) : 0;
-    const prevReturns = lf ? (parseFloat(lf.rec.finalSysReturns)||0) : 0;
-    const finalPrevSale = prevBase + agg.totalShiftSale + agg.totalCustomers - prevReturns;
-    set('out-final-prev-sale', finalPrevSale);
+    /* ─── PART 1: Net Final Sale ─────────────────────────── */
+    /* POS: same-date shifts + last-final (if same date) + this closing */
+    const totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
+    /* Book bills: ALL periods */
+    const totalBooks        = agg.totalBookBills + book1 + book2;
+    /* Customers: same-date only */
+    const totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
+    /* Manual returns: ALL periods */
+    const totalManRet       = agg.totalManualReturns + ret1 + ret2 + ret3;
+    /* Sys returns: same-date only (incl. last final if same date) + this closing */
+    const totalSameSysRet   = agg.sameDateSysReturns + agg.lfSameDateSysRet + retSys;
+    /* Additional sys returns entered manually in this final */
+    const finalExtraRet     = val('in-final-sys-returns');
+    const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust
+                       - totalManRet - totalSameSysRet - finalExtraRet;
 
-    /* Extra Cash is applied last, as a final deduction */
+    set('out-final-same-sys',    totalSameDateSys);
+    set('out-final-books',       totalBooks);
+    set('out-final-same-cust',   totalSameDateCust);
+    set('out-final-man-ret',     totalManRet);
+    set('out-final-same-sysret', totalSameSysRet);
+    set('out-final-net-sale',    finalNetSale);
+
+    /* ─── PART 2: Net Final Cash Available ───────────────── */
+    const preDateSys        = agg.preDateShiftSale + agg.lfPreDateSale;
+    const preDateCust       = agg.preDateCustomers  + agg.lfPreDateCust;
+    const preDateTotal      = preDateSys + preDateCust;
     const totalExtraCashPeriod = agg.totalExtraCash + extraCash;
-    set('out-final-extra-cash', totalExtraCashPeriod);
-    set('out-final-net-sale-adj', finalNetSale - totalExtraCashPeriod);
-    set('out-final-net-cash', liquid);
-    set('out-final-net-cash-adj', liquid - totalExtraCashPeriod);
+    const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod;
 
-    /* Final Audit reconciliation: Net Cash Available − Net Sale (this Final) + Previous Sale − Extra Cash */
-    const finalDiff = liquid - finalNetSale + finalPrevSale - totalExtraCashPeriod;
+    set('out-final-net-cash-base', liquid);
+    set('out-final-pre-sys',       preDateSys);
+    set('out-final-pre-cust',      preDateCust);
+    set('out-final-pre-total',     preDateTotal);
+    set('out-final-extra-cash',    totalExtraCashPeriod);
+    set('out-final-net-cash',      finalNetCash);
+
+    /* ─── VARIANCE ───────────────────────────────────────── */
+    const finalDiff = finalNetCash - finalNetSale;
     const fdEl  = document.getElementById('out-final-diff');
     const fdLbl = document.getElementById('out-final-diff-label');
     if(finalDiff === 0) {
@@ -2353,9 +2517,14 @@ function calc() {
       fdEl.value = Math.abs(finalDiff);
     }
 
+    /* legacy hidden fields kept for buildSheetRecord compat */
+    set('out-final-net-sale-adj', finalNetSale - totalExtraCashPeriod);
+    set('out-final-net-cash-adj', finalNetCash);
+    set('out-final-prev-sale',    0);
+
     if(activeMode === 'final') {
       bannerTarget = finalNetSale;
-      bannerCash   = liquid;
+      bannerCash   = finalNetCash;
     }
   }
 
@@ -2531,11 +2700,13 @@ function buildSheetRecord() {
 
 function saveSheet(silent=false) {
   const record = buildSheetRecord();
-  record.draft = false;
+  record.draft  = false;
+  record.locked = true;
   db.sheets[activeKey] = record;
   persist();
   isSavedSheet = true;
   if(!silent) {
+    setLockedState(true);
     alert("Shift saved.");
     cascadeDownstream(activeKey);
     if(activeMode === 'shift') {
@@ -2707,12 +2878,13 @@ let _draftTimer  = null;
 let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
 
 function scheduleAutoSave() {
-  if(!activeKey || !_draftReady) return;
+  if(!activeKey || !_draftReady || isSheetLocked) return;
   clearTimeout(_draftTimer);
   _draftTimer = setTimeout(() => {
     try {
       const record = buildSheetRecord();
-      record.draft = true;
+      record.draft  = true;
+      record.locked = false;
       db.sheets[activeKey] = record;
       localStorage.setItem('pharmpos_v2', JSON.stringify(db));
       scheduleSyncPush(0); /* push draft immediately */
@@ -2727,6 +2899,18 @@ function persist() {
 function g(id) { return document.getElementById(id); }
 function set(id, v) { const el=g(id); if(el) el.value=v; }
 function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
+
+/* A sheet only "counts" for calendar dots, manifest, carry-over,
+   and Final aggregation once it has been explicitly Saved
+   (saveSheet sets draft=false). Auto-drafts (draft=true) are
+   excluded until then. */
+function isRealSheet(rec) {
+  return !!rec && rec.draft !== true;
+}
+function getRealSheet(key) {
+  const rec = db.sheets[key];
+  return isRealSheet(rec) ? rec : null;
+}
 
 function timelineStep(ds, shift, n) {
   let d   = new Date(ds);
@@ -2975,10 +3159,12 @@ function saveDraft() {
   if(!activeKey) return;
   calc();
   const rec = buildSheetRecord();
-  rec.draft = true;
+  rec.draft  = true;
+  rec.locked = false;
   db.sheets[activeKey] = rec;
   persist();
   isSavedSheet = true;
+  setLockedState(false);
   const status = document.getElementById('pdf-status');
   status.style.display='block'; status.textContent='Draft saved ✓';
   setTimeout(()=>{ status.style.display='none'; }, 1500);
@@ -3065,7 +3251,7 @@ function goToCredit() {
 function refreshCreditLedger() {
   const box = document.getElementById('credit-ledger-rows');
   box.innerHTML = "";
-  const keys = Object.keys(db.sheets).sort();
+  const keys = Object.keys(db.sheets).filter(k => isRealSheet(db.sheets[k])).sort();
   if(!keys.length) {
     box.innerHTML = '<div class="empty-state"><span>📭</span>No records saved yet.</div>';
     document.getElementById('credit-grand-total').value = 'Rs. 0';
