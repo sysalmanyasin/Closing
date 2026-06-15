@@ -1312,13 +1312,13 @@
           <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Pre-date POS Sales (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
-          <div class="row computed highlight-green"><label>＋ Less Pre-date System Return (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Less Pre-date System Return (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
           <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
 
           <!-- VARIANCE -->
           <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
-          <div class="row computed"><label>Pre-date Total (POS ＋ Customers － Sys Return, before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          <div class="row computed"><label>Pre-date Total (POS ＋ Customers ＋ Sys Return, before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
           <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
 
         </div>
@@ -2644,7 +2644,7 @@ function calc() {
     const preDateSys        = agg.preDateShiftSale + agg.lfPreDateSale;
     const preDateCust       = agg.preDateCustomers  + agg.lfPreDateCust;
     const preDateSysRet     = agg.preDateSysReturns + agg.lfPreDateSysRet;
-    const preDateTotal      = preDateSys + preDateCust - preDateSysRet;
+    const preDateTotal      = preDateSys + preDateCust + preDateSysRet;
     const totalExtraCashPeriod = agg.totalExtraCash + extraCash;
     const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod;
 
@@ -2741,12 +2741,29 @@ function moveLedgerShift(n) {
   if(!activeKey) return;
   autoSave();
   const parts = activeKey.split('_');
-  const next  = timelineStep(parts[0], parts[1], n);
+  const dir = n > 0 ? 1 : -1;
+
+  /* ── Scan in the requested direction for the nearest slot
+     that has a real saved record. Backward navigation must
+     never land on / create an empty slot. ── */
+  let cur = {date: parts[0], shift: parts[1]};
+  let found = null;
+  for(let i = 0; i < 400; i++) {
+    cur = timelineStep(cur.date, cur.shift, dir);
+    if(getRealSheet(cur.key)) { found = cur; break; }
+  }
+
+  if(!found) {
+    alert(dir < 0
+      ? '⛔ No earlier saved shift found in history.'
+      : '⛔ No later saved shift found in history.');
+    return;
+  }
 
   /* ── FORWARD-OPEN GUARD on pagination ──────────────────────────
-     When navigating forward (n > 0) to a slot that has no saved record,
-     block if the current sheet is not yet saved (still a draft or unsaved). */
-  if(n > 0 && !getRealSheet(next.key)) {
+     When navigating forward (n > 0), block if the current sheet
+     is not yet saved (still a draft or unsaved). */
+  if(n > 0) {
     const currSheet = db.sheets[activeKey];
     const currIsDraft = currSheet && currSheet.draft === true;
     const currIsUnsaved = !currSheet;
@@ -2756,10 +2773,10 @@ function moveLedgerShift(n) {
     }
   }
 
-  activeKey   = next.key;
+  activeKey   = found.key;
   activeMode  = db.sheets[activeKey]?.profileMode || 'shift';
   overrides   = db.sheets[activeKey]?.overrides || {};
-  initLedger(next.date, next.shift, activeMode);
+  initLedger(found.date, found.shift, activeMode);
 }
 
 function autoSave() {
