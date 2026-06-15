@@ -1319,7 +1319,7 @@
 
           <!-- VARIANCE -->
           <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
-          <div class="row computed"><label>Pre-date Total (POS ＋ Customers ＋ Sys Return, before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          <div class="row computed"><label>Pre-date Total (POS ＋ Customers － Sys Return, before today):</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
           <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
 
         </div>
@@ -2645,7 +2645,7 @@ function calc() {
     const preDateSys        = agg.preDateShiftSale + agg.lfPreDateSale;
     const preDateCust       = agg.preDateCustomers  + agg.lfPreDateCust;
     const preDateSysRet     = agg.preDateSysReturns + agg.lfPreDateSysRet;
-    const preDateTotal      = preDateSys + preDateCust + preDateSysRet;
+    const preDateTotal      = preDateSys + preDateCust - preDateSysRet;
     const totalExtraCashPeriod = agg.totalExtraCash + extraCash;
     const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod - finalNetSale;
 
@@ -3258,7 +3258,7 @@ function buildPrintSheet() {
       ${psRow('System Returns — POS (period+shift)', num('out-final-sys-returns-pos'))}
       ${psRow('Additional System Returns (entered)', num('in-final-sys-returns'))}
       ${psRow('Net Cash Available', num('out-final-net-cash-base'))}
-      ${psRow('Less: Pre-date Total (POS+Cust+SysRet)', num('out-final-pre-total'))}
+      ${psRow('Less: Pre-date Total (POS+Cust-SysRet)', num('out-final-pre-total'))}
       ${psRow('Less: Extra Cash Added to Pharmacy (period+shift)', num('out-final-extra-cash'))}
       ${psRow('Less: Target Net Sales (this Final)', num('out-final-target-sale'))}
       ${psRow('Net Final Cash Available', num('out-final-net-cash'), 'ps-highlight')}
