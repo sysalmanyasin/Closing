@@ -1314,6 +1314,7 @@
           <div class="row computed highlight-red"><label>－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Less Pre-date System Return (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
           <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
 
           <!-- VARIANCE -->
@@ -2646,7 +2647,7 @@ function calc() {
     const preDateSysRet     = agg.preDateSysReturns + agg.lfPreDateSysRet;
     const preDateTotal      = preDateSys + preDateCust + preDateSysRet;
     const totalExtraCashPeriod = agg.totalExtraCash + extraCash;
-    const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod;
+    const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod - finalNetSale;
 
     set('out-final-net-cash-base', liquid);
     set('out-final-pre-sys',       preDateSys);
@@ -2654,10 +2655,11 @@ function calc() {
     set('out-final-pre-sysret',    preDateSysRet);
     set('out-final-pre-total',     preDateTotal);
     set('out-final-extra-cash',    totalExtraCashPeriod);
+    set('out-final-target-sale',   finalNetSale);
     set('out-final-net-cash',      finalNetCash);
 
     /* ─── VARIANCE ───────────────────────────────────────── */
-    const finalDiff = finalNetCash - finalNetSale;
+    const finalDiff = finalNetCash;
     const fdEl  = document.getElementById('out-final-diff');
     const fdLbl = document.getElementById('out-final-diff-label');
     if(finalDiff === 0) {
@@ -2677,7 +2679,7 @@ function calc() {
     set('out-final-prev-sale',    0);
 
     if(activeMode === 'final') {
-      bannerTarget = finalNetSale;
+      bannerTarget = 0;
       bannerCash   = finalNetCash;
     }
   }
@@ -3255,10 +3257,11 @@ function buildPrintSheet() {
       ${psRow('Manual Returns — Return 1+2+3 (period+shift)', num('out-final-manual-returns'))}
       ${psRow('System Returns — POS (period+shift)', num('out-final-sys-returns-pos'))}
       ${psRow('Additional System Returns (entered)', num('in-final-sys-returns'))}
-      ${psRow('Net Cash Available', num('out-final-net-cash'))}
-      ${psRow('Less: Net Sale (this Final)', num('out-final-net-sale'), 'ps-highlight')}
-      ${psRow('Previous Sale (grand cumulative)', num('out-final-prev-sale'), 'ps-highlight')}
+      ${psRow('Net Cash Available', num('out-final-net-cash-base'))}
+      ${psRow('Less: Pre-date Total (POS+Cust+SysRet)', num('out-final-pre-total'))}
       ${psRow('Less: Extra Cash Added to Pharmacy (period+shift)', num('out-final-extra-cash'))}
+      ${psRow('Less: Target Net Sales (this Final)', num('out-final-target-sale'))}
+      ${psRow('Net Final Cash Available', num('out-final-net-cash'), 'ps-highlight')}
       ${psRow(g('out-final-diff-label')?.textContent || 'Plus / Less (Final Audit)', num('out-final-diff'), 'ps-highlight')}
     </div>`;
   }
