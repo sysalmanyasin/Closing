@@ -873,8 +873,26 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-head" style="cursor:default;">
+        <div class="card-head" onclick="toggleManifestFilter()" style="cursor:pointer;">
           <h3>🗄️ Saved Records</h3>
+          <div class="card-head-right">
+            <span id="manifest-filter-badge" style="font-size:0.72rem;font-weight:700;color:var(--teal-dark);background:var(--teal-light);padding:2px 8px;border-radius:20px;display:none;"></span>
+            <span id="manifest-filter-icon" class="collapse-icon" style="transform:rotate(-90deg);">▼</span>
+          </div>
+        </div>
+        <!-- Date filter panel — collapsed by default -->
+        <div id="manifest-filter-panel" style="display:none;padding:12px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:110px;">
+              <label style="font-size:0.75rem;font-weight:600;color:var(--slate);display:block;margin-bottom:4px;">From Date</label>
+              <input type="date" id="filter-date-from" oninput="renderManifest()" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.82rem;font-family:'Inter',sans-serif;">
+            </div>
+            <div style="flex:1;min-width:110px;">
+              <label style="font-size:0.75rem;font-weight:600;color:var(--slate);display:block;margin-bottom:4px;">To Date</label>
+              <input type="date" id="filter-date-to" oninput="renderManifest()" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.82rem;font-family:'Inter',sans-serif;">
+            </div>
+            <button onclick="clearManifestFilter()" class="btn btn-ghost btn-sm" style="flex-shrink:0;">✕ Clear</button>
+          </div>
         </div>
         <div id="manifest-list"></div>
       </div>
@@ -1640,33 +1658,30 @@ function openSheetFromPicker() {
   const key   = `${ds}_${shift}`;
 
   /* ── FORWARD-OPEN GUARD ──────────────────────────────────────────
-     Only block if this key does NOT already have a saved record.
-     (Opening a saved sheet for viewing is always allowed.)
-     Check if the immediately previous shift exists and is saved.
+     Block opening a new (unsaved) sheet if the immediately previous
+     shift is only a draft or missing (with the one before it being a draft).
+     Opening an already-saved or already-drafted sheet for viewing is allowed.
   ────────────────────────────────────────────────────────────────── */
-  if(!getRealSheet(key)) {
-    /* Walk backwards: find the most recent real (saved) sheet */
+  const existingRec = db.sheets[key];
+  const alreadyHasRecord = !!existingRec; /* has saved OR draft record */
+
+  if(!alreadyHasRecord) {
+    /* Scan back to find the last real saved record — block if there's a draft before it */
     const prev = timelineStep(ds, shift, -1);
-    /* If there IS a previous slot and it only has an unsaved draft (or nothing),
-       we need to scan further back to find whether there's ANY previous day
-       that should have been saved first. */
     const prevSheet = db.sheets[prev.key];
-    const prevIsDraft  = prevSheet && prevSheet.draft === true;
+    const prevIsDraft   = prevSheet && prevSheet.draft === true;
     const prevIsMissing = !prevSheet;
 
-    /* Check two slots back as well — in case prev slot was intentionally skipped
-       but the one before it is a pending draft */
     const prev2 = timelineStep(prev.date, prev.shift, -1);
     const prev2Sheet = db.sheets[prev2.key];
     const prev2IsDraft = prev2Sheet && prev2Sheet.draft === true;
 
     if(prevIsDraft) {
-      /* Previous shift exists but is only auto-saved as draft — block */
-      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes.\n\nPlease open it, review, and press Save & Close before opening this one.`);
+      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
       return;
     }
     if(prevIsMissing && prev2IsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes.\n\nPlease save it first.`);
+      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
       return;
     }
   }
@@ -1677,25 +1692,94 @@ function openSheetFromPicker() {
 }
 
 /* ═══════════════════════════════════════════
+   MANIFEST FILTER TOGGLE
+═══════════════════════════════════════════ */
+function toggleManifestFilter() {
+  const panel = document.getElementById('manifest-filter-panel');
+  const icon  = document.getElementById('manifest-filter-icon');
+  const open  = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  icon.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+function clearManifestFilter() {
+  const f = document.getElementById('filter-date-from');
+  const t = document.getElementById('filter-date-to');
+  if(f) f.value = '';
+  if(t) t.value = '';
+  renderManifest();
+}
+
+/* ═══════════════════════════════════════════
+   SHIFT SORT KEY — chronological
+   Day cycle: Night (start) → Morning → Evening
+   So within a date: Night=0, Morning=1, Evening=2
+═══════════════════════════════════════════ */
+const SHIFT_CHRONO = {Night: 0, Morning: 1, Evening: 2};
+function sheetSortKey(k) {
+  const parts = k.split('_');
+  return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9);
+}
+
+/* ═══════════════════════════════════════════
    MANIFEST
 ═══════════════════════════════════════════ */
 function renderManifest() {
-  const box  = document.getElementById('manifest-list');
-  const keys = Object.keys(db.sheets).filter(k => isRealSheet(db.sheets[k])).sort();
-  if(!keys.length) {
-    box.innerHTML = `<div class="empty-state"><span>📭</span>No records saved yet.</div>`; return;
+  const box = document.getElementById('manifest-list');
+
+  /* date filter values */
+  const fromDate = document.getElementById('filter-date-from')?.value || '';
+  const toDate   = document.getElementById('filter-date-to')?.value   || '';
+
+  /* include BOTH saved sheets AND drafts (draft=true) */
+  const allKeys = Object.keys(db.sheets).filter(k => {
+    const rec = db.sheets[k];
+    if(!rec) return false;
+    const dateStr = k.split('_')[0];
+    if(fromDate && dateStr < fromDate) return false;
+    if(toDate   && dateStr > toDate)   return false;
+    return true;
+  });
+
+  /* sort chronologically: date asc, then Night→Morning→Evening */
+  allKeys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+
+  /* update filter badge */
+  const badge = document.getElementById('manifest-filter-badge');
+  if(badge) {
+    const active = fromDate || toDate;
+    badge.style.display = active ? 'inline-flex' : 'none';
+    badge.textContent = active ? `Filtered` : '';
+  }
+
+  if(!allKeys.length) {
+    box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
   }
   box.innerHTML = "";
-  keys.forEach(k => {
-    const div  = document.createElement('div');
-    div.className = "manifest-item";
-    const mode = db.sheets[k].profileMode || 'shift';
+  allKeys.forEach(k => {
+    const rec  = db.sheets[k];
+    const isDraft = rec.draft === true;
+    const mode = rec.profileMode || 'shift';
     const parts = k.split('_');
     const sr = srLabel(parts[1]);
+    const div = document.createElement('div');
+    div.className = "manifest-item";
+    if(isDraft) div.style.opacity = '0.75';
+
+    let badgeHtml = '';
+    if(isDraft) {
+      badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
+    } else if(mode === 'final') {
+      badgeHtml = `<span class="badge badge-final">FINAL</span>`;
+    } else {
+      badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
+    }
+
     div.innerHTML = `
-      <span class="key-label">📦 ${parts[0]} — ${sr}</span>
+      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
+        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
+      </span>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>
+        ${badgeHtml}
         <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
       </div>`;
@@ -2780,12 +2864,12 @@ function saveSheet(silent=false) {
     setLockedState(true);
     alert("Shift saved.");
     cascadeDownstream(activeKey);
+    const parts3 = activeKey.split('_');
+    const nxt = timelineStep(parts3[0], parts3[1], 1);
     if(activeMode === 'shift') {
-      const parts3 = activeKey.split('_');
       const agg = aggregateSinceLastFinal(parts3[0], parts3[1]);
       const n = db.settings.finalEveryN || 3;
       if((agg.shiftCount + 1) >= n) {
-        const nxt = timelineStep(parts3[0], parts3[1], 1);
         setTimeout(() => {
           if(confirm(`${agg.shiftCount + 1} shift closings done since the last Final Closing.\nOpen the next shift (${nxt.date} — ${srLabel(nxt.shift)}) as a Final Closing?`)) {
             activeKey  = nxt.key;
@@ -2793,11 +2877,34 @@ function saveSheet(silent=false) {
             overrides  = db.sheets[activeKey]?.overrides || {};
             initLedger(nxt.date, nxt.shift, 'final');
           } else {
-            goToDashboard();
+            /* Still offer to open next as shift */
+            setTimeout(() => {
+              if(confirm(`Open next shift closing?\n${nxt.date} — ${srLabel(nxt.shift)}`)) {
+                activeKey  = nxt.key;
+                activeMode = 'shift';
+                overrides  = db.sheets[activeKey]?.overrides || {};
+                initLedger(nxt.date, nxt.shift, 'shift');
+              } else {
+                goToDashboard();
+              }
+            }, 50);
           }
         }, 50);
         return;
       }
+      /* Not yet at final threshold — just offer to open next shift */
+      setTimeout(() => {
+        const nxtHasRecord = !!db.sheets[nxt.key];
+        if(!nxtHasRecord && confirm(`✅ Saved!\n\nOpen next shift?\n${nxt.date} — ${srLabel(nxt.shift)}`)) {
+          activeKey  = nxt.key;
+          activeMode = 'shift';
+          overrides  = {};
+          initLedger(nxt.date, nxt.shift, 'shift');
+        } else {
+          goToDashboard();
+        }
+      }, 50);
+      return;
     }
     goToDashboard();
   }
