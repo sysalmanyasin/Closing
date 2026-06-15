@@ -1300,9 +1300,9 @@
           <!-- PART 1 -->
           <div style="background:#0f172a;padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
           <div class="row computed"><label>＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
-          <div class="row computed"><label>＋ Book Bills — all periods:</label><input type="number" id="out-final-books" readonly value="0"></div>
+          <div class="row computed"><label>＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
           <div class="row computed"><label>＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Manual Returns — all periods:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Manual Returns — all periods ＋ prev. final:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
           <div class="row highlight-red"><label>－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
           <div class="row highlight-green"><label><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
@@ -2435,6 +2435,14 @@ function aggregateSinceLastFinal(ds, shift) {
     const lfSysR = parseFloat(lf.posRetSys)    || 0;
     if(lfDate === ds) { lfSameDateSale = lfSale; lfSameDateCust = lfCust; lfSameDateSysRet = lfSysR; }
     else              { lfPreDateSale  = lfSale; lfPreDateCust  = lfCust; }
+
+    /* ── Include previous final closing's own manual returns & book bills ──
+       These were recorded on the final closing itself and must carry into the
+       next period's cumulative totals. */
+    const lfManRet = (parseFloat(lf.posRet1)||0) + (parseFloat(lf.posRet2)||0) + (parseFloat(lf.posRet3)||0);
+    const lfBooks  = (parseFloat(lf.inBook1)||0)  + (parseFloat(lf.inBook2)||0);
+    totalManualReturns += lfManRet;
+    totalBookBills     += lfBooks;
   }
   return {
     lastFinal,
