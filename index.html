@@ -1299,21 +1299,21 @@
 
           <!-- PART 1 -->
           <div style="background:#0f172a;padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
-          <div class="row computed"><label>＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
-          <div class="row computed"><label>＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
-          <div class="row computed"><label>＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Manual Returns — all periods ＋ prev. final:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
+          <div class="row computed"><label id="lbl-final-same-sys">＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
+          <div class="row computed"><label id="lbl-final-books">＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
+          <div class="row computed"><label id="lbl-final-same-cust">＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-man-ret">－ Manual Returns — all periods ＋ prev. final:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-same-sysret">－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
           <div class="row highlight-red"><label>－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
           <div class="row highlight-green"><label><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
 
           <!-- PART 2 -->
           <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
           <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Pre-date POS Sales (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Less Pre-date System Return (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-pre-sys">－ Pre-date POS Sales (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-pre-cust">－ Pre-date Customers (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-pre-sysret">－ Less Pre-date System Return (shifts before today ＋ last final):</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-extra-cash">－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
           <div class="row computed highlight-red"><label>－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
           <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
 
@@ -2156,6 +2156,39 @@ function initLedger(ds, shift, mode) {
   const mm = document.getElementById('ltb-more-menu');
   if(mm) mm.classList.add('hidden');
 
+  /* update Final Closing section labels to reflect current mode */
+  const isFinalMode = (mode === 'final');
+  const lblSameSys   = document.getElementById('lbl-final-same-sys');
+  const lblBooks     = document.getElementById('lbl-final-books');
+  const lblSameCust  = document.getElementById('lbl-final-same-cust');
+  const lblManRet    = document.getElementById('lbl-final-man-ret');
+  const lblSameSysRet= document.getElementById('lbl-final-same-sysret');
+  const lblPreSys    = document.getElementById('lbl-final-pre-sys');
+  const lblPreCust   = document.getElementById('lbl-final-pre-cust');
+  const lblPreSysRet = document.getElementById('lbl-final-pre-sysret');
+  const lblExtraCash = document.getElementById('lbl-final-extra-cash');
+  if(isFinalMode) {
+    if(lblSameSys)    lblSameSys.textContent    = '＋ POS Sale — this Final Shift only:';
+    if(lblBooks)      lblBooks.textContent      = '＋ Book Bills — this Final Shift only:';
+    if(lblSameCust)   lblSameCust.textContent   = '＋ Customers — this Final Shift only:';
+    if(lblManRet)     lblManRet.textContent     = '－ Manual Returns — this Final Shift only:';
+    if(lblSameSysRet) lblSameSysRet.textContent = '－ System Returns — this Final Shift only:';
+    if(lblPreSys)     lblPreSys.textContent     = '－ Pre-date POS Sales (shifts before today ＋ last final):';
+    if(lblPreCust)    lblPreCust.textContent    = '－ Pre-date Customers (shifts before today ＋ last final):';
+    if(lblPreSysRet)  lblPreSysRet.textContent  = '－ Less Pre-date System Return (shifts before today ＋ last final):';
+    if(lblExtraCash)  lblExtraCash.textContent  = '－ Extra Cash Added to Pharmacy (this closing only):';
+  } else {
+    if(lblSameSys)    lblSameSys.textContent    = '＋ POS Sale — same-date shifts \u0026 this closing:';
+    if(lblBooks)      lblBooks.textContent      = '＋ Book Bills — all periods ＋ prev. final:';
+    if(lblSameCust)   lblSameCust.textContent   = '＋ Customers — same-date:';
+    if(lblManRet)     lblManRet.textContent     = '－ Manual Returns — all periods ＋ prev. final:';
+    if(lblSameSysRet) lblSameSysRet.textContent = '－ System Returns — same-date:';
+    if(lblPreSys)     lblPreSys.textContent     = '－ Pre-date POS Sales (shifts before today ＋ last final):';
+    if(lblPreCust)    lblPreCust.textContent    = '－ Pre-date Customers (shifts before today ＋ last final):';
+    if(lblPreSysRet)  lblPreSysRet.textContent  = '－ Less Pre-date System Return (shifts before today ＋ last final):';
+    if(lblExtraCash)  lblExtraCash.textContent  = '－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):';
+  }
+
   /* final mode notice bar */
   const bar = document.getElementById('final-mode-bar');
   bar.classList.toggle('hidden', mode !== 'final');
@@ -2626,16 +2659,27 @@ function calc() {
     set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
 
     /* ─── PART 1: Net Final Sale ─────────────────────────── */
-    /* POS: same-date shifts + last-final (if same date) + this closing */
-    const totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
-    /* Book bills: ALL periods */
-    const totalBooks        = agg.totalBookBills + book1 + book2;
-    /* Customers: same-date only */
-    const totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
-    /* Manual returns: ALL periods */
-    const totalManRet       = agg.totalManualReturns + ret1 + ret2 + ret3;
-    /* Sys returns: same-date only (incl. last final if same date) + this closing */
-    const totalSameSysRet   = agg.sameDateSysReturns + agg.lfSameDateSysRet + retSys;
+    let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet;
+    if (activeMode === 'final') {
+      /* Final Closing selected: use current shift values only */
+      totalSameDateSys  = shiftSaleVal;
+      totalBooks        = book1 + book2;
+      totalSameDateCust = custVal;
+      totalManRet       = ret1 + ret2 + ret3;
+      totalSameSysRet   = retSys;
+    } else {
+      /* Non-final modes: aggregate across period as before */
+      /* POS: same-date shifts + last-final (if same date) + this closing */
+      totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
+      /* Book bills: ALL periods */
+      totalBooks        = agg.totalBookBills + book1 + book2;
+      /* Customers: same-date only */
+      totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
+      /* Manual returns: ALL periods */
+      totalManRet       = agg.totalManualReturns + ret1 + ret2 + ret3;
+      /* Sys returns: same-date only (incl. last final if same date) + this closing */
+      totalSameSysRet   = agg.sameDateSysReturns + agg.lfSameDateSysRet + retSys;
+    }
     /* Additional sys returns entered manually in this final */
     const finalExtraRet     = val('in-final-sys-returns');
     const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust
@@ -2649,11 +2693,20 @@ function calc() {
     set('out-final-net-sale',    finalNetSale);
 
     /* ─── PART 2: Net Final Cash Available ───────────────── */
-    const preDateSys        = agg.preDateShiftSale + agg.lfPreDateSale;
-    const preDateCust       = agg.preDateCustomers  + agg.lfPreDateCust;
-    const preDateSysRet     = agg.preDateSysReturns + agg.lfPreDateSysRet;
+    let preDateSys, preDateCust, preDateSysRet, totalExtraCashPeriod;
+    if (activeMode === 'final') {
+      /* Final Closing selected: no pre-date aggregation, extra cash = current shift only */
+      preDateSys             = 0;
+      preDateCust            = 0;
+      preDateSysRet          = 0;
+      totalExtraCashPeriod   = extraCash;
+    } else {
+      preDateSys             = agg.preDateShiftSale + agg.lfPreDateSale;
+      preDateCust            = agg.preDateCustomers  + agg.lfPreDateCust;
+      preDateSysRet          = agg.preDateSysReturns + agg.lfPreDateSysRet;
+      totalExtraCashPeriod   = agg.totalExtraCash + extraCash;
+    }
     const preDateTotal      = preDateSys + preDateCust - preDateSysRet;
-    const totalExtraCashPeriod = agg.totalExtraCash + extraCash;
     const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod - finalNetSale;
 
     set('out-final-net-cash-base', liquid);
