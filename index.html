@@ -485,6 +485,69 @@
   .modal-picker-item.selected { background: var(--teal-pale); color: var(--teal-dark); font-weight: 700; }
   .modal-picker-item.selected::after { content: "✓"; color: var(--teal); font-weight: 700; }
 
+  /* ═══════════════════════════════════════
+     MANAGER PIN MODAL
+  ═══════════════════════════════════════ */
+  #pin-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 20px;
+    animation: fadeIn .15s ease;
+  }
+  .pin-modal-sheet {
+    background: var(--white); border-radius: var(--radius-xl);
+    width: 100%; max-width: 340px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: popIn .18s ease;
+    padding: 20px;
+  }
+  .pin-modal-title {
+    font-size: 0.95rem; font-weight: 700; color: var(--navy);
+    margin: 0 0 4px;
+  }
+  .pin-modal-sub {
+    font-size: 0.78rem; color: var(--muted); margin: 0 0 14px;
+  }
+  .pin-modal-input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 1rem; font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 2px; text-align: center; margin-bottom: 8px; box-sizing: border-box;
+  }
+  .pin-modal-error {
+    color: var(--red); font-size: 0.78rem; font-weight: 600;
+    min-height: 18px; margin-bottom: 4px; text-align: center;
+  }
+  .pin-modal-btns { display: flex; gap: 8px; margin-top: 8px; }
+  .pin-modal-btns .btn { flex: 1; }
+
+  /* ═══════════════════════════════════════
+     DELETE CONFIRM MODAL
+  ═══════════════════════════════════════ */
+  #delete-confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 20px;
+    animation: fadeIn .15s ease;
+  }
+  .delete-confirm-sheet {
+    background: var(--white); border-radius: var(--radius-xl);
+    width: 100%; max-width: 340px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: popIn .18s ease;
+    padding: 20px;
+  }
+  .delete-confirm-title {
+    font-size: 0.95rem; font-weight: 700; color: var(--red);
+    margin: 0 0 8px;
+  }
+  .delete-confirm-msg {
+    font-size: 0.85rem; color: var(--slate); margin: 0 0 16px; line-height: 1.4;
+  }
+  .delete-confirm-btns { display: flex; gap: 8px; }
+  .delete-confirm-btns .btn { flex: 1; }
+
   /* ── Final mode notice bar ── */
   .final-mode-bar {
     background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
@@ -995,6 +1058,16 @@
         </div>
         <div id="settings-strips" style="max-height:280px; overflow-y:auto;"></div>
       </div>
+      <!-- Manager PIN Change -->
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>🔐 Manager PIN</h3></div>
+        <div class="card-body">
+          <p style="font-size:0.8rem;color:var(--muted);padding:4px 0 10px;">Change the manager PIN used to protect Settings and record deletion. PIN is stored as a SHA-256 hash — never in plain text.</p>
+          <div class="row"><label>New PIN</label><input type="password" id="set-new-pin" placeholder="Enter new PIN" autocomplete="new-password" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
+          <div class="row"><label>Confirm PIN</label><input type="password" id="set-confirm-pin" placeholder="Re-enter PIN" autocomplete="new-password" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
+          <button class="btn btn-teal" style="margin:8px 16px 4px;width:calc(100% - 32px);" onclick="changeManagerPIN()">🔑 Update Manager PIN</button>
+        </div>
+      </div>
       <button class="btn btn-green btn-full" onclick="saveSettings()">💾 Save Settings</button>
     </div>
   </div>
@@ -1067,13 +1140,6 @@
           <div class="row"><label>Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
           <div class="row"><label>Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
           <div class="row"><label>Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
-          <!-- Returns (3 cells) -->
-          <div style="background:#f8fafc; padding:6px 16px 2px; font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;">Returns / Refunds</div>
-          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
-          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
         </div>
       </div>
 
@@ -1091,6 +1157,13 @@
           <div class="row"><label>Book Bill 1:</label><input type="number" id="in-book-1" oninput="calc()"></div>
           <div class="row"><label>Book Bill 2:</label><input type="number" id="in-book-2" oninput="calc()"></div>
           <div class="row computed" id="box-out-cust"><label>Customers This Shift (delta):</label><input type="number" id="out-cust" oninput="setOverride('out-cust')"></div>
+          <!-- Returns / Refunds (moved from POS Block) -->
+          <div style="background:#f8fafc; padding:6px 16px 2px; font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;">Returns / Refunds</div>
+          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
+          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
           <div class="row highlight-blue"><label>Net Sale (this shift):</label><input type="number" id="out-net-sale" readonly value="0"></div>
         </div>
       </div>
@@ -1376,6 +1449,33 @@
   </div>
 </div>
 
+<!-- ═══ MANAGER PIN MODAL ═══ -->
+<div id="pin-modal-overlay" class="hidden">
+  <div class="pin-modal-sheet" onclick="event.stopPropagation()">
+    <p class="pin-modal-title">Manager PIN Required</p>
+    <p class="pin-modal-sub" id="pin-modal-sub">Enter the manager PIN to continue.</p>
+    <input type="password" id="pin-modal-input" class="pin-modal-input" placeholder="PIN" inputmode="text" autocomplete="off">
+    <div class="pin-modal-error" id="pin-modal-error"></div>
+    <div class="pin-modal-btns">
+      <button class="btn btn-ghost" onclick="_pinModalCancel()">Cancel</button>
+      <button class="btn btn-teal" onclick="_pinModalSubmit()">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DELETE CONFIRM MODAL ═══ -->
+<div id="delete-confirm-overlay" class="hidden">
+  <div class="delete-confirm-sheet" onclick="event.stopPropagation()">
+    <p class="delete-confirm-title">⚠️ Confirm Permanent Deletion</p>
+    <p class="delete-confirm-msg" id="delete-confirm-msg">Are you sure you want to permanently delete this closing?</p>
+    <div class="delete-confirm-btns">
+      <button class="btn btn-ghost" onclick="_deleteConfirmCancel()">Cancel</button>
+      <button class="btn btn-red" onclick="_deleteConfirmProceed()">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
 /* ═══════════════════════════════════════════
    CONSTANTS & STATE
@@ -1384,6 +1484,28 @@ const PIN    = "1218";
 const SHIFTS = ["Night","Morning","Evening"];
 const SHIFT_SR = {Morning:1, Evening:2, Night:3};
 function srLabel(shift) { return `Closing ${SHIFT_SR[shift]||'?'} — ${shift}`; }
+
+/* ═══════════════════════════════════════════
+   DISPLAY NAME FORMATTING — "DD-MMM-YYYY Shift"
+   (Display only — internal record keys / IDs ["YYYY-MM-DD_Shift"]
+   are NOT changed.)
+═══════════════════════════════════════════ */
+const DISPLAY_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function formatDisplayDate(ds) {
+  /* ds expected as "YYYY-MM-DD"; fall back gracefully if malformed */
+  if(!ds || typeof ds !== 'string') return ds || '';
+  const parts = ds.split('-');
+  if(parts.length !== 3) return ds;
+  const [y, m, d] = parts;
+  const mi = parseInt(m, 10) - 1;
+  if(isNaN(mi) || mi < 0 || mi > 11 || !d || !y) return ds;
+  return `${d.padStart(2,'0')}-${DISPLAY_MONTHS[mi]}-${y}`;
+}
+/* "DD-MMM-YYYY Shift" — used for Dashboard, Saved Records, PDF title, Ledger header, Manifest */
+function recordDisplayName(key) {
+  const parts = key.split('_');
+  return `${formatDisplayDate(parts[0])} ${parts[1]}`;
+}
 const DENOMS = [
   {label:"Rs. 5,000 notes", mult:5000},
   {label:"Rs. 1,000 notes", mult:1000},
@@ -1427,6 +1549,10 @@ let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
 /* migrate legacy data */
 if(!db.settings.namedCredits && db.settings.creditLabels) {
   db.settings.namedCredits = db.settings.creditLabels.map(l=>({label:l}));
+}
+/* Manager PIN — default "SALMAN" stored as SHA-256 hash (never plain text) */
+if(!db.settings.managerPinHash) {
+  db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
 }
 
 let activeKey      = null;
@@ -1592,9 +1718,79 @@ function goToDashboard() {
   buildCalendar();
   renderManifest();
 }
-function goToSettings()  {
-  let pin = prompt("Enter settings PIN:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
+/* ═══════════════════════════════════════════
+   MANAGER PIN (SHA-256) — Settings & Delete protection
+═══════════════════════════════════════════ */
+async function sha256Hex(str) {
+  const buf  = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+let _pinModalResolve = null;
+function _showPinModal(subtitle) {
+  const overlay = document.getElementById('pin-modal-overlay');
+  const sub     = document.getElementById('pin-modal-sub');
+  const input   = document.getElementById('pin-modal-input');
+  const err     = document.getElementById('pin-modal-error');
+  sub.textContent = subtitle || 'Enter the manager PIN to continue.';
+  input.value = '';
+  err.textContent = '';
+  overlay.classList.remove('hidden');
+  setTimeout(() => input.focus(), 50);
+  return new Promise(resolve => { _pinModalResolve = resolve; });
+}
+function _pinModalCancel() {
+  document.getElementById('pin-modal-overlay').classList.add('hidden');
+  if(_pinModalResolve) { _pinModalResolve(false); _pinModalResolve = null; }
+}
+async function _pinModalSubmit() {
+  const input = document.getElementById('pin-modal-input');
+  const err   = document.getElementById('pin-modal-error');
+  const entered = input.value || '';
+  const hash = await sha256Hex(entered);
+  if(hash === db.settings.managerPinHash) {
+    document.getElementById('pin-modal-overlay').classList.add('hidden');
+    if(_pinModalResolve) { _pinModalResolve(true); _pinModalResolve = null; }
+  } else {
+    err.textContent = 'Incorrect PIN. Please try again.';
+    input.value = '';
+    input.focus();
+  }
+}
+/* returns a Promise<boolean> — true if manager PIN verified */
+function requireManagerPin(subtitle) {
+  return _showPinModal(subtitle);
+}
+
+/* allow Enter key to submit the PIN modal */
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('pin-modal-input');
+  if(input) input.addEventListener('keydown', e => { if(e.key === 'Enter') _pinModalSubmit(); });
+});
+
+/* ═══════════════════════════════════════════
+   DELETE CONFIRMATION MODAL
+═══════════════════════════════════════════ */
+let _deleteConfirmResolve = null;
+function _showDeleteConfirm(message) {
+  const overlay = document.getElementById('delete-confirm-overlay');
+  document.getElementById('delete-confirm-msg').textContent = message || 'Are you sure you want to permanently delete this closing?';
+  overlay.classList.remove('hidden');
+  return new Promise(resolve => { _deleteConfirmResolve = resolve; });
+}
+function _deleteConfirmCancel() {
+  document.getElementById('delete-confirm-overlay').classList.add('hidden');
+  if(_deleteConfirmResolve) { _deleteConfirmResolve(false); _deleteConfirmResolve = null; }
+}
+function _deleteConfirmProceed() {
+  document.getElementById('delete-confirm-overlay').classList.add('hidden');
+  if(_deleteConfirmResolve) { _deleteConfirmResolve(true); _deleteConfirmResolve = null; }
+}
+
+async function goToSettings()  {
+  const ok = await requireManagerPin('Enter the manager PIN to access Settings.');
+  if(!ok) return;
   showPage('page-settings');
   buildSettingsUI();
 }
@@ -1743,7 +1939,8 @@ function renderManifest() {
   });
 
   /* sort chronologically: date asc, then Night→Morning→Evening */
-  allKeys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+  /* sort newest first: date DESC, then Evening→Morning→Night (reverse chrono within day) */
+  allKeys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
 
   /* update filter badge */
   const badge = document.getElementById('manifest-filter-badge');
@@ -1757,12 +1954,19 @@ function renderManifest() {
     box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
   }
   box.innerHTML = "";
-  allKeys.forEach(k => {
+
+  /* show only first 3 by default, unless user has expanded; respect active filter (show all when filtering) */
+  const isFiltering = !!(fromDate || toDate);
+  const _manifestExpanded = window._manifestExpanded || false;
+  const showAll = isFiltering || _manifestExpanded;
+  const VISIBLE_DEFAULT = 3;
+  const keysToShow = showAll ? allKeys : allKeys.slice(0, VISIBLE_DEFAULT);
+
+  keysToShow.forEach(k => {
     const rec  = db.sheets[k];
     const isDraft = rec.draft === true;
     const mode = rec.profileMode || 'shift';
     const parts = k.split('_');
-    const sr = srLabel(parts[1]);
     const div = document.createElement('div');
     div.className = "manifest-item";
     if(isDraft) div.style.opacity = '0.75';
@@ -1778,7 +1982,7 @@ function renderManifest() {
 
     div.innerHTML = `
       <span class="key-label" style="display:flex;align-items:center;gap:6px;">
-        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
+        ${isDraft ? '✏️' : '📦'} ${recordDisplayName(k)}
       </span>
       <div style="display:flex;gap:8px;align-items:center;">
         ${badgeHtml}
@@ -1787,6 +1991,22 @@ function renderManifest() {
       </div>`;
     box.appendChild(div);
   });
+
+  /* Show More / Show Less footer — only when not filtering and more than 3 records exist */
+  if(!isFiltering && allKeys.length > VISIBLE_DEFAULT) {
+    const footer = document.createElement('div');
+    footer.style.cssText = 'padding:10px 16px;text-align:center;border-top:1px solid var(--border);';
+    const remaining = allKeys.length - VISIBLE_DEFAULT;
+    footer.innerHTML = _manifestExpanded
+      ? `<button class="btn btn-ghost btn-sm" onclick="toggleManifestExpand()" style="width:100%;font-size:0.8rem;">▲ Show Less</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="toggleManifestExpand()" style="width:100%;font-size:0.8rem;">▼ Show More (${remaining} older records)</button>`;
+    box.appendChild(footer);
+  }
+}
+
+function toggleManifestExpand() {
+  window._manifestExpanded = !window._manifestExpanded;
+  renderManifest();
 }
 
 /* ═══════════════════════════════════════════
@@ -1938,6 +2158,20 @@ function renderSettingsStrips() {
 
 function addStripRow()  { db.settings.strips.push({name:"New Item",price:0}); renderSettingsStrips(); }
 function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); }
+
+async function changeManagerPIN() {
+  const newPin     = document.getElementById('set-new-pin')?.value || '';
+  const confirmPin = document.getElementById('set-confirm-pin')?.value || '';
+  if(!newPin) { alert('Please enter a new PIN.'); return; }
+  if(newPin !== confirmPin) { alert('PINs do not match. Please try again.'); return; }
+  if(newPin.length < 4) { alert('PIN must be at least 4 characters.'); return; }
+  const hash = await sha256Hex(newPin);
+  db.settings.managerPinHash = hash;
+  persist();
+  document.getElementById('set-new-pin').value = '';
+  document.getElementById('set-confirm-pin').value = '';
+  alert('Manager PIN updated successfully.');
+}
 
 function saveSettings() {
   db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
@@ -2148,9 +2382,9 @@ function openTierPicker(num) { /* triggered by change, handled via mousedown */ 
 function initLedger(ds, shift, mode) {
   showPage('page-ledger');
 
-  document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
-  document.getElementById('lbl-ledger-title').textContent = `${srLabel(shift)} Register`;
-  document.getElementById('lbl-ledger-meta').textContent  = `${ds} · BT-PHARMA`;
+  document.getElementById('lbl-ledger-pager').textContent = `${formatDisplayDate(ds)} — ${srLabel(shift)}`;
+  document.getElementById('lbl-ledger-title').textContent = `${shift} Register`;
+  document.getElementById('lbl-ledger-meta').textContent  = `${formatDisplayDate(ds)} · BT-PHARMA`;
   document.getElementById('ledger-badge').innerHTML = `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
@@ -2867,9 +3101,11 @@ function populateNameDropdown(num) {
    SAVE / HYDRATE
 ═══════════════════════════════════════════ */
 function buildSheetRecord() {
+  const existingCreatedAt = db.sheets[activeKey]?.createdAt || Date.now();
   return {
     profileMode: activeMode,
     overrides:   overrides,
+    createdAt:   existingCreatedAt,
     inSysCash:    val('in-sys-cash'),
     inLastBillAmt:val('in-last-bill-amt'),
     inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
@@ -3340,7 +3576,7 @@ function buildPrintSheet() {
   document.getElementById('print-sheet').innerHTML = `
     <div class="ps-title">
       <h1>FAZAL DINS PHARMA PLUS</h1>
-      <h2>${db.settings.branchName || 'BAHRIA TOWN BRANCH'} — ${ds || '—'} — ${srLabel(shift)}</h2>
+      <h2>${db.settings.branchName || 'BAHRIA TOWN BRANCH'} — ${formatDisplayDate(ds) || '—'} — ${shift}</h2>
     </div>
     <div class="ps-grid">
       <div>
@@ -3390,7 +3626,7 @@ function exportPDF() {
   document.querySelectorAll('#page-ledger .card.collapsed').forEach(c => c.classList.remove('collapsed'));
   renderPDF().then(pdf => {
     const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-    const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
+    const fname = `${formatDisplayDate(parts[0])}_${parts[1]}.pdf`;
     pdf.save(fname);
     /* also trigger system print dialog for physical print */
     buildPrintSheet();
@@ -3405,21 +3641,22 @@ function sendWhatsApp() {
   const status = document.getElementById('pdf-status');
   status.style.display='block'; status.textContent='Preparing PDF for WhatsApp…';
   const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-  const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
+  const fname = `${formatDisplayDate(parts[0])}_${parts[1]}.pdf`;
+  const displayName = recordDisplayName(activeKey || 'sheet_closing');
   renderPDF().then(async pdf => {
     const blob = pdf.output('blob');
     const file = new File([blob], fname, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})) {
       await navigator.share({
         files:[file],
-        title: `PharmaPos Closing — ${parts[0]} ${srLabel(parts[1])}`,
-        text: `Closing sheet for ${parts[0]} — ${srLabel(parts[1])}`
+        title: `Fazal Din's Pharma Plus — ${displayName}`,
+        text: `Closing sheet for ${displayName}`
       });
       status.style.display='none';
     } else {
       /* fallback: download PDF and open WhatsApp chat for manual attach */
       pdf.save(fname);
-      const msg = encodeURIComponent(`PharmaPos Closing — ${parts[0]} ${srLabel(parts[1])}. PDF downloaded — please attach it here.`);
+      const msg = encodeURIComponent(`Fazal Din's Pharma Plus — ${displayName}. PDF downloaded — please attach it here.`);
       window.open(`https://wa.me/923028496090?text=${msg}`, '_blank');
       status.style.display='none';
     }
@@ -3442,22 +3679,26 @@ function saveDraft() {
   setTimeout(()=>{ status.style.display='none'; }, 1500);
 }
 
-function deleteCurrentSheet() {
+async function deleteCurrentSheet() {
   if(!activeKey) return;
   if(!db.sheets[activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = activeKey.split('_');
-  if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
+  const ok = await requireManagerPin('Enter the manager PIN to delete this closing.');
+  if(!ok) return;
+  const confirmed = await _showDeleteConfirm(`Are you sure you want to permanently delete this closing?\n\n${recordDisplayName(activeKey)}`);
+  if(!confirmed) return;
   delete db.sheets[activeKey];
   persist();
   goToDashboard();
 }
 
 
-function deleteSheet(key) {
+async function deleteSheet(key) {
   if(!db.sheets[key]) return;
-  const parts = key.split('_');
-  const sr = srLabel(parts[1]);
-  if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
+  const ok = await requireManagerPin('Enter the manager PIN to delete this closing.');
+  if(!ok) return;
+  const confirmed = await _showDeleteConfirm(`Are you sure you want to permanently delete this closing?\n\n${recordDisplayName(key)}`);
+  if(!confirmed) return;
   delete db.sheets[key];
   persist();
   if(activeKey === key) { activeKey = null; goToDashboard(); }
@@ -3555,7 +3796,7 @@ function refreshCreditLedger() {
     div.className = 'row' + (mode==='final' ? ' highlight-blue' : '');
     div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid #f1f5f9;font-size:0.82rem;';
     div.innerHTML = `
-      <span style="flex:1;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--slate);">${parts[0]} — ${srLabel(parts[1])}</span>
+      <span style="flex:1;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--slate);">${recordDisplayName(key)}</span>
       <span style="width:80px;text-align:right;font-size:0.75rem;color:var(--muted);">${mode==='final'?'🔴 FINAL':'🔵 shift'}</span>
       <span style="width:100px;text-align:right;font-weight:600;color:var(--navy);font-family:'JetBrains Mono',monospace;">Rs.${creditThisShift.toLocaleString('en-PK')}</span>
       <span style="width:110px;text-align:right;font-weight:700;color:var(--teal-dark);font-family:'JetBrains Mono',monospace;">∑ Rs.${runningCredit.toLocaleString('en-PK')}</span>`;
