@@ -696,18 +696,12 @@
     white-space: nowrap;
   }
 
-  /* ── SECTION STATUS INDICATOR ── */
-  .section-status {
-    font-size: 1rem;
-    margin-left: 4px;
-    flex-shrink: 0;
-    transition: all .2s;
-  }
-  .section-status.status-done     { color: #16a34a; }
-  .section-status.status-progress { color: var(--amber); }
-  .section-status.status-warn     { color: #f97316; }
-  .section-status.status-empty    { color: #cbd5e1; }
 
+
+  /* ── COLLAPSED CARD: hide all children except card-head ── */
+  .card.collapsed > :not(.card-head) {
+    display: none !important;
+  }
   /* ── COLLAPSE ICON (right arrow when collapsed) ── */
   .card.collapsed .collapse-icon { transform: rotate(-90deg); }
   .collapse-icon { transition: transform .2s; font-size: 0.65rem; color: var(--muted); }
@@ -879,23 +873,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .manifest-card-foot {
-    padding: 5px 14px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    border-top: 1px solid #f1f5f9;
-    margin-top: 4px;
+  .manifest-card-head {
+    padding: 10px 14px;
   }
-  .manifest-card-diff {
-    font-size: 0.82rem;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .manifest-card-diff.balanced { color: var(--green); }
-  .manifest-card-diff.extra    { color: var(--amber); }
-  .manifest-card-diff.short    { color: var(--red); }
   .manifest-card-actions {
     display: flex;
     gap: 6px;
@@ -1578,7 +1558,7 @@
         <div class="card-head" onclick="toggleCard('card-pos')">
           <h3>POS Block</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-pos">○</span><span class="card-total-badge" id="badge-pos">Rs. 0</span>
+            <span class="card-total-badge" id="badge-pos">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1597,7 +1577,7 @@
         <div class="card-head" onclick="toggleCard('card-shift')">
           <h3>Shift Calculations</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-shift">○</span><span class="card-total-badge" id="badge-shift">Rs. 0</span>
+            <span class="card-total-badge" id="badge-shift">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1622,7 +1602,7 @@
         <div class="card-head" onclick="toggleCard('card-hs')">
           <h3><span class="step">1</span> HS Block (A)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-hs">○</span><span class="card-total-badge" id="badge-hs">Rs. 0</span>
+            <span class="card-total-badge" id="badge-hs">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1638,7 +1618,7 @@
         <div class="card-head" onclick="toggleCard('card-strips')">
           <h3><span class="step">2</span> Inventory Strips / Block Revenue (B)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-strips">○</span><span class="card-total-badge" id="badge-strips">Rs. 0</span>
+            <span class="card-total-badge" id="badge-strips">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1658,7 +1638,7 @@
         <div class="card-head" onclick="toggleCard('card-misc')">
           <h3><span class="step">3</span> Ongoing / Miscellaneous Charges (C)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-misc">○</span><span class="card-total-badge" id="badge-misc">Rs. 0</span>
+            <span class="card-total-badge" id="badge-misc">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1677,7 +1657,7 @@
         <div class="card-head" onclick="toggleCard('card-cc')">
           <h3><span class="step">4</span> Credit Card Summary (D)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-cc">○</span><span class="card-total-badge" id="badge-cc">Rs. 0</span>
+            <span class="card-total-badge" id="badge-cc">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1698,7 +1678,7 @@
         <div class="card-head" onclick="toggleCard('card-till')">
           <h3><span class="step">5</span> Till Cash (E)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-till">○</span><span class="card-total-badge" id="badge-till">Rs. 0</span>
+            <span class="card-total-badge" id="badge-till">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1711,7 +1691,7 @@
         <div class="card-head" onclick="toggleCard('card-vault')">
           <h3><span class="step">6</span> Draw Cash (F)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-vault">○</span><span class="card-total-badge" id="badge-vault">Rs. 0</span>
+            <span class="card-total-badge" id="badge-vault">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1724,7 +1704,7 @@
         <div class="card-head" onclick="toggleCard('card-credit')">
           <h3><span class="step">7</span> Credit Detail (G)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-credit">○</span><span class="card-total-badge" id="badge-credit">Rs. 0</span>
+            <span class="card-total-badge" id="badge-credit">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1764,7 +1744,7 @@
         <div class="card-head" onclick="toggleCard('card-deposits')">
           <h3><span class="step">8</span> Cash Deposit Details (H)</h3>
           <div class="card-head-right">
-            <span class="section-status status-empty" id="status-deposits">○</span><span class="card-total-badge" id="badge-deposits">Rs. 0</span>
+            <span class="card-total-badge" id="badge-deposits">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -2598,24 +2578,11 @@ function renderManifest() {
     const openAction   = entry.kind === 'EXTRA' ? `loadExtraKey('${entry.extraId}')`   : `loadKey('${entry.key}')`;
     const deleteAction = entry.kind === 'EXTRA' ? `deleteExtraSheet('${entry.extraId}')` : `deleteSheet('${entry.key}')`;
 
-    /* Compute diff for card footer */
-    const netSale = parseFloat(rec.outNetSale)||0;
-    const netCash = parseFloat(rec.outNetCash)||0;
-    const diff = netCash - netSale;
-    let diffClass = 'balanced', diffLabel = 'Balanced', diffText = 'Rs. 0';
-    if(Math.abs(diff) > 0.5) {
-      if(diff > 0) { diffClass='extra'; diffLabel='Extra'; diffText='+Rs. '+Math.round(diff).toLocaleString(); }
-      else         { diffClass='short'; diffLabel='Short'; diffText='-Rs. '+Math.round(Math.abs(diff)).toLocaleString(); }
-    }
-
     div.innerHTML = `
       <div class="manifest-card-head">
         <span class="manifest-card-title">${isDraft ? '✏️' : '📦'} ${label}</span>
-        <div class="manifest-card-actions">${badgeHtml}</div>
-      </div>
-      <div class="manifest-card-foot">
-        <span class="manifest-card-diff ${diffClass}">${diffLabel}${Math.abs(diff)>0.5?' · '+diffText:''}</span>
-        <div class="manifest-card-actions">
+        <div class="manifest-card-actions" style="display:flex;align-items:center;gap:6px;">
+          ${badgeHtml}
           <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);padding:5px 8px;" onclick="${deleteAction}">🗑</button>
         </div>
@@ -3676,8 +3643,7 @@ function calc() {
   }
   /* ── Phase 3: update sticky summary bar ── */
   updateStickySummary(bannerTarget, bannerCash);
-  /* ── Phase 3: update section status indicators ── */
-  updateSectionStatuses();
+  /* section status indicators removed */
   /* ── real-time auto-draft ── */
   scheduleAutoSave();
 }
