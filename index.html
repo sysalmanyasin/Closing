@@ -2545,13 +2545,14 @@ function renderManifest() {
   }
 
   if(!allEntries.length) {
-    box.innerHTML = `
-      <div class="empty-state" style="padding:32px 20px;">
-        <span class="empty-state-icon">📭</span>
-        <div class="empty-state-title">${fromDate||toDate ? 'No records in this range' : 'No Closings Yet'}</div>
-        <div class="empty-state-sub">${fromDate||toDate ? 'Try adjusting the date filter.' : 'Tap a date on the calendar to create your first shift closing.'}</div>
-        ${!fromDate&&!toDate ? '<button class="btn btn-teal btn-sm" onclick="''||buildCalendar()" style="margin:0 auto;display:inline-flex;">📅 Pick a Date</button>' : ''}
-      </div>`;
+    const emptyTitle = (fromDate||toDate) ? 'No records in this range' : 'No Closings Yet';
+    const emptySub   = (fromDate||toDate) ? 'Try adjusting the date filter.' : 'Tap a date on the calendar to create your first shift closing.';
+    const emptyBtn   = (!fromDate&&!toDate) ? '<button class="btn btn-teal btn-sm" onclick="buildCalendar()" style="margin:0 auto;display:inline-flex;">📅 Pick a Date</button>' : '';
+    box.innerHTML = '<div class="empty-state" style="padding:32px 20px;">' +
+      '<span class="empty-state-icon">📭</span>' +
+      '<div class="empty-state-title">' + emptyTitle + '</div>' +
+      '<div class="empty-state-sub">' + emptySub + '</div>' +
+      emptyBtn + '</div>';
     return;
   }
   box.innerHTML = "";
@@ -2621,7 +2622,7 @@ function renderManifest() {
       </div>`;
     /* tap whole card to open */
     div.querySelector('.manifest-card-head').addEventListener('click', function(e){
-      if(e.target.tagName!=='BUTTON') { eval(openAction); }
+      if(e.target.tagName!=='BUTTON') { if(entry.kind==='EXTRA'){loadExtraKey(entry.extraId);}else{loadKey(entry.key);} }
     });
     box.appendChild(div);
   });
