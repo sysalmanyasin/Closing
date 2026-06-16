@@ -646,6 +646,400 @@
   .ltb-more-menu button:last-child { border-bottom: none; }
   .ltb-more-menu button:hover { background: var(--teal-pale); color: var(--teal-dark); }
 
+
+  /* ══════════════════════════════════════════
+     PHASE 3 — MOBILE UX & CLOSING EXPERIENCE
+  ══════════════════════════════════════════ */
+
+  /* ── GLOBAL MOBILE TIGHTENING ── */
+  body {
+    padding: 0 0 100px; /* room for sticky bar */
+  }
+  .page-body {
+    padding: 12px 12px 20px;
+  }
+  .card {
+    margin-bottom: 10px;
+    border-radius: var(--radius-md);
+  }
+
+  /* ── COMPACT CARD HEADER (collapsed row) ──
+     48-56px height, single line, thumb-friendly */
+  .card-head {
+    padding: 0 14px;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    user-select: none;
+    transition: background .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card-head:hover { background: #f1f5f9; }
+  .card-head:active { background: #e8f0fe; }
+
+  .card-head h3 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--slate);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── SECTION STATUS INDICATOR ── */
+  .section-status {
+    font-size: 1rem;
+    margin-left: 4px;
+    flex-shrink: 0;
+    transition: all .2s;
+  }
+  .section-status.status-done     { color: #16a34a; }
+  .section-status.status-progress { color: var(--amber); }
+  .section-status.status-warn     { color: #f97316; }
+  .section-status.status-empty    { color: #cbd5e1; }
+
+  /* ── COLLAPSE ICON (right arrow when collapsed) ── */
+  .card.collapsed .collapse-icon { transform: rotate(-90deg); }
+  .collapse-icon { transition: transform .2s; font-size: 0.65rem; color: var(--muted); }
+
+  /* ── BADGE TOTAL IN COLLAPSED HEADER ── */
+  .card-total-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--teal-dark);
+    background: var(--teal-light);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    display: none;
+    flex-shrink: 0;
+    margin-right: 4px;
+  }
+  .card.collapsed .card-total-badge { display: inline-flex; }
+
+  /* ── ROW TIGHTENING ── */
+  .row {
+    padding: 8px 14px;
+    font-size: 0.83rem;
+    min-height: 44px;
+  }
+  .row input[type="number"],
+  .row input[type="text"],
+  .row select {
+    padding: 5px 8px;
+    font-size: 0.82rem;
+    width: 110px;
+    min-height: 36px;
+  }
+
+  /* ── IMPROVED CLOSING HEADER (ledger) ── */
+  .closing-header-bar {
+    background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
+    padding: 10px 14px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .closing-header-date {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -.2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .closing-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .closing-header-shift {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .closing-header-type {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .closing-header-type.type-normal { background: rgba(13,148,136,.25); color: #5eead4; }
+  .closing-header-type.type-extra  { background: rgba(245,158,11,.25); color: #fcd34d; }
+  .closing-header-type.type-final  { background: rgba(220,38,38,.2);   color: #fca5a5; }
+  .closing-header-time {
+    font-size: 0.68rem;
+    color: #64748b;
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: auto;
+  }
+
+  /* ── STICKY LIVE SUMMARY BAR ── */
+  #sticky-summary-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 8000;
+    background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
+    padding: 8px 16px env(safe-area-inset-bottom, 8px);
+    box-shadow: 0 -4px 16px rgba(0,0,0,.25);
+    display: none; /* shown only on ledger page */
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  #sticky-summary-bar.visible { display: flex; }
+  .sticky-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+  }
+  .sticky-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    white-space: nowrap;
+  }
+  .sticky-value {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: center;
+  }
+  .sticky-divider {
+    width: 1px;
+    height: 32px;
+    background: rgba(255,255,255,.08);
+    flex-shrink: 0;
+  }
+  #sticky-status-chip {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  #sticky-status-chip.balanced { background: rgba(22,163,74,.2); color: #4ade80; }
+  #sticky-status-chip.extra    { background: rgba(245,158,11,.2); color: #fcd34d; }
+  #sticky-status-chip.short    { background: rgba(220,38,38,.2); color: #fca5a5; }
+
+  /* ── MANIFEST CARD STYLE ── */
+  .manifest-card {
+    margin: 0 12px 8px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .15s, border-color .15s;
+    cursor: pointer;
+  }
+  .manifest-card:active { box-shadow: var(--shadow-md); border-color: var(--teal); }
+  .manifest-card-head {
+    padding: 10px 14px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .manifest-card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--navy);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .manifest-card-foot {
+    padding: 5px 14px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid #f1f5f9;
+    margin-top: 4px;
+  }
+  .manifest-card-diff {
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .manifest-card-diff.balanced { color: var(--green); }
+  .manifest-card-diff.extra    { color: var(--amber); }
+  .manifest-card-diff.short    { color: var(--red); }
+  .manifest-card-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  /* ── IMPROVED EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--muted);
+  }
+  .empty-state-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .empty-state-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--slate);
+    margin-bottom: 4px;
+  }
+  .empty-state-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── SKELETON LOADER ── */
+  .skeleton {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e8ecf1 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.2s infinite;
+    border-radius: var(--radius-sm);
+  }
+  @keyframes skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .skeleton-row {
+    height: 44px;
+    margin: 6px 12px;
+    border-radius: var(--radius-sm);
+  }
+  .skeleton-card {
+    height: 72px;
+    margin: 8px 12px;
+    border-radius: var(--radius-md);
+  }
+
+  /* ── PAGE TRANSITIONS ── */
+  .view-pane {
+    animation: pageFadeIn .18s ease;
+  }
+  @keyframes pageFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── KEYBOARD SCROLL HELPER ── */
+  .scroll-anchor { scroll-margin-top: 80px; }
+
+  /* ── AUTO-ADVANCE TOGGLE (settings) ── */
+  .toggle-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--slate);
+  }
+  .toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 22px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    left: 3px; bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform .2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--teal); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+  /* ── BOTTOM PADDING FOR STICKY BAR ── */
+  #page-ledger .page-body {
+    padding-bottom: 80px;
+  }
+
+  /* ── LEDGER TOOLBAR COMPACT ── */
+  .ledger-toolbar {
+    padding: 8px 12px;
+  }
+  .ltb-title { font-size: 0.88rem; }
+  .ltb-meta  { font-size: 0.65rem; }
+  .ltb-icon-btn { width: 34px; height: 34px; font-size: 0.9rem; }
+
+  /* ── MANIFEST DATE HEADER ── */
+  .manifest-date-header {
+    padding: 6px 12px 2px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  /* ── ACCESSIBILITY ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, .view-pane, .skeleton { animation: none !important; transition: none !important; }
+  }
+
+  /* ── SMALL SCREEN TWEAKS ── */
+  @media (max-width: 380px) {
+    .row input[type="number"],
+    .row input[type="text"] { width: 95px; }
+    .closing-header-date { font-size: 0.9rem; }
+    .sticky-value { font-size: 0.75rem; }
+  }
+
   /* ── PRINT MODE ── */
   @media print {
     body { padding: 0; background: #fff; }
@@ -1052,6 +1446,18 @@
             <input type="number" id="set-final-every-n" style="width:70px;" value="3"></div>
         </div>
       </div>
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Mobile UX</h3></div>
+        <div class="card-body">
+          <div class="toggle-switch-row">
+            <span>Auto-Advance Sections<br><small style="color:var(--muted);font-size:0.72rem;">Collapse completed sections and open the next one automatically</small></span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="set-auto-advance" checked onchange="_autoAdvanceEnabled=this.checked;">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
       <!-- Named Credit Accounts (dynamic) -->
       <div class="card">
         <div class="card-head" style="cursor:default;">
@@ -1108,6 +1514,16 @@
   <!-- ══ PAGE 4 — SHIFT LEDGER ══ -->
   <div id="page-ledger" class="view-pane hidden">
 
+    <!-- ══ IMPROVED CLOSING HEADER ══ -->
+    <div class="closing-header-bar" id="closing-header-bar">
+      <div class="closing-header-date" id="ch-date">—</div>
+      <div class="closing-header-meta">
+        <span class="closing-header-shift" id="ch-shift">—</span>
+        <span class="closing-header-type type-normal" id="ch-type">NORMAL</span>
+        <span class="closing-header-time" id="ch-time">—</span>
+      </div>
+    </div>
+
     <div class="pager">
       <button class="btn btn-nav" onclick="moveLedgerShift(-1)">◀ Prev Shift</button>
       <span class="pager-label" id="lbl-ledger-pager">—</span>
@@ -1162,7 +1578,7 @@
         <div class="card-head" onclick="toggleCard('card-pos')">
           <h3>POS Block</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-pos">Rs. 0</span>
+            <span class="section-status status-empty" id="status-pos">○</span><span class="card-total-badge" id="badge-pos">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1181,7 +1597,7 @@
         <div class="card-head" onclick="toggleCard('card-shift')">
           <h3>Shift Calculations</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-shift">Rs. 0</span>
+            <span class="section-status status-empty" id="status-shift">○</span><span class="card-total-badge" id="badge-shift">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1206,7 +1622,7 @@
         <div class="card-head" onclick="toggleCard('card-hs')">
           <h3><span class="step">1</span> HS Block (A)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-hs">Rs. 0</span>
+            <span class="section-status status-empty" id="status-hs">○</span><span class="card-total-badge" id="badge-hs">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1222,7 +1638,7 @@
         <div class="card-head" onclick="toggleCard('card-strips')">
           <h3><span class="step">2</span> Inventory Strips / Block Revenue (B)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-strips">Rs. 0</span>
+            <span class="section-status status-empty" id="status-strips">○</span><span class="card-total-badge" id="badge-strips">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1242,7 +1658,7 @@
         <div class="card-head" onclick="toggleCard('card-misc')">
           <h3><span class="step">3</span> Ongoing / Miscellaneous Charges (C)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-misc">Rs. 0</span>
+            <span class="section-status status-empty" id="status-misc">○</span><span class="card-total-badge" id="badge-misc">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1261,7 +1677,7 @@
         <div class="card-head" onclick="toggleCard('card-cc')">
           <h3><span class="step">4</span> Credit Card Summary (D)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-cc">Rs. 0</span>
+            <span class="section-status status-empty" id="status-cc">○</span><span class="card-total-badge" id="badge-cc">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1282,7 +1698,7 @@
         <div class="card-head" onclick="toggleCard('card-till')">
           <h3><span class="step">5</span> Till Cash (E)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-till">Rs. 0</span>
+            <span class="section-status status-empty" id="status-till">○</span><span class="card-total-badge" id="badge-till">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1295,7 +1711,7 @@
         <div class="card-head" onclick="toggleCard('card-vault')">
           <h3><span class="step">6</span> Draw Cash (F)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-vault">Rs. 0</span>
+            <span class="section-status status-empty" id="status-vault">○</span><span class="card-total-badge" id="badge-vault">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1308,7 +1724,7 @@
         <div class="card-head" onclick="toggleCard('card-credit')">
           <h3><span class="step">7</span> Credit Detail (G)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-credit">Rs. 0</span>
+            <span class="section-status status-empty" id="status-credit">○</span><span class="card-total-badge" id="badge-credit">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1348,7 +1764,7 @@
         <div class="card-head" onclick="toggleCard('card-deposits')">
           <h3><span class="step">8</span> Cash Deposit Details (H)</h3>
           <div class="card-head-right">
-            <span class="card-total-badge" id="badge-deposits">Rs. 0</span>
+            <span class="section-status status-empty" id="status-deposits">○</span><span class="card-total-badge" id="badge-deposits">Rs. 0</span>
             <span class="collapse-icon">▼</span>
           </div>
         </div>
@@ -1764,6 +2180,9 @@ function goToDashboard() {
   _draftReady = false;          /* stop auto-draft when leaving ledger */
   clearTimeout(_draftTimer);
   activeExtraId = null;         /* clear extra-closing context */
+  /* Phase 3: hide sticky bar when leaving ledger */
+  const stickyBar = document.getElementById('sticky-summary-bar');
+  if(stickyBar) stickyBar.classList.remove('visible');
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
@@ -2126,7 +2545,14 @@ function renderManifest() {
   }
 
   if(!allEntries.length) {
-    box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
+    box.innerHTML = `
+      <div class="empty-state" style="padding:32px 20px;">
+        <span class="empty-state-icon">📭</span>
+        <div class="empty-state-title">${fromDate||toDate ? 'No records in this range' : 'No Closings Yet'}</div>
+        <div class="empty-state-sub">${fromDate||toDate ? 'Try adjusting the date filter.' : 'Tap a date on the calendar to create your first shift closing.'}</div>
+        ${!fromDate&&!toDate ? '<button class="btn btn-teal btn-sm" onclick="''||buildCalendar()" style="margin:0 auto;display:inline-flex;">📅 Pick a Date</button>' : ''}
+      </div>`;
+    return;
   }
   box.innerHTML = "";
 
@@ -2143,7 +2569,7 @@ function renderManifest() {
     if(entry.dateStr !== lastDateHeader) {
       lastDateHeader = entry.dateStr;
       const header = document.createElement('div');
-      header.style.cssText = 'padding:8px 16px 4px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:#f8fafc;';
+      header.className = 'manifest-date-header';
       header.textContent = formatDisplayDate(entry.dateStr);
       box.appendChild(header);
     }
@@ -2153,8 +2579,8 @@ function renderManifest() {
     const isDraft = rec.draft === true;
     const mode = rec.profileMode || 'shift';
     const div = document.createElement('div');
-    div.className = "manifest-item";
-    if(isDraft) div.style.opacity = '0.75';
+    div.className = "manifest-card";
+    if(isDraft) div.style.opacity = '0.85';
 
     let badgeHtml = '';
     if(isDraft) {
@@ -2171,15 +2597,32 @@ function renderManifest() {
     const openAction   = entry.kind === 'EXTRA' ? `loadExtraKey('${entry.extraId}')`   : `loadKey('${entry.key}')`;
     const deleteAction = entry.kind === 'EXTRA' ? `deleteExtraSheet('${entry.extraId}')` : `deleteSheet('${entry.key}')`;
 
+    /* Compute diff for card footer */
+    const netSale = parseFloat(rec.outNetSale)||0;
+    const netCash = parseFloat(rec.outNetCash)||0;
+    const diff = netCash - netSale;
+    let diffClass = 'balanced', diffLabel = 'Balanced', diffText = 'Rs. 0';
+    if(Math.abs(diff) > 0.5) {
+      if(diff > 0) { diffClass='extra'; diffLabel='Extra'; diffText='+Rs. '+Math.round(diff).toLocaleString(); }
+      else         { diffClass='short'; diffLabel='Short'; diffText='-Rs. '+Math.round(Math.abs(diff)).toLocaleString(); }
+    }
+
     div.innerHTML = `
-      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
-        ${isDraft ? '✏️' : '📦'} ${label}
-      </span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        ${badgeHtml}
-        <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="${deleteAction}">🗑</button>
+      <div class="manifest-card-head">
+        <span class="manifest-card-title">${isDraft ? '✏️' : '📦'} ${label}</span>
+        <div class="manifest-card-actions">${badgeHtml}</div>
+      </div>
+      <div class="manifest-card-foot">
+        <span class="manifest-card-diff ${diffClass}">${diffLabel}${Math.abs(diff)>0.5?' · '+diffText:''}</span>
+        <div class="manifest-card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);padding:5px 8px;" onclick="${deleteAction}">🗑</button>
+        </div>
       </div>`;
+    /* tap whole card to open */
+    div.querySelector('.manifest-card-head').addEventListener('click', function(e){
+      if(e.target.tagName!=='BUTTON') { eval(openAction); }
+    });
     box.appendChild(div);
   });
 
@@ -2583,6 +3026,27 @@ function initLedger(ds, shift, mode, extraId) {
   document.getElementById('ledger-badge').innerHTML = isExtra
     ? `<span class="badge badge-extra">EXTRA</span>`
     : `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
+
+  /* ── Phase 3: Update improved closing header ── */
+  const chDate = document.getElementById('ch-date');
+  const chShift = document.getElementById('ch-shift');
+  const chType = document.getElementById('ch-type');
+  const chTime = document.getElementById('ch-time');
+  if(chDate)  chDate.textContent = formatDisplayDate(ds);
+  if(chShift) chShift.textContent = isExtra ? `${shift} Extra-${extraRec.extraSequence}` : `${shift} Shift`;
+  if(chType) {
+    chType.textContent = isExtra ? `EXTRA #${extraRec.extraSequence}` : mode.toUpperCase();
+    chType.className = 'closing-header-type ' + (isExtra ? 'type-extra' : mode==='final' ? 'type-final' : 'type-normal');
+  }
+  if(chTime) {
+    const existingRec2 = activeExtraId ? db.extraSheets[activeExtraId] : db.sheets[activeKey];
+    const createdAt = existingRec2?.createdAt || Date.now();
+    const d = new Date(createdAt);
+    chTime.textContent = 'Created: ' + d.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit'});
+  }
+  /* Show sticky summary bar */
+  const stickyBar = document.getElementById('sticky-summary-bar');
+  if(stickyBar) stickyBar.classList.add('visible');
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
   if(mm) mm.classList.add('hidden');
@@ -3209,6 +3673,10 @@ function calc() {
     banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
     banEl.className = 'val neg';
   }
+  /* ── Phase 3: update sticky summary bar ── */
+  updateStickySummary(bannerTarget, bannerCash);
+  /* ── Phase 3: update section status indicators ── */
+  updateSectionStatuses();
   /* ── real-time auto-draft ── */
   scheduleAutoSave();
 }
@@ -4016,6 +4484,162 @@ function goToCredit() {
   refreshCreditLedger();
 }
 
+
+/* ═══════════════════════════════════════════
+   PHASE 3 — STICKY SUMMARY BAR UPDATE
+═══════════════════════════════════════════ */
+function updateStickySummary(saleVal, cashVal) {
+  const sbSale = document.getElementById('sb-sale');
+  const sbCash = document.getElementById('sb-cash');
+  const sbDiff = document.getElementById('sb-diff');
+  const chip   = document.getElementById('sticky-status-chip');
+  if(!sbSale) return;
+
+  const diff = cashVal - saleVal;
+  const fmt = v => 'Rs.' + Math.round(Math.abs(v)).toLocaleString('en-PK');
+
+  sbSale.textContent = fmt(saleVal);
+  sbCash.textContent = fmt(cashVal);
+
+  if(Math.abs(diff) < 1) {
+    sbDiff.textContent = 'Rs.0';
+    if(chip) { chip.textContent = 'Balanced'; chip.className = 'balanced'; }
+  } else if(diff > 0) {
+    sbDiff.textContent = '+' + fmt(diff);
+    if(chip) { chip.textContent = 'Extra'; chip.className = 'extra'; }
+  } else {
+    sbDiff.textContent = '-' + fmt(diff);
+    if(chip) { chip.textContent = 'Short'; chip.className = 'short'; }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   PHASE 3 — SECTION STATUS INDICATORS
+   Updates ○/✓/⚠/⏳ for each card
+═══════════════════════════════════════════ */
+function sectionStatusEl(id) {
+  return document.getElementById('status-' + id);
+}
+
+function setStatus(id, type) {
+  const el = sectionStatusEl(id);
+  if(!el) return;
+  const map = { done:'✓', progress:'⏳', warn:'⚠', empty:'○' };
+  el.textContent = map[type] || '○';
+  el.className = 'section-status status-' + type;
+}
+
+function hasValue(...ids) {
+  return ids.some(id => {
+    const el = document.getElementById(id);
+    return el && parseFloat(el.value) !== 0;
+  });
+}
+
+function updateSectionStatuses() {
+  /* POS — any POS data entered */
+  const posHasData = hasValue('in-sys-cash','in-comp-sale','in-alfalah','in-keenu','in-last-bill-amt');
+  setStatus('pos', posHasData ? 'done' : 'empty');
+
+  /* Shift Calculations */
+  const shiftSale = parseFloat(document.getElementById('out-shift-sale')?.value)||0;
+  const shiftNet  = parseFloat(document.getElementById('out-net-sale')?.value)||0;
+  setStatus('shift', shiftSale > 0 ? 'done' : (hasValue('in-book-1','in-book-2') ? 'progress' : 'empty'));
+
+  /* HS Block */
+  const hsTot = parseFloat(document.getElementById('out-total-hs')?.value)||0;
+  setStatus('hs', hsTot > 0 ? 'done' : 'empty');
+
+  /* Strips */
+  const stripTot = parseFloat(document.getElementById('out-total-a')?.value)||0;
+  setStatus('strips', stripTot > 0 ? 'done' : 'empty');
+
+  /* Misc */
+  const miscTot = parseFloat(document.getElementById('out-total-g')?.value)||0;
+  const miscRows = document.querySelectorAll('#ledger-misc .misc-row');
+  setStatus('misc', miscRows.length > 0 ? (miscTot > 0 ? 'progress' : 'done') : 'empty');
+
+  /* CC */
+  const ccTotal = (parseFloat(document.getElementById('out-prev-cc')?.value)||0) +
+                  (parseFloat(document.getElementById('out-curr-cc')?.value)||0);
+  setStatus('cc', ccTotal !== 0 ? 'done' : 'empty');
+
+  /* Till cash */
+  const tillTot = parseFloat(document.getElementById('out-subtotal-c')?.value)||0;
+  setStatus('till', tillTot > 0 ? 'done' : 'empty');
+
+  /* Vault cash */
+  const vaultTot = parseFloat(document.getElementById('out-subtotal-d')?.value)||0;
+  setStatus('vault', vaultTot > 0 ? 'done' : 'empty');
+
+  /* Credit */
+  const creditTot = parseFloat(document.getElementById('out-total-e')?.value)||0;
+  setStatus('credit', creditTot > 0 ? 'progress' : 'empty');
+
+  /* Deposits */
+  const depTot = parseFloat(document.getElementById('out-total-f')?.value)||0;
+  setStatus('deposits', depTot > 0 ? 'done' : 'empty');
+
+  /* Auto-advance: if enabled, collapse complete section and expand next */
+  if(_autoAdvanceEnabled) autoAdvanceCheck();
+}
+
+/* ═══════════════════════════════════════════
+   PHASE 3 — AUTO-ADVANCE WORKFLOW
+═══════════════════════════════════════════ */
+let _autoAdvanceEnabled = true; /* default ON */
+let _lastAutoAdvancedFrom = null;
+
+const CARD_ORDER = ['card-pos','card-shift','card-hs','card-strips','card-misc','card-cc','card-till','card-vault','card-credit','card-deposits','card-audit','card-final-agg'];
+const STATUS_IDS  = ['pos','shift','hs','strips','misc','cc','till','vault','credit','deposits'];
+
+function autoAdvanceCheck() {
+  /* Find last card that just completed (status=done) and is currently expanded */
+  STATUS_IDS.forEach((sid, idx) => {
+    const el = sectionStatusEl(sid);
+    if(!el || el.className.indexOf('status-done') === -1) return;
+    const cardId = CARD_ORDER[idx];
+    const card = document.getElementById(cardId);
+    if(!card || card.classList.contains('collapsed')) return;
+
+    /* This section is done and expanded — check if it was previously incomplete */
+    const prevDone = card.dataset.wasComplete === '1';
+    if(!prevDone && _lastAutoAdvancedFrom !== cardId) {
+      /* Collapse this card */
+      card.classList.add('collapsed');
+      card.dataset.wasComplete = '1';
+      _lastAutoAdvancedFrom = cardId;
+      /* Expand next incomplete card */
+      for(let j = idx+1; j < CARD_ORDER.length; j++) {
+        const nextCard = document.getElementById(CARD_ORDER[j]);
+        if(nextCard && nextCard.classList.contains('collapsed')) {
+          nextCard.classList.remove('collapsed');
+          /* Smooth scroll to it */
+          setTimeout(() => {
+            nextCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 150);
+          break;
+        }
+      }
+    } else if(prevDone === false || !card.dataset.wasComplete) {
+      card.dataset.wasComplete = '1';
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════
+   PHASE 3 — KEYBOARD SCROLL INTO VIEW
+   Ensures focused input is not hidden by keyboard
+═══════════════════════════════════════════ */
+document.addEventListener('focusin', function(e) {
+  const el = e.target;
+  if(el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 300);
+  }
+}, true);
+
 function refreshCreditLedger() {
   const box = document.getElementById('credit-ledger-rows');
   box.innerHTML = "";
@@ -4576,6 +5200,26 @@ function renderAuditLog() {
   }).join('');
 }
 </script>
+
+<!-- ═══ STICKY LIVE SUMMARY BAR ═══ -->
+<div id="sticky-summary-bar">
+  <div class="sticky-col">
+    <span class="sticky-label">Sale</span>
+    <span class="sticky-value" id="sb-sale">Rs. 0</span>
+  </div>
+  <div class="sticky-divider"></div>
+  <div class="sticky-col">
+    <span class="sticky-label">Cash</span>
+    <span class="sticky-value" id="sb-cash">Rs. 0</span>
+  </div>
+  <div class="sticky-divider"></div>
+  <div class="sticky-col">
+    <span class="sticky-label">Diff</span>
+    <span class="sticky-value" id="sb-diff">Rs. 0</span>
+  </div>
+  <div class="sticky-divider"></div>
+  <span id="sticky-status-chip" class="balanced">Balanced</span>
+</div>
 <div id="print-sheet"></div>
 </body>
 </html>
