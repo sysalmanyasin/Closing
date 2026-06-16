@@ -295,6 +295,15 @@
   }
   .badge-shift   { background: var(--blue-pale); color: var(--blue); }
   .badge-final   { background: var(--red-pale); color: var(--red); }
+  .badge-normal  { background: var(--teal-pale); color: var(--teal-dark); }
+  .badge-extra   { background: var(--amber-pale); color: #92400e; border: 1px solid #fde68a; }
+  /* Audit log panel */
+  #audit-log-list { max-height: 220px; overflow-y: auto; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
+  .audit-row { padding: 6px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-start; }
+  .audit-row:last-child { border-bottom: none; }
+  .audit-ts { color: var(--muted); white-space: nowrap; flex-shrink: 0; font-size: 0.68rem; }
+  .audit-action { color: var(--navy); font-weight: 600; }
+  .audit-detail { color: var(--slate); }
 
   /* ── PAGINATION STRIP ── */
   .pager {
@@ -931,8 +940,22 @@
           </div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Sheet</button>
+          <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Closing</button>
+          <button class="btn btn-ghost" style="background:var(--amber-pale);color:#92400e;border-color:#fde68a;" onclick="openExtraClosingFromPicker()">➕ Extra Closing</button>
           <button class="btn btn-ghost" onclick="document.getElementById('shift-picker').classList.add('hidden')">Cancel</button>
+        </div>
+      </div>
+      <!-- DAY DETAIL PANEL — shown when a date with existing closings is tapped (Item 7) -->
+      <div id="day-detail-panel" class="date-picker-panel hidden">
+        <h4 id="lbl-day-detail-date">15-Jun-2026</h4>
+        <div style="padding:8px 0;">
+          <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Latest</div>
+          <div id="day-detail-latest"></div>
+        </div>
+        <div id="day-detail-other-wrap" style="margin-top:6px;"></div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-ghost" onclick="openDatePickerForceShiftPicker()">➕ New / Extra Closing</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('day-detail-panel').classList.add('hidden')">Close</button>
         </div>
       </div>
       <div class="card">
@@ -1058,15 +1081,25 @@
         </div>
         <div id="settings-strips" style="max-height:280px; overflow-y:auto;"></div>
       </div>
-      <!-- Manager PIN Change -->
+      <!-- Manager Security -->
       <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>🔐 Manager PIN</h3></div>
+        <div class="card-head" style="cursor:default;"><h3>🔐 Manager Security</h3></div>
         <div class="card-body">
-          <p style="font-size:0.8rem;color:var(--muted);padding:4px 0 10px;">Change the manager PIN used to protect Settings and record deletion. PIN is stored as a SHA-256 hash — never in plain text.</p>
-          <div class="row"><label>New PIN</label><input type="password" id="set-new-pin" placeholder="Enter new PIN" autocomplete="new-password" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
-          <div class="row"><label>Confirm PIN</label><input type="password" id="set-confirm-pin" placeholder="Re-enter PIN" autocomplete="new-password" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
-          <button class="btn btn-teal" style="margin:8px 16px 4px;width:calc(100% - 32px);" onclick="changeManagerPIN()">🔑 Update Manager PIN</button>
+          <p style="font-size:0.8rem;color:var(--muted);padding:4px 0 10px;">Change the manager PIN. Minimum 6 characters, maximum 20. Stored as SHA-256 hash — never in plain text.</p>
+          <div class="row"><label>Current PIN</label><input type="password" id="set-current-pin" placeholder="Enter current PIN" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
+          <div class="row"><label>New PIN</label><input type="password" id="set-new-pin" placeholder="New PIN (6–20 chars)" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
+          <div class="row"><label>Confirm New PIN</label><input type="password" id="set-confirm-pin" placeholder="Re-enter new PIN" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
+          <div id="pin-change-msg" style="min-height:18px;font-size:0.78rem;font-weight:600;padding:0 16px 4px;"></div>
+          <button class="btn btn-teal" style="margin:4px 16px 4px;width:calc(100% - 32px);" onclick="changeManagerPIN()">🔑 Update Manager PIN</button>
         </div>
+      </div>
+      <!-- Audit Log -->
+      <div class="card">
+        <div class="card-head" style="cursor:default;display:flex;align-items:center;justify-content:space-between;">
+          <h3>📋 Audit Log</h3>
+          <button class="btn btn-ghost btn-sm" onclick="renderAuditLog()">↺ Refresh</button>
+        </div>
+        <div id="audit-log-list"><div style="padding:12px 16px;color:var(--muted);font-size:0.8rem;">No audit entries yet.</div></div>
       </div>
       <button class="btn btn-green btn-full" onclick="saveSettings()">💾 Save Settings</button>
     </div>
@@ -1454,11 +1487,14 @@
   <div class="pin-modal-sheet" onclick="event.stopPropagation()">
     <p class="pin-modal-title">Manager PIN Required</p>
     <p class="pin-modal-sub" id="pin-modal-sub">Enter the manager PIN to continue.</p>
-    <input type="password" id="pin-modal-input" class="pin-modal-input" placeholder="PIN" inputmode="text" autocomplete="off">
+    <input type="password" id="pin-modal-input" class="pin-modal-input" placeholder="PIN" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
     <div class="pin-modal-error" id="pin-modal-error"></div>
     <div class="pin-modal-btns">
       <button class="btn btn-ghost" onclick="_pinModalCancel()">Cancel</button>
       <button class="btn btn-teal" onclick="_pinModalSubmit()">Unlock</button>
+    </div>
+    <div style="text-align:center;margin-top:10px;">
+      <button onclick="_resetPinToDefault()" style="background:none;border:none;color:var(--muted);font-size:0.72rem;cursor:pointer;text-decoration:underline;">Forgot PIN? Reset to default</button>
     </div>
   </div>
 </div>
@@ -1543,7 +1579,9 @@ let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
       {name:"Juice Pack 250x",   price:6}
     ]
   },
-  sheets: {}
+  sheets: {},
+  extraSheets: {},   /* UUID-keyed extra closings — never touch db.sheets keys */
+  auditLog:    []    /* local audit trail — max 200 entries */
 };
 
 /* migrate legacy data */
@@ -1554,8 +1592,19 @@ if(!db.settings.namedCredits && db.settings.creditLabels) {
 if(!db.settings.managerPinHash) {
   db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
 }
+/* Phase 2 migrations — additive, zero data loss */
+if(!db.extraSheets) db.extraSheets = {};
+if(!db.auditLog)    db.auditLog    = [];
+/* Back-fill closingType/extraSequence on old normal sheets so they display correctly */
+Object.values(db.sheets).forEach(rec => {
+  if(rec && !rec.closingType) {
+    rec.closingType    = 'NORMAL';
+    rec.extraSequence  = 0;
+  }
+});
 
 let activeKey      = null;
+let activeExtraId  = null;  /* UUID of current extra closing; null when editing a normal closing */
 let activeMode     = "shift";
 let overrides      = {};
 let isSavedSheet   = false;
@@ -1714,6 +1763,7 @@ function showPage(id) {
 function goToDashboard() {
   _draftReady = false;          /* stop auto-draft when leaving ledger */
   clearTimeout(_draftTimer);
+  activeExtraId = null;         /* clear extra-closing context */
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
@@ -1747,7 +1797,7 @@ function _pinModalCancel() {
 async function _pinModalSubmit() {
   const input = document.getElementById('pin-modal-input');
   const err   = document.getElementById('pin-modal-error');
-  const entered = input.value || '';
+  const entered = (input.value || '').trim();
   const hash = await sha256Hex(entered);
   if(hash === db.settings.managerPinHash) {
     document.getElementById('pin-modal-overlay').classList.add('hidden');
@@ -1757,6 +1807,19 @@ async function _pinModalSubmit() {
     input.value = '';
     input.focus();
   }
+}
+/* Recovery path: reset the manager PIN back to the default "SALMAN" hash.
+   Useful when the stored hash is unknown/corrupted and the device has no
+   DevTools access to inspect localStorage directly. */
+function _resetPinToDefault() {
+  if(!confirm('Reset the manager PIN back to the default "SALMAN"?\n\nYou should change it again afterwards from Settings → Manager Security.')) return;
+  db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
+  persist();
+  appendAuditLog('PIN Reset', 'Manager Security', 'Reset to default');
+  document.getElementById('pin-modal-error').textContent = '';
+  alert('Manager PIN has been reset to "SALMAN". Please enter it now to continue, then change it in Settings.');
+  document.getElementById('pin-modal-input').value = '';
+  document.getElementById('pin-modal-input').focus();
 }
 /* returns a Promise<boolean> — true if manager PIN verified */
 function requireManagerPin(subtitle) {
@@ -1791,8 +1854,10 @@ function _deleteConfirmProceed() {
 async function goToSettings()  {
   const ok = await requireManagerPin('Enter the manager PIN to access Settings.');
   if(!ok) return;
+  appendAuditLog('Settings Opened', 'Settings Page', 'Unlocked');
   showPage('page-settings');
   buildSettingsUI();
+  renderAuditLog();
 }
 function goToSummary(dateStr) {
   summaryDateStr = dateStr;
@@ -1834,6 +1899,13 @@ function buildCalendar() {
         const dot = document.createElement('span'); dot.className=`dot dot-${s.toLowerCase()}`; dots.appendChild(dot);
       }
     });
+    /* extra-closing indicator dot — purely visual, does not affect any calculation or timeline */
+    const hasExtra = Object.values(db.extraSheets || {}).some(r => r && r.date === ds && r.draft !== true);
+    if(hasExtra) {
+      const exDot = document.createElement('span');
+      exDot.className = 'dot'; exDot.style.background = 'var(--amber)'; exDot.style.border = '1px solid #92400e';
+      dots.appendChild(exDot);
+    }
     cell.appendChild(dots);
     cell.onclick = () => openDatePicker(ds);
     grid.appendChild(cell);
@@ -1843,10 +1915,98 @@ function buildCalendar() {
 function shiftMonth(n) { calViewDate.setMonth(calViewDate.getMonth()+n); buildCalendar(); }
 
 function openDatePicker(ds) {
+  /* Item 7: if this date already has any closing (normal or extra),
+     show the Day Detail panel (latest + "Other Closings") instead of
+     jumping straight to the shift-picker. New dates still go straight
+     to the shift-picker, unchanged from before. */
+  const dayEntries = getDayClosings(ds);
+  if(dayEntries.length > 0) {
+    showDayDetailPanel(ds, dayEntries);
+    return;
+  }
+  document.getElementById('lbl-picker-date').dataset.date = ds; /* used by force-open too */
+  _openShiftPickerPanel(ds);
+}
+
+function _openShiftPickerPanel(ds) {
   const panel = document.getElementById('shift-picker');
   panel.classList.remove('hidden');
   document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
   document.getElementById('lbl-picker-date').dataset.date = ds;
+}
+
+/* Force-open the shift-picker from the Day Detail panel (for "New / Extra Closing") */
+function openDatePickerForceShiftPicker() {
+  const ds = document.getElementById('lbl-day-detail-date').dataset.date;
+  document.getElementById('day-detail-panel').classList.add('hidden');
+  _openShiftPickerPanel(ds);
+}
+
+/* Returns all closings (normal + extra) for a given date, sorted newest-created first */
+function getDayClosings(ds) {
+  const entries = [];
+  SHIFTS.forEach(shift => {
+    const key = `${ds}_${shift}`;
+    if(isRealSheet(db.sheets[key])) {
+      entries.push({ kind:'NORMAL', key, shift, createdAt: db.sheets[key].createdAt || 0, extraSequence: 0 });
+    }
+  });
+  Object.keys(db.extraSheets || {}).forEach(id => {
+    const rec = db.extraSheets[id];
+    if(rec && rec.date === ds && rec.draft !== true) {
+      entries.push({ kind:'EXTRA', key:`${rec.date}_${rec.shift}`, shift: rec.shift, extraId: id, createdAt: rec.createdAt || 0, extraSequence: rec.extraSequence || 0 });
+    }
+  });
+  /* newest first: by createdAt desc, falling back to shift chrono + sequence */
+  entries.sort((a, b) => (b.createdAt - a.createdAt));
+  return entries;
+}
+
+function showDayDetailPanel(ds, dayEntries) {
+  document.getElementById('shift-picker').classList.add('hidden');
+  const panel = document.getElementById('day-detail-panel');
+  panel.classList.remove('hidden');
+  const dateLbl = document.getElementById('lbl-day-detail-date');
+  dateLbl.textContent = formatDisplayDate(ds);
+  dateLbl.dataset.date = ds;
+
+  const latest = dayEntries[0];
+  const others = dayEntries.slice(1);
+
+  function entryRow(e) {
+    const label = e.kind === 'EXTRA' ? extraDisplayName(db.extraSheets[e.extraId]) : recordDisplayName(e.key);
+    const badgeHtml = e.kind === 'EXTRA' ? `<span class="badge badge-extra">EXTRA</span>` : `<span class="badge badge-normal">NORMAL</span>`;
+    const openAction = e.kind === 'EXTRA' ? `loadExtraKey('${e.extraId}')` : `loadKey('${e.key}')`;
+    return `<div class="manifest-item">
+      <span class="key-label" style="display:flex;align-items:center;gap:6px;">📦 ${label}</span>
+      <div style="display:flex;gap:8px;align-items:center;">${badgeHtml}
+        <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('day-detail-latest').innerHTML = entryRow(latest);
+
+  const otherWrap = document.getElementById('day-detail-other-wrap');
+  if(others.length > 0) {
+    otherWrap.innerHTML = `
+      <button class="btn btn-ghost btn-sm" style="width:100%;" onclick="toggleDayDetailOthers()">
+        <span id="day-detail-others-toggle-label">▼ Other Closings (${others.length})</span>
+      </button>
+      <div id="day-detail-others-list" class="hidden">${others.map(entryRow).join('')}</div>`;
+  } else {
+    otherWrap.innerHTML = '';
+  }
+}
+
+function toggleDayDetailOthers() {
+  const list = document.getElementById('day-detail-others-list');
+  const lbl  = document.getElementById('day-detail-others-toggle-label');
+  if(!list) return;
+  const hidden = list.classList.contains('hidden');
+  list.classList.toggle('hidden');
+  const count = list.querySelectorAll('.manifest-item').length;
+  if(lbl) lbl.textContent = hidden ? `▲ Other Closings (${count})` : `▼ Other Closings (${count})`;
 }
 
 function openSheetFromPicker() {
@@ -1884,8 +2044,9 @@ function openSheetFromPicker() {
     }
   }
 
-  activeKey   = key;
-  overrides   = db.sheets[activeKey]?.overrides || {};
+  activeKey     = key;
+  activeExtraId = null;  /* opening a normal closing — clear any stale extra-closing context */
+  overrides     = db.sheets[activeKey]?.overrides || {};
   initLedger(ds, shift, activeMode);
 }
 
@@ -1928,19 +2089,33 @@ function renderManifest() {
   const fromDate = document.getElementById('filter-date-from')?.value || '';
   const toDate   = document.getElementById('filter-date-to')?.value   || '';
 
-  /* include BOTH saved sheets AND drafts (draft=true) */
-  const allKeys = Object.keys(db.sheets).filter(k => {
-    const rec = db.sheets[k];
-    if(!rec) return false;
-    const dateStr = k.split('_')[0];
-    if(fromDate && dateStr < fromDate) return false;
-    if(toDate   && dateStr > toDate)   return false;
+  /* Build a unified list of {key, kind, extraId} entries from both
+     db.sheets (normal) and db.extraSheets (extra). Normal sheets keep
+     their existing key-based identity; extras carry their own UUID. */
+  const normalEntries = Object.keys(db.sheets)
+    .filter(k => !!db.sheets[k])
+    .map(k => ({ sortKey: sheetSortKey(k), dateStr: k.split('_')[0], key: k, kind: 'NORMAL', extraId: null }));
+
+  const extraEntries = Object.keys(db.extraSheets || {})
+    .filter(id => !!db.extraSheets[id])
+    .map(id => {
+      const rec = db.extraSheets[id];
+      const baseKey = `${rec.date}_${rec.shift}`;
+      return {
+        sortKey: sheetSortKey(baseKey) + '_' + String(rec.extraSequence || 0).padStart(4,'0'),
+        dateStr: rec.date, key: baseKey, kind: 'EXTRA', extraId: id
+      };
+    });
+
+  let allEntries = [...normalEntries, ...extraEntries].filter(e => {
+    if(fromDate && e.dateStr < fromDate) return false;
+    if(toDate   && e.dateStr > toDate)   return false;
     return true;
   });
 
-  /* sort chronologically: date asc, then Night→Morning→Evening */
-  /* sort newest first: date DESC, then Evening→Morning→Night (reverse chrono within day) */
-  allKeys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
+  /* sort newest first: date/shift DESC, then within a shift Extra-N before the normal closing
+     (so the most recently created closing for that shift appears first) */
+  allEntries.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
   /* update filter badge */
   const badge = document.getElementById('manifest-filter-badge');
@@ -1950,7 +2125,7 @@ function renderManifest() {
     badge.textContent = active ? `Filtered` : '';
   }
 
-  if(!allKeys.length) {
+  if(!allEntries.length) {
     box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
   }
   box.innerHTML = "";
@@ -1960,13 +2135,23 @@ function renderManifest() {
   const _manifestExpanded = window._manifestExpanded || false;
   const showAll = isFiltering || _manifestExpanded;
   const VISIBLE_DEFAULT = 3;
-  const keysToShow = showAll ? allKeys : allKeys.slice(0, VISIBLE_DEFAULT);
+  const entriesToShow = showAll ? allEntries : allEntries.slice(0, VISIBLE_DEFAULT);
 
-  keysToShow.forEach(k => {
-    const rec  = db.sheets[k];
+  /* group consecutively by date, inserting a date header whenever the date changes */
+  let lastDateHeader = null;
+  entriesToShow.forEach(entry => {
+    if(entry.dateStr !== lastDateHeader) {
+      lastDateHeader = entry.dateStr;
+      const header = document.createElement('div');
+      header.style.cssText = 'padding:8px 16px 4px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:#f8fafc;';
+      header.textContent = formatDisplayDate(entry.dateStr);
+      box.appendChild(header);
+    }
+
+    const rec = entry.kind === 'EXTRA' ? db.extraSheets[entry.extraId] : db.sheets[entry.key];
+    if(!rec) return;
     const isDraft = rec.draft === true;
     const mode = rec.profileMode || 'shift';
-    const parts = k.split('_');
     const div = document.createElement('div');
     div.className = "manifest-item";
     if(isDraft) div.style.opacity = '0.75';
@@ -1974,29 +2159,35 @@ function renderManifest() {
     let badgeHtml = '';
     if(isDraft) {
       badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
+    } else if(entry.kind === 'EXTRA') {
+      badgeHtml = `<span class="badge badge-extra">EXTRA</span>`;
     } else if(mode === 'final') {
       badgeHtml = `<span class="badge badge-final">FINAL</span>`;
     } else {
-      badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
+      badgeHtml = `<span class="badge badge-normal">NORMAL</span>`;
     }
+
+    const label = entry.kind === 'EXTRA' ? extraDisplayName(rec) : recordDisplayName(entry.key);
+    const openAction   = entry.kind === 'EXTRA' ? `loadExtraKey('${entry.extraId}')`   : `loadKey('${entry.key}')`;
+    const deleteAction = entry.kind === 'EXTRA' ? `deleteExtraSheet('${entry.extraId}')` : `deleteSheet('${entry.key}')`;
 
     div.innerHTML = `
       <span class="key-label" style="display:flex;align-items:center;gap:6px;">
-        ${isDraft ? '✏️' : '📦'} ${recordDisplayName(k)}
+        ${isDraft ? '✏️' : '📦'} ${label}
       </span>
       <div style="display:flex;gap:8px;align-items:center;">
         ${badgeHtml}
-        <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
+        <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="${deleteAction}">🗑</button>
       </div>`;
     box.appendChild(div);
   });
 
   /* Show More / Show Less footer — only when not filtering and more than 3 records exist */
-  if(!isFiltering && allKeys.length > VISIBLE_DEFAULT) {
+  if(!isFiltering && allEntries.length > VISIBLE_DEFAULT) {
     const footer = document.createElement('div');
     footer.style.cssText = 'padding:10px 16px;text-align:center;border-top:1px solid var(--border);';
-    const remaining = allKeys.length - VISIBLE_DEFAULT;
+    const remaining = allEntries.length - VISIBLE_DEFAULT;
     footer.innerHTML = _manifestExpanded
       ? `<button class="btn btn-ghost btn-sm" onclick="toggleManifestExpand()" style="width:100%;font-size:0.8rem;">▲ Show Less</button>`
       : `<button class="btn btn-ghost btn-sm" onclick="toggleManifestExpand()" style="width:100%;font-size:0.8rem;">▼ Show More (${remaining} older records)</button>`;
@@ -2090,7 +2281,18 @@ function importDataJSON(evt) {
       if(!incoming.sheets || !incoming.settings) { alert('Invalid backup file.'); return; }
       if(!confirm('This will REPLACE all current data on this device with the backup file. Continue?')) return;
       db = incoming;
+      /* Defensive migration: old backups (pre-Phase-2) won't have these fields.
+         Apply the same safe defaults used on normal app load — zero data loss. */
+      if(!db.extraSheets) db.extraSheets = {};
+      if(!db.auditLog)    db.auditLog    = [];
+      if(!db.settings.managerPinHash) {
+        db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
+      }
+      Object.values(db.sheets).forEach(rec => {
+        if(rec && !rec.closingType) { rec.closingType = 'NORMAL'; rec.extraSequence = 0; }
+      });
       persist();
+      appendAuditLog('Backup Restored', file.name || 'backup.json', 'Success');
       alert('Backup restored.');
       goToDashboard();
     } catch(err) {
@@ -2158,20 +2360,6 @@ function renderSettingsStrips() {
 
 function addStripRow()  { db.settings.strips.push({name:"New Item",price:0}); renderSettingsStrips(); }
 function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); }
-
-async function changeManagerPIN() {
-  const newPin     = document.getElementById('set-new-pin')?.value || '';
-  const confirmPin = document.getElementById('set-confirm-pin')?.value || '';
-  if(!newPin) { alert('Please enter a new PIN.'); return; }
-  if(newPin !== confirmPin) { alert('PINs do not match. Please try again.'); return; }
-  if(newPin.length < 4) { alert('PIN must be at least 4 characters.'); return; }
-  const hash = await sha256Hex(newPin);
-  db.settings.managerPinHash = hash;
-  persist();
-  document.getElementById('set-new-pin').value = '';
-  document.getElementById('set-confirm-pin').value = '';
-  alert('Manager PIN updated successfully.');
-}
 
 function saveSettings() {
   db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
@@ -2379,13 +2567,22 @@ function openTierPicker(num) { /* triggered by change, handled via mousedown */ 
 /* ═══════════════════════════════════════════
    LEDGER INIT
 ═══════════════════════════════════════════ */
-function initLedger(ds, shift, mode) {
+function initLedger(ds, shift, mode, extraId) {
   showPage('page-ledger');
 
-  document.getElementById('lbl-ledger-pager').textContent = `${formatDisplayDate(ds)} — ${srLabel(shift)}`;
-  document.getElementById('lbl-ledger-title').textContent = `${shift} Register`;
+  const extraRec = extraId ? db.extraSheets[extraId] : null;
+  const isExtra  = !!extraRec;
+
+  document.getElementById('lbl-ledger-pager').textContent = isExtra
+    ? `${formatDisplayDate(ds)} — ${shift} Extra-${extraRec.extraSequence}`
+    : `${formatDisplayDate(ds)} — ${srLabel(shift)}`;
+  document.getElementById('lbl-ledger-title').textContent = isExtra
+    ? `${shift} Extra-${extraRec.extraSequence}`
+    : `${shift} Register`;
   document.getElementById('lbl-ledger-meta').textContent  = `${formatDisplayDate(ds)} · BT-PHARMA`;
-  document.getElementById('ledger-badge').innerHTML = `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
+  document.getElementById('ledger-badge').innerHTML = isExtra
+    ? `<span class="badge badge-extra">EXTRA</span>`
+    : `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
   if(mm) mm.classList.add('hidden');
@@ -2475,7 +2672,20 @@ function initLedger(ds, shift, mode) {
     else { el.classList.remove('final-editable'); }
   });
 
-  if(db.sheets[activeKey]) {
+  if(activeExtraId && db.extraSheets[activeExtraId]) {
+    /* Extra closing: hydrate from its own saved data if not a fresh draft;
+       otherwise pull carry-forward context from the normal timeline so the
+       extra closing starts from the same baseline as a normal closing would. */
+    const extraRec = db.extraSheets[activeExtraId];
+    isSavedSheet = !extraRec.draft;
+    if(!extraRec.draft) {
+      hydrate(extraRec);
+    } else {
+      flushInputs();
+      pullPreviousShift(ds, shift, mode);
+      if(mode === 'shift' || mode === 'final') zeroCreditEntries();
+    }
+  } else if(db.sheets[activeKey]) {
     isSavedSheet = true;
     hydrate(db.sheets[activeKey]);
   } else {
@@ -2490,7 +2700,10 @@ function initLedger(ds, shift, mode) {
   setTimeout(() => { _draftReady = true; }, 600);
 
   /* apply view-only / editable state based on the saved record */
-  setLockedState(!!db.sheets[activeKey]?.locked);
+  const lockedState = activeExtraId
+    ? !!db.extraSheets[activeExtraId]?.locked
+    : !!db.sheets[activeKey]?.locked;
+  setLockedState(lockedState);
 }
 
 /* ═══════════════════════════════════════════
@@ -3182,6 +3395,9 @@ function buildSheetRecord() {
 }
 
 function saveSheet(silent=false) {
+  /* Dispatch to extra-closing save path when an extra closing is active */
+  if(activeExtraId) { saveExtraSheet(silent); return; }
+
   const record = buildSheetRecord();
   record.draft  = false;
   record.locked = true;
@@ -3391,7 +3607,22 @@ function scheduleAutoSave() {
       const record = buildSheetRecord();
       record.draft  = true;
       record.locked = false;
-      db.sheets[activeKey] = record;
+      if(activeExtraId) {
+        /* Extra closing draft — never touch db.sheets */
+        const existing = db.extraSheets[activeExtraId];
+        if(existing) {
+          record.id            = existing.id;
+          record.date          = existing.date;
+          record.shift         = existing.shift;
+          record.closingType   = 'EXTRA';
+          record.extraSequence = existing.extraSequence;
+          record.createdAt     = existing.createdAt;
+          record.updatedAt     = Date.now();
+          db.extraSheets[activeExtraId] = record;
+        }
+      } else {
+        db.sheets[activeKey] = record;
+      }
       localStorage.setItem('pharmpos_v2', JSON.stringify(db));
       scheduleSyncPush(0); /* push draft immediately */
     } catch(e) { /* silent — draft save is best-effort */ }
@@ -3626,7 +3857,8 @@ function exportPDF() {
   document.querySelectorAll('#page-ledger .card.collapsed').forEach(c => c.classList.remove('collapsed'));
   renderPDF().then(pdf => {
     const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-    const fname = `${formatDisplayDate(parts[0])}_${parts[1]}.pdf`;
+    const extraSuffix = activeExtraId && db.extraSheets[activeExtraId] ? `_Extra-${db.extraSheets[activeExtraId].extraSequence}` : '';
+    const fname = `${formatDisplayDate(parts[0])}_${parts[1]}${extraSuffix}.pdf`;
     pdf.save(fname);
     /* also trigger system print dialog for physical print */
     buildPrintSheet();
@@ -3641,8 +3873,11 @@ function sendWhatsApp() {
   const status = document.getElementById('pdf-status');
   status.style.display='block'; status.textContent='Preparing PDF for WhatsApp…';
   const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-  const fname = `${formatDisplayDate(parts[0])}_${parts[1]}.pdf`;
-  const displayName = recordDisplayName(activeKey || 'sheet_closing');
+  const extraSuffix = activeExtraId && db.extraSheets[activeExtraId] ? `_Extra-${db.extraSheets[activeExtraId].extraSequence}` : '';
+  const fname = `${formatDisplayDate(parts[0])}_${parts[1]}${extraSuffix}.pdf`;
+  const displayName = activeExtraId && db.extraSheets[activeExtraId]
+    ? extraDisplayName(db.extraSheets[activeExtraId])
+    : recordDisplayName(activeKey || 'sheet_closing');
   renderPDF().then(async pdf => {
     const blob = pdf.output('blob');
     const file = new File([blob], fname, {type:'application/pdf'});
@@ -3669,7 +3904,21 @@ function saveDraft() {
   const rec = buildSheetRecord();
   rec.draft  = true;
   rec.locked = false;
-  db.sheets[activeKey] = rec;
+  if(activeExtraId) {
+    const existing = db.extraSheets[activeExtraId];
+    if(existing) {
+      rec.id            = existing.id;
+      rec.date          = existing.date;
+      rec.shift         = existing.shift;
+      rec.closingType   = 'EXTRA';
+      rec.extraSequence = existing.extraSequence;
+      rec.createdAt     = existing.createdAt;
+      rec.updatedAt     = Date.now();
+      db.extraSheets[activeExtraId] = rec;
+    }
+  } else {
+    db.sheets[activeKey] = rec;
+  }
   persist();
   /* NOTE: isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
      This ensures carry-over fields remain live (not frozen) while drafting. */
@@ -3680,6 +3929,7 @@ function saveDraft() {
 }
 
 async function deleteCurrentSheet() {
+  if(activeExtraId) { await deleteExtraSheet(activeExtraId); return; }
   if(!activeKey) return;
   if(!db.sheets[activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = activeKey.split('_');
@@ -3687,8 +3937,10 @@ async function deleteCurrentSheet() {
   if(!ok) return;
   const confirmed = await _showDeleteConfirm(`Are you sure you want to permanently delete this closing?\n\n${recordDisplayName(activeKey)}`);
   if(!confirmed) return;
+  const label = recordDisplayName(activeKey);
   delete db.sheets[activeKey];
   persist();
+  appendAuditLog('Closing Deleted', label, 'Deleted');
   goToDashboard();
 }
 
@@ -3699,17 +3951,20 @@ async function deleteSheet(key) {
   if(!ok) return;
   const confirmed = await _showDeleteConfirm(`Are you sure you want to permanently delete this closing?\n\n${recordDisplayName(key)}`);
   if(!confirmed) return;
+  const label = recordDisplayName(key);
   delete db.sheets[key];
   persist();
+  appendAuditLog('Closing Deleted', label, 'Deleted');
   if(activeKey === key) { activeKey = null; goToDashboard(); }
   else { renderManifest(); buildCalendar(); }
 }
 
 function loadKey(key) {
-  activeKey  = key;
-  const p    = key.split('_');
-  activeMode = db.sheets[key]?.profileMode || 'shift';
-  overrides  = db.sheets[key]?.overrides || {};
+  activeKey     = key;
+  activeExtraId = null;
+  const p       = key.split('_');
+  activeMode    = db.sheets[key]?.profileMode || 'shift';
+  overrides     = db.sheets[key]?.overrides || {};
   initLedger(p[0], p[1], activeMode);
 }
 
@@ -4116,6 +4371,209 @@ async function syncPullFromCloud(manual = false) {
   } finally {
     dbxSetBusy(false);
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 2 — MANAGER PIN UPGRADE (Item 1)
+   Current PIN verification before allowing change.
+   Min 6 / max 20 characters enforced.
+═══════════════════════════════════════════════════════════════ */
+async function changeManagerPIN() {
+  const currentPin = (document.getElementById('set-current-pin')?.value || '').trim();
+  const newPin     = (document.getElementById('set-new-pin')?.value     || '').trim();
+  const confirmPin = (document.getElementById('set-confirm-pin')?.value || '').trim();
+  const msgEl      = document.getElementById('pin-change-msg');
+
+  function showMsg(text, isError) {
+    if(!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.color = isError ? 'var(--red)' : 'var(--teal-dark)';
+  }
+
+  if(!currentPin) { showMsg('Please enter your current PIN.', true); return; }
+  if(!newPin)     { showMsg('Please enter a new PIN.', true); return; }
+  if(newPin.length < 6)  { showMsg('New PIN must be at least 6 characters.', true); return; }
+  if(newPin.length > 20) { showMsg('New PIN must be 20 characters or fewer.', true); return; }
+  if(newPin !== confirmPin) { showMsg('New PIN and confirmation do not match.', true); return; }
+
+  const currentHash = await sha256Hex(currentPin);
+  if(currentHash !== db.settings.managerPinHash) {
+    showMsg('Current PIN is incorrect.', true);
+    document.getElementById('set-current-pin').value = '';
+    return;
+  }
+
+  const newHash = await sha256Hex(newPin);
+  db.settings.managerPinHash = newHash;
+  persist();
+  appendAuditLog('PIN Changed', 'Manager Security', 'Success');
+  ['set-current-pin','set-new-pin','set-confirm-pin'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  showMsg('✓ Manager PIN updated successfully.', false);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 2 — CLOUD SYNC LOCK (Item 2)
+   Intercept toggleCard only for card-cloud-sync.
+   All sync push/pull/connect functions are completely UNTOUCHED.
+═══════════════════════════════════════════════════════════════ */
+const _origToggleCard = toggleCard;
+window.toggleCard = function(id) {
+  if(id === 'card-cloud-sync') {
+    const body = document.getElementById('card-cloud-sync-body');
+    const isCurrentlyHidden = body.style.display === 'none';
+    if(isCurrentlyHidden) {
+      requireManagerPin('Manager PIN required to access Cloud Synchronization.').then(ok => {
+        if(!ok) return;
+        appendAuditLog('Cloud Sync Unlocked', 'Cloud Synchronization', 'Unlocked');
+        _origToggleCard(id);
+      });
+      return;
+    }
+  }
+  _origToggleCard(id);
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 2 — UUID GENERATOR (Items 3/5)
+═══════════════════════════════════════════════════════════════ */
+function generateUUID() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 2 — EXTRA CLOSING OPEN (Item 3)
+   Stored in db.extraSheets[uuid] — NEVER touches db.sheets.
+   timelineStep / carry-forward / cascade continue operating on
+   db.sheets exclusively → financial calculations unaffected.
+═══════════════════════════════════════════════════════════════ */
+function openExtraClosingFromPicker() {
+  const ds    = document.getElementById('lbl-picker-date').dataset.date;
+  const shift = document.getElementById('pick-shift').value;
+  document.getElementById('shift-picker').classList.add('hidden');
+
+  const existingExtras = Object.values(db.extraSheets).filter(
+    r => r.date === ds && r.shift === shift
+  );
+  const maxSeq  = existingExtras.reduce((m, r) => Math.max(m, r.extraSequence || 0), 0);
+  const nextSeq = maxSeq + 1;
+
+  const id  = generateUUID();
+  const now = Date.now();
+  db.extraSheets[id] = {
+    id,
+    date: ds, shift,
+    closingType: 'EXTRA', extraSequence: nextSeq,
+    createdAt: now, updatedAt: now,
+    draft: true, locked: false,
+    profileMode: 'shift', overrides: {}
+  };
+  persist();
+  appendAuditLog('Extra Closing Created',
+    `${recordDisplayName(`${ds}_${shift}`)} Extra-${nextSeq}`, 'Opened');
+
+  activeKey     = `${ds}_${shift}`;
+  activeExtraId = id;
+  activeMode    = 'shift';
+  overrides     = {};
+  initLedger(ds, shift, 'shift', id);
+}
+
+function getActiveExtra() {
+  return activeExtraId ? (db.extraSheets[activeExtraId] || null) : null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 2 — EXTRA CLOSING: LOAD / SAVE / DELETE (Items 3/5)
+═══════════════════════════════════════════════════════════════ */
+function loadExtraKey(id) {
+  const extra = db.extraSheets[id];
+  if(!extra) return;
+  activeKey     = `${extra.date}_${extra.shift}`;
+  activeExtraId = id;
+  activeMode    = extra.profileMode || 'shift';
+  overrides     = extra.overrides   || {};
+  initLedger(extra.date, extra.shift, activeMode, id);
+}
+
+function saveExtraSheet(silent = false) {
+  if(!activeExtraId) return;
+  const existing = db.extraSheets[activeExtraId];
+  if(!existing) return;
+  const record         = buildSheetRecord();
+  record.id            = existing.id;
+  record.date          = existing.date;
+  record.shift         = existing.shift;
+  record.closingType   = 'EXTRA';
+  record.extraSequence = existing.extraSequence;
+  record.createdAt     = existing.createdAt;
+  record.updatedAt     = Date.now();
+  record.draft         = false;
+  record.locked        = true;
+  db.extraSheets[activeExtraId] = record;
+  persist();
+  isSavedSheet = true;
+  if(!silent) {
+    setLockedState(true);
+    alert('Extra closing saved.');
+  }
+}
+
+async function deleteExtraSheet(id) {
+  if(!db.extraSheets[id]) return;
+  const extra = db.extraSheets[id];
+  const label = `${recordDisplayName(`${extra.date}_${extra.shift}`)} Extra-${extra.extraSequence}`;
+  const ok    = await requireManagerPin('Enter manager PIN to delete this extra closing.');
+  if(!ok) return;
+  const confirmed = await _showDeleteConfirm(`Permanently delete extra closing?\n\n${label}`);
+  if(!confirmed) return;
+  delete db.extraSheets[id];
+  persist();
+  appendAuditLog('Closing Deleted', label, 'Deleted');
+  if(activeExtraId === id) { activeExtraId = null; goToDashboard(); }
+  else { renderManifest(); }
+}
+
+/* Extra-closing display label: "DD-MMM-YYYY Shift Extra-N" */
+function extraDisplayName(extra) {
+  if(!extra) return '';
+  return `${recordDisplayName(`${extra.date}_${extra.shift}`)} Extra-${extra.extraSequence}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 2 — AUDIT LOG (Item 8)
+   Max 200 entries, local only. db.auditLog[].
+═══════════════════════════════════════════════════════════════ */
+const AUDIT_MAX = 200;
+function appendAuditLog(action, target, result) {
+  if(!db.auditLog) db.auditLog = [];
+  db.auditLog.unshift({ ts: new Date().toISOString(), action, target: target||'', result: result||'' });
+  if(db.auditLog.length > AUDIT_MAX) db.auditLog.length = AUDIT_MAX;
+  try { localStorage.setItem('pharmpos_v2', JSON.stringify(db)); } catch(e) {}
+}
+
+function renderAuditLog() {
+  const box = document.getElementById('audit-log-list');
+  if(!box) return;
+  if(!db.auditLog || !db.auditLog.length) {
+    box.innerHTML = '<div style="padding:12px 16px;color:var(--muted);font-size:0.8rem;">No audit entries yet.</div>';
+    return;
+  }
+  box.innerHTML = db.auditLog.map(entry => {
+    const d  = new Date(entry.ts);
+    const ts = `${d.toLocaleDateString('en-PK')} ${d.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit'})}`;
+    return `<div class="audit-row">
+      <span class="audit-ts">${ts}</span>
+      <span class="audit-action">${entry.action}</span>
+      <span class="audit-detail">${entry.target}${entry.result ? ' → '+entry.result : ''}</span>
+    </div>`;
+  }).join('');
 }
 </script>
 <div id="print-sheet"></div>
