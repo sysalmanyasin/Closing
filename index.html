@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fazal Din's Pharma Plus — Shift Register</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap');
 
   :root {
     --teal:        #0d9488;
@@ -295,15 +295,6 @@
   }
   .badge-shift   { background: var(--blue-pale); color: var(--blue); }
   .badge-final   { background: var(--red-pale); color: var(--red); }
-  .badge-normal  { background: var(--teal-pale); color: var(--teal-dark); }
-  .badge-extra   { background: var(--amber-pale); color: #92400e; border: 1px solid #fde68a; }
-  /* Audit log panel */
-  #audit-log-list { max-height: 220px; overflow-y: auto; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
-  .audit-row { padding: 6px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-start; }
-  .audit-row:last-child { border-bottom: none; }
-  .audit-ts { color: var(--muted); white-space: nowrap; flex-shrink: 0; font-size: 0.68rem; }
-  .audit-action { color: var(--navy); font-weight: 600; }
-  .audit-detail { color: var(--slate); }
 
   /* ── PAGINATION STRIP ── */
   .pager {
@@ -494,69 +485,6 @@
   .modal-picker-item.selected { background: var(--teal-pale); color: var(--teal-dark); font-weight: 700; }
   .modal-picker-item.selected::after { content: "✓"; color: var(--teal); font-weight: 700; }
 
-  /* ═══════════════════════════════════════
-     MANAGER PIN MODAL
-  ═══════════════════════════════════════ */
-  #pin-modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.45);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 9999; padding: 20px;
-    animation: fadeIn .15s ease;
-  }
-  .pin-modal-sheet {
-    background: var(--white); border-radius: var(--radius-xl);
-    width: 100%; max-width: 340px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    animation: popIn .18s ease;
-    padding: 20px;
-  }
-  .pin-modal-title {
-    font-size: 0.95rem; font-weight: 700; color: var(--navy);
-    margin: 0 0 4px;
-  }
-  .pin-modal-sub {
-    font-size: 0.78rem; color: var(--muted); margin: 0 0 14px;
-  }
-  .pin-modal-input {
-    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
-    border-radius: var(--radius-sm); font-size: 1rem; font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 2px; text-align: center; margin-bottom: 8px; box-sizing: border-box;
-  }
-  .pin-modal-error {
-    color: var(--red); font-size: 0.78rem; font-weight: 600;
-    min-height: 18px; margin-bottom: 4px; text-align: center;
-  }
-  .pin-modal-btns { display: flex; gap: 8px; margin-top: 8px; }
-  .pin-modal-btns .btn { flex: 1; }
-
-  /* ═══════════════════════════════════════
-     DELETE CONFIRM MODAL
-  ═══════════════════════════════════════ */
-  #delete-confirm-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.45);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 9999; padding: 20px;
-    animation: fadeIn .15s ease;
-  }
-  .delete-confirm-sheet {
-    background: var(--white); border-radius: var(--radius-xl);
-    width: 100%; max-width: 340px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    animation: popIn .18s ease;
-    padding: 20px;
-  }
-  .delete-confirm-title {
-    font-size: 0.95rem; font-weight: 700; color: var(--red);
-    margin: 0 0 8px;
-  }
-  .delete-confirm-msg {
-    font-size: 0.85rem; color: var(--slate); margin: 0 0 16px; line-height: 1.4;
-  }
-  .delete-confirm-btns { display: flex; gap: 8px; }
-  .delete-confirm-btns .btn { flex: 1; }
-
   /* ── Final mode notice bar ── */
   .final-mode-bar {
     background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
@@ -564,32 +492,172 @@
     font-size: 0.8rem; font-weight: 700; color: #fff;
   }
 
-  /* ── PRINT / PDF EXPORT SHEET (one page, custom layout) ── */
+  /* ══════════════════════════════════════════════════════════
+     PRINT / PDF EXPORT — PREMIUM LEDGER DESIGN
+     Page 1: Shift Closing   ·   Page 2: Final Closing
+  ══════════════════════════════════════════════════════════ */
   #print-sheet { display:none; }
   #print-sheet.show {
-    display:block; position:fixed; left:0; top:0; z-index: -1;
-    width: 780px; background:#fff; color:#1e293b; font-family: 'Inter', Arial, sans-serif;
-    padding: 16px; box-sizing:border-box;
+    display:block; position:fixed; left:0; top:0; z-index:-1;
+    background:#fff;
   }
-  #print-sheet .ps-title { text-align:center; margin-bottom:8px; }
-  #print-sheet .ps-title h1 { font-size: 18px; margin:0; letter-spacing:1px; color:var(--navy); }
-  #print-sheet .ps-title h2 { font-size: 12px; margin:2px 0 0; color:var(--muted); letter-spacing:2px; }
-  #print-sheet .ps-grid { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items:start; }
-  #print-sheet .ps-box { border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; margin-bottom:8px; }
+  #print-sheet .ps-page {
+    width: 794px;              /* A4 @ 96dpi */
+    min-height: 1123px;
+    background: #f7f5f0;
+    color: #1c2b2b;
+    font-family: 'Inter', Arial, sans-serif;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+  }
+  #print-sheet .ps-page:last-child { page-break-after: auto; }
+
+  /* ── Ledger spine: signature element, left margin tick rule ── */
+  #print-sheet .ps-spine {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 34px;
+    background: #0b1e2d;
+  }
+  #print-sheet .ps-spine-final { background: #8a5a1e; }
+  #print-sheet .ps-spine-label {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotate(-90deg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,.55);
+    white-space: nowrap; text-transform: uppercase;
+  }
+  #print-sheet .ps-spine-ticks { position:absolute; left:0; top:0; bottom:0; width:34px; }
+  #print-sheet .ps-tick {
+    position:absolute; left:8px; width:18px; height:1px; background: rgba(255,255,255,.18);
+  }
+
+  /* ── Content wrapper, offset for spine ── */
+  #print-sheet .ps-content { margin-left: 34px; padding: 26px 30px 22px; }
+
+  /* ── Letterhead band ── */
+  #print-sheet .ps-letterhead {
+    display:flex; align-items:flex-end; justify-content:space-between;
+    border-bottom: 2px solid #0b1e2d; padding-bottom: 12px; margin-bottom: 16px;
+  }
+  #print-sheet .ps-brand h1 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 22px; font-weight: 600; color: #0b1e2d; letter-spacing: .2px;
+  }
+  #print-sheet .ps-brand p {
+    font-size: 9.5px; color: #5b6b6b; letter-spacing: 1.6px; text-transform: uppercase; margin-top: 2px;
+  }
+  #print-sheet .ps-doctype {
+    text-align: right;
+  }
+  #print-sheet .ps-doctype .ps-doctype-tag {
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    letter-spacing: 2px; text-transform:uppercase; color:#fff;
+    background:#0d7d72; padding: 4px 10px; border-radius: 3px;
+  }
+  #print-sheet .ps-page-final .ps-doctype .ps-doctype-tag { background:#8a5a1e; }
+  #print-sheet .ps-doctype .ps-doctype-date {
+    margin-top: 5px; font-size: 11px; color: #1c2b2b; font-weight: 600;
+  }
+
+  /* ── Identity strip ── */
+  #print-sheet .ps-idstrip {
+    display:flex; gap: 10px; margin-bottom: 18px;
+  }
+  #print-sheet .ps-idchip {
+    flex: 1; background:#fff; border:1px solid #e2ddd2; border-radius:6px;
+    padding: 9px 12px;
+  }
+  #print-sheet .ps-idchip .ps-idchip-label {
+    font-size: 8.5px; letter-spacing: 1.4px; text-transform:uppercase; color:#8a8475;
+  }
+  #print-sheet .ps-idchip .ps-idchip-val {
+    font-family:'JetBrains Mono',monospace; font-size: 13px; font-weight:700; color:#0b1e2d; margin-top:2px;
+  }
+
+  /* ── Section card ── */
+  #print-sheet .ps-box {
+    background:#fff; border:1px solid #e2ddd2; border-radius: 7px;
+    overflow:hidden; margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(11,30,45,.04);
+  }
   #print-sheet .ps-box h4 {
-    margin:0; padding:4px 8px; font-size:10px; text-transform:uppercase; letter-spacing:1px;
-    background:var(--navy); color:#fff; text-align:center;
+    margin:0; padding: 7px 12px; font-size: 10px; font-weight:700;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    background: #0b1e2d; color: #f7f5f0;
+    display:flex; align-items:center; gap:6px;
   }
+  #print-sheet .ps-box h4 .ps-box-icon { font-size: 11px; opacity:.85; }
+  #print-sheet .ps-box.ps-box-accent h4 { background:#0d7d72; }
+  #print-sheet .ps-box.ps-box-final h4  { background:#8a5a1e; }
+
   #print-sheet .ps-row {
-    display:flex; justify-content:space-between; padding:2px 8px; font-size:10px;
-    border-bottom:1px solid #f1f5f9;
+    display:flex; justify-content:space-between; gap: 10px;
+    padding: 5px 12px; font-size: 10.5px;
+    border-bottom: 1px solid #f1efe9;
   }
   #print-sheet .ps-row:last-child { border-bottom:none; }
-  #print-sheet .ps-row span:first-child { color:#334155; }
-  #print-sheet .ps-row span:last-child { font-weight:700; color:#0f172a; }
-  #print-sheet .ps-row.ps-total { background:#f1f5f9; }
-  #print-sheet .ps-row.ps-highlight { background:#dcfce7; }
-  #print-sheet .ps-row.ps-red { background:#fee2e2; }
+  #print-sheet .ps-row span:first-child { color:#4a5757; flex:1; }
+  #print-sheet .ps-row span:last-child {
+    font-family:'JetBrains Mono',monospace; font-weight:700; color:#0b1e2d;
+    white-space:nowrap;
+  }
+  #print-sheet .ps-row.ps-total {
+    background:#f1efe9; font-weight:700;
+  }
+  #print-sheet .ps-row.ps-total span:first-child { color:#0b1e2d; font-weight:700; }
+  #print-sheet .ps-row.ps-highlight {
+    background: #e6f4f1; border-top: 1px solid #0d7d72; border-bottom: 1px solid #0d7d72;
+  }
+  #print-sheet .ps-row.ps-highlight span { color:#0d7d72 !important; font-weight:800; }
+  #print-sheet .ps-row.ps-red {
+    background: #fbeeec; border-top: 1px solid #c8463c; border-bottom: 1px solid #c8463c;
+  }
+  #print-sheet .ps-row.ps-red span { color:#c8463c !important; font-weight:800; }
+  #print-sheet .ps-row.ps-minus span:last-child::before { content:'\2212\00A0'; }
+  #print-sheet .ps-row.ps-plus span:last-child::before  { content:'+\00A0'; }
+  #print-sheet .ps-row.ps-empty span:last-child { color:#c4bfae; font-weight:500; }
+
+  /* ── Two/three column grid ── */
+  #print-sheet .ps-grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items:start; }
+  #print-sheet .ps-grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items:start; }
+
+  /* ── Hero variance band ── */
+  #print-sheet .ps-hero {
+    border-radius: 8px; padding: 16px 20px; margin-top: 6px;
+    display:flex; align-items:center; justify-content:space-between;
+    background: linear-gradient(135deg,#0b1e2d 0%, #16323f 100%);
+  }
+  #print-sheet .ps-hero.ps-hero-short { background: linear-gradient(135deg,#5c1f1a 0%,#7a2c24 100%); }
+  #print-sheet .ps-hero .ps-hero-label {
+    font-size: 10.5px; letter-spacing: 1.6px; text-transform:uppercase; color: rgba(255,255,255,.65);
+  }
+  #print-sheet .ps-hero .ps-hero-val {
+    font-family:'JetBrains Mono',monospace; font-size: 26px; font-weight:800; color:#fff; margin-top:2px;
+  }
+  #print-sheet .ps-hero .ps-hero-sub {
+    text-align:right; font-size:9.5px; color: rgba(255,255,255,.55); max-width: 220px; line-height:1.5;
+  }
+
+  /* ── Shift timeline chips (Final page) ── */
+  #print-sheet .ps-chiprow { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  #print-sheet .ps-chip {
+    background:#fff; border:1px solid #e2ddd2; border-radius: 20px;
+    padding: 4px 11px; font-size:9.5px; font-family:'JetBrains Mono',monospace; color:#0b1e2d;
+  }
+
+  /* ── Footer ── */
+  #print-sheet .ps-foot {
+    position:absolute; bottom: 14px; left: 34px; right: 0;
+    display:flex; justify-content:space-between; padding: 0 30px;
+    font-size: 8.5px; color:#9a9484; letter-spacing:.4px;
+  }
+  #print-sheet .ps-foot .ps-foot-page { font-family:'JetBrains Mono',monospace; }
+
+  @media print {
+    #print-sheet { display:block !important; position:static !important; z-index:auto !important; }
+    #print-sheet .ps-page { page-break-after: always; }
+    .view-pane:not(#print-sheet) { display:none !important; }
+  }
   /* ── CREDIT LEDGER ROW ── */
   #credit-ledger-rows { max-height: 55vh; overflow-y: auto; }
 
@@ -645,380 +713,6 @@
   }
   .ltb-more-menu button:last-child { border-bottom: none; }
   .ltb-more-menu button:hover { background: var(--teal-pale); color: var(--teal-dark); }
-
-
-  /* ══════════════════════════════════════════
-     PHASE 3 — MOBILE UX & CLOSING EXPERIENCE
-  ══════════════════════════════════════════ */
-
-  /* ── GLOBAL MOBILE TIGHTENING ── */
-  body {
-    padding: 0 0 100px; /* room for sticky bar */
-  }
-  .page-body {
-    padding: 12px 12px 20px;
-  }
-  .card {
-    margin-bottom: 10px;
-    border-radius: var(--radius-md);
-  }
-
-  /* ── COMPACT CARD HEADER (collapsed row) ──
-     48-56px height, single line, thumb-friendly */
-  .card-head {
-    padding: 0 14px;
-    min-height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    cursor: pointer;
-    user-select: none;
-    transition: background .12s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .card-head:hover { background: #f1f5f9; }
-  .card-head:active { background: #e8f0fe; }
-
-  .card-head h3 {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--slate);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-
-
-  /* ── COLLAPSED CARD: hide all children except card-head ── */
-  .card.collapsed > :not(.card-head) {
-    display: none !important;
-  }
-  /* ── COLLAPSE ICON (right arrow when collapsed) ── */
-  .card.collapsed .collapse-icon { transform: rotate(-90deg); }
-  .collapse-icon { transition: transform .2s; font-size: 0.65rem; color: var(--muted); }
-
-  /* ── BADGE TOTAL IN COLLAPSED HEADER ── */
-  .card-total-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--teal-dark);
-    background: var(--teal-light);
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-family: 'JetBrains Mono', monospace;
-    display: none;
-    flex-shrink: 0;
-    margin-right: 4px;
-  }
-  .card.collapsed .card-total-badge { display: inline-flex; }
-
-  /* ── ROW TIGHTENING ── */
-  .row {
-    padding: 8px 14px;
-    font-size: 0.83rem;
-    min-height: 44px;
-  }
-  .row input[type="number"],
-  .row input[type="text"],
-  .row select {
-    padding: 5px 8px;
-    font-size: 0.82rem;
-    width: 110px;
-    min-height: 36px;
-  }
-
-  /* ── IMPROVED CLOSING HEADER (ledger) ── */
-  .closing-header-bar {
-    background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
-    padding: 10px 14px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .closing-header-date {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #fff;
-    letter-spacing: -.2px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .closing-header-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .closing-header-shift {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-  }
-  .closing-header-type {
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 1px 7px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-  }
-  .closing-header-type.type-normal { background: rgba(13,148,136,.25); color: #5eead4; }
-  .closing-header-type.type-extra  { background: rgba(245,158,11,.25); color: #fcd34d; }
-  .closing-header-type.type-final  { background: rgba(220,38,38,.2);   color: #fca5a5; }
-  .closing-header-time {
-    font-size: 0.68rem;
-    color: #64748b;
-    font-family: 'JetBrains Mono', monospace;
-    margin-left: auto;
-  }
-
-  /* ── STICKY LIVE SUMMARY BAR ── */
-  #sticky-summary-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 8000;
-    background: linear-gradient(135deg, var(--navy) 0%, #1e3a5f 100%);
-    padding: 8px 16px env(safe-area-inset-bottom, 8px);
-    box-shadow: 0 -4px 16px rgba(0,0,0,.25);
-    display: none; /* shown only on ledger page */
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    border-top: 1px solid rgba(255,255,255,.08);
-  }
-  #sticky-summary-bar.visible { display: flex; }
-  .sticky-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex: 1;
-    min-width: 0;
-  }
-  .sticky-label {
-    font-size: 0.58rem;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    white-space: nowrap;
-  }
-  .sticky-value {
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: #e2e8f0;
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    text-align: center;
-  }
-  .sticky-divider {
-    width: 1px;
-    height: 32px;
-    background: rgba(255,255,255,.08);
-    flex-shrink: 0;
-  }
-  #sticky-status-chip {
-    font-size: 0.65rem;
-    font-weight: 800;
-    padding: 3px 8px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  #sticky-status-chip.balanced { background: rgba(22,163,74,.2); color: #4ade80; }
-  #sticky-status-chip.extra    { background: rgba(245,158,11,.2); color: #fcd34d; }
-  #sticky-status-chip.short    { background: rgba(220,38,38,.2); color: #fca5a5; }
-
-  /* ── MANIFEST CARD STYLE ── */
-  .manifest-card {
-    margin: 0 12px 8px;
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-    transition: box-shadow .15s, border-color .15s;
-    cursor: pointer;
-  }
-  .manifest-card:active { box-shadow: var(--shadow-md); border-color: var(--teal); }
-  .manifest-card-head {
-    padding: 10px 14px 6px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .manifest-card-title {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--navy);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .manifest-card-head {
-    padding: 10px 14px;
-  }
-  .manifest-card-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  /* ── IMPROVED EMPTY STATE ── */
-  .empty-state {
-    text-align: center;
-    padding: 32px 20px;
-    color: var(--muted);
-  }
-  .empty-state-icon {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-    display: block;
-  }
-  .empty-state-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--slate);
-    margin-bottom: 4px;
-  }
-  .empty-state-sub {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-bottom: 16px;
-  }
-
-  /* ── SKELETON LOADER ── */
-  .skeleton {
-    background: linear-gradient(90deg, #f1f5f9 25%, #e8ecf1 50%, #f1f5f9 75%);
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.2s infinite;
-    border-radius: var(--radius-sm);
-  }
-  @keyframes skeleton-shimmer {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-  .skeleton-row {
-    height: 44px;
-    margin: 6px 12px;
-    border-radius: var(--radius-sm);
-  }
-  .skeleton-card {
-    height: 72px;
-    margin: 8px 12px;
-    border-radius: var(--radius-md);
-  }
-
-  /* ── PAGE TRANSITIONS ── */
-  .view-pane {
-    animation: pageFadeIn .18s ease;
-  }
-  @keyframes pageFadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ── KEYBOARD SCROLL HELPER ── */
-  .scroll-anchor { scroll-margin-top: 80px; }
-
-  /* ── AUTO-ADVANCE TOGGLE (settings) ── */
-  .toggle-switch-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--slate);
-  }
-  .toggle-switch {
-    position: relative;
-    width: 40px;
-    height: 22px;
-    flex-shrink: 0;
-  }
-  .toggle-switch input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider {
-    position: absolute;
-    inset: 0;
-    background: #cbd5e1;
-    border-radius: 22px;
-    cursor: pointer;
-    transition: background .2s;
-  }
-  .toggle-slider::before {
-    content: '';
-    position: absolute;
-    width: 16px; height: 16px;
-    left: 3px; bottom: 3px;
-    background: white;
-    border-radius: 50%;
-    transition: transform .2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,.2);
-  }
-  .toggle-switch input:checked + .toggle-slider { background: var(--teal); }
-  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
-
-  /* ── BOTTOM PADDING FOR STICKY BAR ── */
-  #page-ledger .page-body {
-    padding-bottom: 80px;
-  }
-
-  /* ── LEDGER TOOLBAR COMPACT ── */
-  .ledger-toolbar {
-    padding: 8px 12px;
-  }
-  .ltb-title { font-size: 0.88rem; }
-  .ltb-meta  { font-size: 0.65rem; }
-  .ltb-icon-btn { width: 34px; height: 34px; font-size: 0.9rem; }
-
-  /* ── MANIFEST DATE HEADER ── */
-  .manifest-date-header {
-    padding: 6px 12px 2px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-
-  /* ── ACCESSIBILITY ── */
-  @media (prefers-reduced-motion: reduce) {
-    *, .view-pane, .skeleton { animation: none !important; transition: none !important; }
-  }
-
-  /* ── SMALL SCREEN TWEAKS ── */
-  @media (max-width: 380px) {
-    .row input[type="number"],
-    .row input[type="text"] { width: 95px; }
-    .closing-header-date { font-size: 0.9rem; }
-    .sticky-value { font-size: 0.75rem; }
-  }
 
   /* ── PRINT MODE ── */
   @media print {
@@ -1314,22 +1008,8 @@
           </div>
         </div>
         <div class="btn-row">
-          <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Closing</button>
-          <button class="btn btn-ghost" style="background:var(--amber-pale);color:#92400e;border-color:#fde68a;" onclick="openExtraClosingFromPicker()">➕ Extra Closing</button>
+          <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Sheet</button>
           <button class="btn btn-ghost" onclick="document.getElementById('shift-picker').classList.add('hidden')">Cancel</button>
-        </div>
-      </div>
-      <!-- DAY DETAIL PANEL — shown when a date with existing closings is tapped (Item 7) -->
-      <div id="day-detail-panel" class="date-picker-panel hidden">
-        <h4 id="lbl-day-detail-date">15-Jun-2026</h4>
-        <div style="padding:8px 0;">
-          <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Latest</div>
-          <div id="day-detail-latest"></div>
-        </div>
-        <div id="day-detail-other-wrap" style="margin-top:6px;"></div>
-        <div class="btn-row" style="margin-top:10px;">
-          <button class="btn btn-ghost" onclick="openDatePickerForceShiftPicker()">➕ New / Extra Closing</button>
-          <button class="btn btn-ghost" onclick="document.getElementById('day-detail-panel').classList.add('hidden')">Close</button>
         </div>
       </div>
       <div class="card">
@@ -1426,18 +1106,6 @@
             <input type="number" id="set-final-every-n" style="width:70px;" value="3"></div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Mobile UX</h3></div>
-        <div class="card-body">
-          <div class="toggle-switch-row">
-            <span>Auto-Advance Sections<br><small style="color:var(--muted);font-size:0.72rem;">Collapse completed sections and open the next one automatically</small></span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="set-auto-advance" checked onchange="_autoAdvanceEnabled=this.checked;">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
       <!-- Named Credit Accounts (dynamic) -->
       <div class="card">
         <div class="card-head" style="cursor:default;">
@@ -1467,42 +1135,12 @@
         </div>
         <div id="settings-strips" style="max-height:280px; overflow-y:auto;"></div>
       </div>
-      <!-- Manager Security -->
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>🔐 Manager Security</h3></div>
-        <div class="card-body">
-          <p style="font-size:0.8rem;color:var(--muted);padding:4px 0 10px;">Change the manager PIN. Minimum 6 characters, maximum 20. Stored as SHA-256 hash — never in plain text.</p>
-          <div class="row"><label>Current PIN</label><input type="password" id="set-current-pin" placeholder="Enter current PIN" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
-          <div class="row"><label>New PIN</label><input type="password" id="set-new-pin" placeholder="New PIN (6–20 chars)" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
-          <div class="row"><label>Confirm New PIN</label><input type="password" id="set-confirm-pin" placeholder="Re-enter new PIN" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;"></div>
-          <div id="pin-change-msg" style="min-height:18px;font-size:0.78rem;font-weight:600;padding:0 16px 4px;"></div>
-          <button class="btn btn-teal" style="margin:4px 16px 4px;width:calc(100% - 32px);" onclick="changeManagerPIN()">🔑 Update Manager PIN</button>
-        </div>
-      </div>
-      <!-- Audit Log -->
-      <div class="card">
-        <div class="card-head" style="cursor:default;display:flex;align-items:center;justify-content:space-between;">
-          <h3>📋 Audit Log</h3>
-          <button class="btn btn-ghost btn-sm" onclick="renderAuditLog()">↺ Refresh</button>
-        </div>
-        <div id="audit-log-list"><div style="padding:12px 16px;color:var(--muted);font-size:0.8rem;">No audit entries yet.</div></div>
-      </div>
       <button class="btn btn-green btn-full" onclick="saveSettings()">💾 Save Settings</button>
     </div>
   </div>
 
   <!-- ══ PAGE 4 — SHIFT LEDGER ══ -->
   <div id="page-ledger" class="view-pane hidden">
-
-    <!-- ══ IMPROVED CLOSING HEADER ══ -->
-    <div class="closing-header-bar" id="closing-header-bar">
-      <div class="closing-header-date" id="ch-date">—</div>
-      <div class="closing-header-meta">
-        <span class="closing-header-shift" id="ch-shift">—</span>
-        <span class="closing-header-type type-normal" id="ch-type">NORMAL</span>
-        <span class="closing-header-time" id="ch-time">—</span>
-      </div>
-    </div>
 
     <div class="pager">
       <button class="btn btn-nav" onclick="moveLedgerShift(-1)">◀ Prev Shift</button>
@@ -1569,6 +1207,13 @@
           <div class="row"><label>Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
           <div class="row"><label>Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
           <div class="row"><label>Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
+          <!-- Returns (3 cells) -->
+          <div style="background:#f8fafc; padding:6px 16px 2px; font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;">Returns / Refunds</div>
+          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
+          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
         </div>
       </div>
 
@@ -1586,13 +1231,6 @@
           <div class="row"><label>Book Bill 1:</label><input type="number" id="in-book-1" oninput="calc()"></div>
           <div class="row"><label>Book Bill 2:</label><input type="number" id="in-book-2" oninput="calc()"></div>
           <div class="row computed" id="box-out-cust"><label>Customers This Shift (delta):</label><input type="number" id="out-cust" oninput="setOverride('out-cust')"></div>
-          <!-- Returns / Refunds (moved from POS Block) -->
-          <div style="background:#f8fafc; padding:6px 16px 2px; font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;">Returns / Refunds</div>
-          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
-          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
           <div class="row highlight-blue"><label>Net Sale (this shift):</label><input type="number" id="out-net-sale" readonly value="0"></div>
         </div>
       </div>
@@ -1878,36 +1516,6 @@
   </div>
 </div>
 
-<!-- ═══ MANAGER PIN MODAL ═══ -->
-<div id="pin-modal-overlay" class="hidden">
-  <div class="pin-modal-sheet" onclick="event.stopPropagation()">
-    <p class="pin-modal-title">Manager PIN Required</p>
-    <p class="pin-modal-sub" id="pin-modal-sub">Enter the manager PIN to continue.</p>
-    <input type="password" id="pin-modal-input" class="pin-modal-input" placeholder="PIN" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-    <div class="pin-modal-error" id="pin-modal-error"></div>
-    <div class="pin-modal-btns">
-      <button class="btn btn-ghost" onclick="_pinModalCancel()">Cancel</button>
-      <button class="btn btn-teal" onclick="_pinModalSubmit()">Unlock</button>
-    </div>
-    <div style="text-align:center;margin-top:10px;">
-      <button onclick="_resetPinToDefault()" style="background:none;border:none;color:var(--muted);font-size:0.72rem;cursor:pointer;text-decoration:underline;">Forgot PIN? Reset to default</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ DELETE CONFIRM MODAL ═══ -->
-<div id="delete-confirm-overlay" class="hidden">
-  <div class="delete-confirm-sheet" onclick="event.stopPropagation()">
-    <p class="delete-confirm-title">⚠️ Confirm Permanent Deletion</p>
-    <p class="delete-confirm-msg" id="delete-confirm-msg">Are you sure you want to permanently delete this closing?</p>
-    <div class="delete-confirm-btns">
-      <button class="btn btn-ghost" onclick="_deleteConfirmCancel()">Cancel</button>
-      <button class="btn btn-red" onclick="_deleteConfirmProceed()">Delete Permanently</button>
-    </div>
-  </div>
-</div>
-
-
 <script>
 /* ═══════════════════════════════════════════
    CONSTANTS & STATE
@@ -1916,28 +1524,6 @@ const PIN    = "1218";
 const SHIFTS = ["Night","Morning","Evening"];
 const SHIFT_SR = {Morning:1, Evening:2, Night:3};
 function srLabel(shift) { return `Closing ${SHIFT_SR[shift]||'?'} — ${shift}`; }
-
-/* ═══════════════════════════════════════════
-   DISPLAY NAME FORMATTING — "DD-MMM-YYYY Shift"
-   (Display only — internal record keys / IDs ["YYYY-MM-DD_Shift"]
-   are NOT changed.)
-═══════════════════════════════════════════ */
-const DISPLAY_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function formatDisplayDate(ds) {
-  /* ds expected as "YYYY-MM-DD"; fall back gracefully if malformed */
-  if(!ds || typeof ds !== 'string') return ds || '';
-  const parts = ds.split('-');
-  if(parts.length !== 3) return ds;
-  const [y, m, d] = parts;
-  const mi = parseInt(m, 10) - 1;
-  if(isNaN(mi) || mi < 0 || mi > 11 || !d || !y) return ds;
-  return `${d.padStart(2,'0')}-${DISPLAY_MONTHS[mi]}-${y}`;
-}
-/* "DD-MMM-YYYY Shift" — used for Dashboard, Saved Records, PDF title, Ledger header, Manifest */
-function recordDisplayName(key) {
-  const parts = key.split('_');
-  return `${formatDisplayDate(parts[0])} ${parts[1]}`;
-}
 const DENOMS = [
   {label:"Rs. 5,000 notes", mult:5000},
   {label:"Rs. 1,000 notes", mult:1000},
@@ -1975,32 +1561,15 @@ let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
       {name:"Juice Pack 250x",   price:6}
     ]
   },
-  sheets: {},
-  extraSheets: {},   /* UUID-keyed extra closings — never touch db.sheets keys */
-  auditLog:    []    /* local audit trail — max 200 entries */
+  sheets: {}
 };
 
 /* migrate legacy data */
 if(!db.settings.namedCredits && db.settings.creditLabels) {
   db.settings.namedCredits = db.settings.creditLabels.map(l=>({label:l}));
 }
-/* Manager PIN — default "SALMAN" stored as SHA-256 hash (never plain text) */
-if(!db.settings.managerPinHash) {
-  db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
-}
-/* Phase 2 migrations — additive, zero data loss */
-if(!db.extraSheets) db.extraSheets = {};
-if(!db.auditLog)    db.auditLog    = [];
-/* Back-fill closingType/extraSequence on old normal sheets so they display correctly */
-Object.values(db.sheets).forEach(rec => {
-  if(rec && !rec.closingType) {
-    rec.closingType    = 'NORMAL';
-    rec.extraSequence  = 0;
-  }
-});
 
 let activeKey      = null;
-let activeExtraId  = null;  /* UUID of current extra closing; null when editing a normal closing */
 let activeMode     = "shift";
 let overrides      = {};
 let isSavedSheet   = false;
@@ -2159,104 +1728,15 @@ function showPage(id) {
 function goToDashboard() {
   _draftReady = false;          /* stop auto-draft when leaving ledger */
   clearTimeout(_draftTimer);
-  activeExtraId = null;         /* clear extra-closing context */
-  /* Phase 3: hide sticky bar when leaving ledger */
-  const stickyBar = document.getElementById('sticky-summary-bar');
-  if(stickyBar) stickyBar.classList.remove('visible');
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
 }
-/* ═══════════════════════════════════════════
-   MANAGER PIN (SHA-256) — Settings & Delete protection
-═══════════════════════════════════════════ */
-async function sha256Hex(str) {
-  const buf  = new TextEncoder().encode(str);
-  const hash = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-let _pinModalResolve = null;
-function _showPinModal(subtitle) {
-  const overlay = document.getElementById('pin-modal-overlay');
-  const sub     = document.getElementById('pin-modal-sub');
-  const input   = document.getElementById('pin-modal-input');
-  const err     = document.getElementById('pin-modal-error');
-  sub.textContent = subtitle || 'Enter the manager PIN to continue.';
-  input.value = '';
-  err.textContent = '';
-  overlay.classList.remove('hidden');
-  setTimeout(() => input.focus(), 50);
-  return new Promise(resolve => { _pinModalResolve = resolve; });
-}
-function _pinModalCancel() {
-  document.getElementById('pin-modal-overlay').classList.add('hidden');
-  if(_pinModalResolve) { _pinModalResolve(false); _pinModalResolve = null; }
-}
-async function _pinModalSubmit() {
-  const input = document.getElementById('pin-modal-input');
-  const err   = document.getElementById('pin-modal-error');
-  const entered = (input.value || '').trim();
-  const hash = await sha256Hex(entered);
-  if(hash === db.settings.managerPinHash) {
-    document.getElementById('pin-modal-overlay').classList.add('hidden');
-    if(_pinModalResolve) { _pinModalResolve(true); _pinModalResolve = null; }
-  } else {
-    err.textContent = 'Incorrect PIN. Please try again.';
-    input.value = '';
-    input.focus();
-  }
-}
-/* Recovery path: reset the manager PIN back to the default "SALMAN" hash.
-   Useful when the stored hash is unknown/corrupted and the device has no
-   DevTools access to inspect localStorage directly. */
-function _resetPinToDefault() {
-  if(!confirm('Reset the manager PIN back to the default "SALMAN"?\n\nYou should change it again afterwards from Settings → Manager Security.')) return;
-  db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
-  persist();
-  appendAuditLog('PIN Reset', 'Manager Security', 'Reset to default');
-  document.getElementById('pin-modal-error').textContent = '';
-  alert('Manager PIN has been reset to "SALMAN". Please enter it now to continue, then change it in Settings.');
-  document.getElementById('pin-modal-input').value = '';
-  document.getElementById('pin-modal-input').focus();
-}
-/* returns a Promise<boolean> — true if manager PIN verified */
-function requireManagerPin(subtitle) {
-  return _showPinModal(subtitle);
-}
-
-/* allow Enter key to submit the PIN modal */
-document.addEventListener('DOMContentLoaded', () => {
-  const input = document.getElementById('pin-modal-input');
-  if(input) input.addEventListener('keydown', e => { if(e.key === 'Enter') _pinModalSubmit(); });
-});
-
-/* ═══════════════════════════════════════════
-   DELETE CONFIRMATION MODAL
-═══════════════════════════════════════════ */
-let _deleteConfirmResolve = null;
-function _showDeleteConfirm(message) {
-  const overlay = document.getElementById('delete-confirm-overlay');
-  document.getElementById('delete-confirm-msg').textContent = message || 'Are you sure you want to permanently delete this closing?';
-  overlay.classList.remove('hidden');
-  return new Promise(resolve => { _deleteConfirmResolve = resolve; });
-}
-function _deleteConfirmCancel() {
-  document.getElementById('delete-confirm-overlay').classList.add('hidden');
-  if(_deleteConfirmResolve) { _deleteConfirmResolve(false); _deleteConfirmResolve = null; }
-}
-function _deleteConfirmProceed() {
-  document.getElementById('delete-confirm-overlay').classList.add('hidden');
-  if(_deleteConfirmResolve) { _deleteConfirmResolve(true); _deleteConfirmResolve = null; }
-}
-
-async function goToSettings()  {
-  const ok = await requireManagerPin('Enter the manager PIN to access Settings.');
-  if(!ok) return;
-  appendAuditLog('Settings Opened', 'Settings Page', 'Unlocked');
+function goToSettings()  {
+  let pin = prompt("Enter settings PIN:");
+  if(pin !== PIN) { alert("Incorrect PIN."); return; }
   showPage('page-settings');
   buildSettingsUI();
-  renderAuditLog();
 }
 function goToSummary(dateStr) {
   summaryDateStr = dateStr;
@@ -2298,13 +1778,6 @@ function buildCalendar() {
         const dot = document.createElement('span'); dot.className=`dot dot-${s.toLowerCase()}`; dots.appendChild(dot);
       }
     });
-    /* extra-closing indicator dot — purely visual, does not affect any calculation or timeline */
-    const hasExtra = Object.values(db.extraSheets || {}).some(r => r && r.date === ds && r.draft !== true);
-    if(hasExtra) {
-      const exDot = document.createElement('span');
-      exDot.className = 'dot'; exDot.style.background = 'var(--amber)'; exDot.style.border = '1px solid #92400e';
-      dots.appendChild(exDot);
-    }
     cell.appendChild(dots);
     cell.onclick = () => openDatePicker(ds);
     grid.appendChild(cell);
@@ -2314,98 +1787,10 @@ function buildCalendar() {
 function shiftMonth(n) { calViewDate.setMonth(calViewDate.getMonth()+n); buildCalendar(); }
 
 function openDatePicker(ds) {
-  /* Item 7: if this date already has any closing (normal or extra),
-     show the Day Detail panel (latest + "Other Closings") instead of
-     jumping straight to the shift-picker. New dates still go straight
-     to the shift-picker, unchanged from before. */
-  const dayEntries = getDayClosings(ds);
-  if(dayEntries.length > 0) {
-    showDayDetailPanel(ds, dayEntries);
-    return;
-  }
-  document.getElementById('lbl-picker-date').dataset.date = ds; /* used by force-open too */
-  _openShiftPickerPanel(ds);
-}
-
-function _openShiftPickerPanel(ds) {
   const panel = document.getElementById('shift-picker');
   panel.classList.remove('hidden');
   document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
   document.getElementById('lbl-picker-date').dataset.date = ds;
-}
-
-/* Force-open the shift-picker from the Day Detail panel (for "New / Extra Closing") */
-function openDatePickerForceShiftPicker() {
-  const ds = document.getElementById('lbl-day-detail-date').dataset.date;
-  document.getElementById('day-detail-panel').classList.add('hidden');
-  _openShiftPickerPanel(ds);
-}
-
-/* Returns all closings (normal + extra) for a given date, sorted newest-created first */
-function getDayClosings(ds) {
-  const entries = [];
-  SHIFTS.forEach(shift => {
-    const key = `${ds}_${shift}`;
-    if(isRealSheet(db.sheets[key])) {
-      entries.push({ kind:'NORMAL', key, shift, createdAt: db.sheets[key].createdAt || 0, extraSequence: 0 });
-    }
-  });
-  Object.keys(db.extraSheets || {}).forEach(id => {
-    const rec = db.extraSheets[id];
-    if(rec && rec.date === ds && rec.draft !== true) {
-      entries.push({ kind:'EXTRA', key:`${rec.date}_${rec.shift}`, shift: rec.shift, extraId: id, createdAt: rec.createdAt || 0, extraSequence: rec.extraSequence || 0 });
-    }
-  });
-  /* newest first: by createdAt desc, falling back to shift chrono + sequence */
-  entries.sort((a, b) => (b.createdAt - a.createdAt));
-  return entries;
-}
-
-function showDayDetailPanel(ds, dayEntries) {
-  document.getElementById('shift-picker').classList.add('hidden');
-  const panel = document.getElementById('day-detail-panel');
-  panel.classList.remove('hidden');
-  const dateLbl = document.getElementById('lbl-day-detail-date');
-  dateLbl.textContent = formatDisplayDate(ds);
-  dateLbl.dataset.date = ds;
-
-  const latest = dayEntries[0];
-  const others = dayEntries.slice(1);
-
-  function entryRow(e) {
-    const label = e.kind === 'EXTRA' ? extraDisplayName(db.extraSheets[e.extraId]) : recordDisplayName(e.key);
-    const badgeHtml = e.kind === 'EXTRA' ? `<span class="badge badge-extra">EXTRA</span>` : `<span class="badge badge-normal">NORMAL</span>`;
-    const openAction = e.kind === 'EXTRA' ? `loadExtraKey('${e.extraId}')` : `loadKey('${e.key}')`;
-    return `<div class="manifest-item">
-      <span class="key-label" style="display:flex;align-items:center;gap:6px;">📦 ${label}</span>
-      <div style="display:flex;gap:8px;align-items:center;">${badgeHtml}
-        <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
-      </div>
-    </div>`;
-  }
-
-  document.getElementById('day-detail-latest').innerHTML = entryRow(latest);
-
-  const otherWrap = document.getElementById('day-detail-other-wrap');
-  if(others.length > 0) {
-    otherWrap.innerHTML = `
-      <button class="btn btn-ghost btn-sm" style="width:100%;" onclick="toggleDayDetailOthers()">
-        <span id="day-detail-others-toggle-label">▼ Other Closings (${others.length})</span>
-      </button>
-      <div id="day-detail-others-list" class="hidden">${others.map(entryRow).join('')}</div>`;
-  } else {
-    otherWrap.innerHTML = '';
-  }
-}
-
-function toggleDayDetailOthers() {
-  const list = document.getElementById('day-detail-others-list');
-  const lbl  = document.getElementById('day-detail-others-toggle-label');
-  if(!list) return;
-  const hidden = list.classList.contains('hidden');
-  list.classList.toggle('hidden');
-  const count = list.querySelectorAll('.manifest-item').length;
-  if(lbl) lbl.textContent = hidden ? `▲ Other Closings (${count})` : `▼ Other Closings (${count})`;
 }
 
 function openSheetFromPicker() {
@@ -2443,9 +1828,8 @@ function openSheetFromPicker() {
     }
   }
 
-  activeKey     = key;
-  activeExtraId = null;  /* opening a normal closing — clear any stale extra-closing context */
-  overrides     = db.sheets[activeKey]?.overrides || {};
+  activeKey   = key;
+  overrides   = db.sheets[activeKey]?.overrides || {};
   initLedger(ds, shift, activeMode);
 }
 
@@ -2488,33 +1872,18 @@ function renderManifest() {
   const fromDate = document.getElementById('filter-date-from')?.value || '';
   const toDate   = document.getElementById('filter-date-to')?.value   || '';
 
-  /* Build a unified list of {key, kind, extraId} entries from both
-     db.sheets (normal) and db.extraSheets (extra). Normal sheets keep
-     their existing key-based identity; extras carry their own UUID. */
-  const normalEntries = Object.keys(db.sheets)
-    .filter(k => !!db.sheets[k])
-    .map(k => ({ sortKey: sheetSortKey(k), dateStr: k.split('_')[0], key: k, kind: 'NORMAL', extraId: null }));
-
-  const extraEntries = Object.keys(db.extraSheets || {})
-    .filter(id => !!db.extraSheets[id])
-    .map(id => {
-      const rec = db.extraSheets[id];
-      const baseKey = `${rec.date}_${rec.shift}`;
-      return {
-        sortKey: sheetSortKey(baseKey) + '_' + String(rec.extraSequence || 0).padStart(4,'0'),
-        dateStr: rec.date, key: baseKey, kind: 'EXTRA', extraId: id
-      };
-    });
-
-  let allEntries = [...normalEntries, ...extraEntries].filter(e => {
-    if(fromDate && e.dateStr < fromDate) return false;
-    if(toDate   && e.dateStr > toDate)   return false;
+  /* include BOTH saved sheets AND drafts (draft=true) */
+  const allKeys = Object.keys(db.sheets).filter(k => {
+    const rec = db.sheets[k];
+    if(!rec) return false;
+    const dateStr = k.split('_')[0];
+    if(fromDate && dateStr < fromDate) return false;
+    if(toDate   && dateStr > toDate)   return false;
     return true;
   });
 
-  /* sort newest first: date/shift DESC, then within a shift Extra-N before the normal closing
-     (so the most recently created closing for that shift appears first) */
-  allEntries.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+  /* sort chronologically: date asc, then Night→Morning→Evening */
+  allKeys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
 
   /* update filter badge */
   const badge = document.getElementById('manifest-filter-badge');
@@ -2524,91 +1893,40 @@ function renderManifest() {
     badge.textContent = active ? `Filtered` : '';
   }
 
-  if(!allEntries.length) {
-    const emptyTitle = (fromDate||toDate) ? 'No records in this range' : 'No Closings Yet';
-    const emptySub   = (fromDate||toDate) ? 'Try adjusting the date filter.' : 'Tap a date on the calendar to create your first shift closing.';
-    const emptyBtn   = (!fromDate&&!toDate) ? '<button class="btn btn-teal btn-sm" onclick="buildCalendar()" style="margin:0 auto;display:inline-flex;">📅 Pick a Date</button>' : '';
-    box.innerHTML = '<div class="empty-state" style="padding:32px 20px;">' +
-      '<span class="empty-state-icon">📭</span>' +
-      '<div class="empty-state-title">' + emptyTitle + '</div>' +
-      '<div class="empty-state-sub">' + emptySub + '</div>' +
-      emptyBtn + '</div>';
-    return;
+  if(!allKeys.length) {
+    box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
   }
   box.innerHTML = "";
-
-  /* show only first 3 by default, unless user has expanded; respect active filter (show all when filtering) */
-  const isFiltering = !!(fromDate || toDate);
-  const _manifestExpanded = window._manifestExpanded || false;
-  const showAll = isFiltering || _manifestExpanded;
-  const VISIBLE_DEFAULT = 3;
-  const entriesToShow = showAll ? allEntries : allEntries.slice(0, VISIBLE_DEFAULT);
-
-  /* group consecutively by date, inserting a date header whenever the date changes */
-  let lastDateHeader = null;
-  entriesToShow.forEach(entry => {
-    if(entry.dateStr !== lastDateHeader) {
-      lastDateHeader = entry.dateStr;
-      const header = document.createElement('div');
-      header.className = 'manifest-date-header';
-      header.textContent = formatDisplayDate(entry.dateStr);
-      box.appendChild(header);
-    }
-
-    const rec = entry.kind === 'EXTRA' ? db.extraSheets[entry.extraId] : db.sheets[entry.key];
-    if(!rec) return;
+  allKeys.forEach(k => {
+    const rec  = db.sheets[k];
     const isDraft = rec.draft === true;
     const mode = rec.profileMode || 'shift';
+    const parts = k.split('_');
+    const sr = srLabel(parts[1]);
     const div = document.createElement('div');
-    div.className = "manifest-card";
-    if(isDraft) div.style.opacity = '0.85';
+    div.className = "manifest-item";
+    if(isDraft) div.style.opacity = '0.75';
 
     let badgeHtml = '';
     if(isDraft) {
       badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
-    } else if(entry.kind === 'EXTRA') {
-      badgeHtml = `<span class="badge badge-extra">EXTRA</span>`;
     } else if(mode === 'final') {
       badgeHtml = `<span class="badge badge-final">FINAL</span>`;
     } else {
-      badgeHtml = `<span class="badge badge-normal">NORMAL</span>`;
+      badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
     }
 
-    const label = entry.kind === 'EXTRA' ? extraDisplayName(rec) : recordDisplayName(entry.key);
-    const openAction   = entry.kind === 'EXTRA' ? `loadExtraKey('${entry.extraId}')`   : `loadKey('${entry.key}')`;
-    const deleteAction = entry.kind === 'EXTRA' ? `deleteExtraSheet('${entry.extraId}')` : `deleteSheet('${entry.key}')`;
-
     div.innerHTML = `
-      <div class="manifest-card-head">
-        <span class="manifest-card-title">${isDraft ? '✏️' : '📦'} ${label}</span>
-        <div class="manifest-card-actions" style="display:flex;align-items:center;gap:6px;">
-          ${badgeHtml}
-          <button class="btn btn-ghost btn-sm" onclick="${openAction}">Open</button>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);padding:5px 8px;" onclick="${deleteAction}">🗑</button>
-        </div>
+      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
+        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
+      </span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${badgeHtml}
+        <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
       </div>`;
-    /* tap whole card to open */
-    div.querySelector('.manifest-card-head').addEventListener('click', function(e){
-      if(e.target.tagName!=='BUTTON') { if(entry.kind==='EXTRA'){loadExtraKey(entry.extraId);}else{loadKey(entry.key);} }
-    });
     box.appendChild(div);
   });
-
-  /* Show More / Show Less footer — only when not filtering and more than 3 records exist */
-  if(!isFiltering && allEntries.length > VISIBLE_DEFAULT) {
-    const footer = document.createElement('div');
-    footer.style.cssText = 'padding:10px 16px;text-align:center;border-top:1px solid var(--border);';
-    const remaining = allEntries.length - VISIBLE_DEFAULT;
-    footer.innerHTML = _manifestExpanded
-      ? `<button class="btn btn-ghost btn-sm" onclick="toggleManifestExpand()" style="width:100%;font-size:0.8rem;">▲ Show Less</button>`
-      : `<button class="btn btn-ghost btn-sm" onclick="toggleManifestExpand()" style="width:100%;font-size:0.8rem;">▼ Show More (${remaining} older records)</button>`;
-    box.appendChild(footer);
-  }
-}
-
-function toggleManifestExpand() {
-  window._manifestExpanded = !window._manifestExpanded;
-  renderManifest();
 }
 
 /* ═══════════════════════════════════════════
@@ -2692,18 +2010,7 @@ function importDataJSON(evt) {
       if(!incoming.sheets || !incoming.settings) { alert('Invalid backup file.'); return; }
       if(!confirm('This will REPLACE all current data on this device with the backup file. Continue?')) return;
       db = incoming;
-      /* Defensive migration: old backups (pre-Phase-2) won't have these fields.
-         Apply the same safe defaults used on normal app load — zero data loss. */
-      if(!db.extraSheets) db.extraSheets = {};
-      if(!db.auditLog)    db.auditLog    = [];
-      if(!db.settings.managerPinHash) {
-        db.settings.managerPinHash = "092136c8fb3cb70d654532dde489d7605d1c9e6ca54374bfe2fcc3d28b98bdbe"; /* SHA-256("SALMAN") */
-      }
-      Object.values(db.sheets).forEach(rec => {
-        if(rec && !rec.closingType) { rec.closingType = 'NORMAL'; rec.extraSequence = 0; }
-      });
       persist();
-      appendAuditLog('Backup Restored', file.name || 'backup.json', 'Success');
       alert('Backup restored.');
       goToDashboard();
     } catch(err) {
@@ -2978,43 +2285,13 @@ function openTierPicker(num) { /* triggered by change, handled via mousedown */ 
 /* ═══════════════════════════════════════════
    LEDGER INIT
 ═══════════════════════════════════════════ */
-function initLedger(ds, shift, mode, extraId) {
+function initLedger(ds, shift, mode) {
   showPage('page-ledger');
 
-  const extraRec = extraId ? db.extraSheets[extraId] : null;
-  const isExtra  = !!extraRec;
-
-  document.getElementById('lbl-ledger-pager').textContent = isExtra
-    ? `${formatDisplayDate(ds)} — ${shift} Extra-${extraRec.extraSequence}`
-    : `${formatDisplayDate(ds)} — ${srLabel(shift)}`;
-  document.getElementById('lbl-ledger-title').textContent = isExtra
-    ? `${shift} Extra-${extraRec.extraSequence}`
-    : `${shift} Register`;
-  document.getElementById('lbl-ledger-meta').textContent  = `${formatDisplayDate(ds)} · BT-PHARMA`;
-  document.getElementById('ledger-badge').innerHTML = isExtra
-    ? `<span class="badge badge-extra">EXTRA</span>`
-    : `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
-
-  /* ── Phase 3: Update improved closing header ── */
-  const chDate = document.getElementById('ch-date');
-  const chShift = document.getElementById('ch-shift');
-  const chType = document.getElementById('ch-type');
-  const chTime = document.getElementById('ch-time');
-  if(chDate)  chDate.textContent = formatDisplayDate(ds);
-  if(chShift) chShift.textContent = isExtra ? `${shift} Extra-${extraRec.extraSequence}` : `${shift} Shift`;
-  if(chType) {
-    chType.textContent = isExtra ? `EXTRA #${extraRec.extraSequence}` : mode.toUpperCase();
-    chType.className = 'closing-header-type ' + (isExtra ? 'type-extra' : mode==='final' ? 'type-final' : 'type-normal');
-  }
-  if(chTime) {
-    const existingRec2 = activeExtraId ? db.extraSheets[activeExtraId] : db.sheets[activeKey];
-    const createdAt = existingRec2?.createdAt || Date.now();
-    const d = new Date(createdAt);
-    chTime.textContent = 'Created: ' + d.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit'});
-  }
-  /* Show sticky summary bar */
-  const stickyBar = document.getElementById('sticky-summary-bar');
-  if(stickyBar) stickyBar.classList.add('visible');
+  document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
+  document.getElementById('lbl-ledger-title').textContent = `${srLabel(shift)} Register`;
+  document.getElementById('lbl-ledger-meta').textContent  = `${ds} · BT-PHARMA`;
+  document.getElementById('ledger-badge').innerHTML = `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
   if(mm) mm.classList.add('hidden');
@@ -3104,21 +2381,13 @@ function initLedger(ds, shift, mode, extraId) {
     else { el.classList.remove('final-editable'); }
   });
 
-  if(activeExtraId && db.extraSheets[activeExtraId]) {
-    /* Extra closing: hydrate from its own saved data if not a fresh draft;
-       otherwise pull carry-forward context from the normal timeline so the
-       extra closing starts from the same baseline as a normal closing would. */
-    const extraRec = db.extraSheets[activeExtraId];
-    isSavedSheet = !extraRec.draft;
-    if(!extraRec.draft) {
-      hydrate(extraRec);
-    } else {
-      flushInputs();
-      pullPreviousShift(ds, shift, mode);
-      if(mode === 'shift' || mode === 'final') zeroCreditEntries();
-    }
-  } else if(db.sheets[activeKey]) {
-    isSavedSheet = true;
+  if(db.sheets[activeKey]) {
+    /* Only a fully-closed sheet (draft === false) should freeze the
+       computed carry-over fields. An auto-draft or manually-saved draft
+       (draft === true) is still being worked on, so its computed fields
+       must keep recalculating live — matching the intent already
+       documented in saveDraft(). */
+    isSavedSheet = (db.sheets[activeKey].draft !== true);
     hydrate(db.sheets[activeKey]);
   } else {
     isSavedSheet = false;
@@ -3132,10 +2401,7 @@ function initLedger(ds, shift, mode, extraId) {
   setTimeout(() => { _draftReady = true; }, 600);
 
   /* apply view-only / editable state based on the saved record */
-  const lockedState = activeExtraId
-    ? !!db.extraSheets[activeExtraId]?.locked
-    : !!db.sheets[activeKey]?.locked;
-  setLockedState(lockedState);
+  setLockedState(!!db.sheets[activeKey]?.locked);
 }
 
 /* ═══════════════════════════════════════════
@@ -3641,9 +2907,6 @@ function calc() {
     banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
     banEl.className = 'val neg';
   }
-  /* ── Phase 3: update sticky summary bar ── */
-  updateStickySummary(bannerTarget, bannerCash);
-  /* section status indicators removed */
   /* ── real-time auto-draft ── */
   scheduleAutoSave();
 }
@@ -3749,11 +3012,9 @@ function populateNameDropdown(num) {
    SAVE / HYDRATE
 ═══════════════════════════════════════════ */
 function buildSheetRecord() {
-  const existingCreatedAt = db.sheets[activeKey]?.createdAt || Date.now();
   return {
     profileMode: activeMode,
     overrides:   overrides,
-    createdAt:   existingCreatedAt,
     inSysCash:    val('in-sys-cash'),
     inLastBillAmt:val('in-last-bill-amt'),
     inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
@@ -3830,9 +3091,6 @@ function buildSheetRecord() {
 }
 
 function saveSheet(silent=false) {
-  /* Dispatch to extra-closing save path when an extra closing is active */
-  if(activeExtraId) { saveExtraSheet(silent); return; }
-
   const record = buildSheetRecord();
   record.draft  = false;
   record.locked = true;
@@ -4042,22 +3300,7 @@ function scheduleAutoSave() {
       const record = buildSheetRecord();
       record.draft  = true;
       record.locked = false;
-      if(activeExtraId) {
-        /* Extra closing draft — never touch db.sheets */
-        const existing = db.extraSheets[activeExtraId];
-        if(existing) {
-          record.id            = existing.id;
-          record.date          = existing.date;
-          record.shift         = existing.shift;
-          record.closingType   = 'EXTRA';
-          record.extraSequence = existing.extraSequence;
-          record.createdAt     = existing.createdAt;
-          record.updatedAt     = Date.now();
-          db.extraSheets[activeExtraId] = record;
-        }
-      } else {
-        db.sheets[activeKey] = record;
-      }
+      db.sheets[activeKey] = record;
       localStorage.setItem('pharmpos_v2', JSON.stringify(db));
       scheduleSyncPush(0); /* push draft immediately */
     } catch(e) { /* silent — draft save is best-effort */ }
@@ -4102,47 +3345,94 @@ function buildPrintSheet() {
   const parts = activeKey ? activeKey.split('_') : ['',''];
   const ds = parts[0], shift = parts[1];
   const psRow = (label, value, cls='') => `<div class="ps-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
-  const num = (id) => (parseFloat(g(id)?.value)||0).toLocaleString('en-PK');
+  const psRowOrEmpty = (label, raw, cls='') => {
+    const n = parseFloat(raw)||0;
+    return n !== 0 ? psRow(label, n.toLocaleString('en-PK'), cls) : psRow(label, '—', cls + ' ps-empty');
+  };
+  const num   = (id) => (parseFloat(g(id)?.value)||0).toLocaleString('en-PK');
+  const numRaw= (id) => parseFloat(g(id)?.value)||0;
+  const branchName = db.settings.branchName || 'Bahria Town Branch';
+  const genStamp = new Date().toLocaleString('en-PK', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
-  /* TILL CASH box */
+  /* ════════════════════════════════════════════════════════
+     PAGE 1 — SHIFT CLOSING
+  ════════════════════════════════════════════════════════ */
+
+  /* Identity strip */
+  const idStrip = `
+    <div class="ps-idstrip">
+      <div class="ps-idchip"><div class="ps-idchip-label">Date</div><div class="ps-idchip-val">${ds || '—'}</div></div>
+      <div class="ps-idchip"><div class="ps-idchip-label">Closing</div><div class="ps-idchip-val">${srLabel(shift)}</div></div>
+      <div class="ps-idchip"><div class="ps-idchip-label">Mode</div><div class="ps-idchip-val">${(activeMode||'shift').toUpperCase()}</div></div>
+      <div class="ps-idchip"><div class="ps-idchip-label">Status</div><div class="ps-idchip-val">${isSheetLocked ? 'CLOSED' : 'DRAFT'}</div></div>
+    </div>`;
+
+  /* Sale Info box */
+  let infoRows = '';
+  infoRows += psRow('Computer Cash Sale', num('in-sys-cash'));
+  infoRows += psRow('Shift Sale (POS delta)', num('out-shift-sale'));
+  infoRows += psRow('Sale Book 1', num('in-book-1'));
+  infoRows += psRow('Sale Book 2', num('in-book-2'));
+  infoRows += psRow('Customers', num('out-cust'));
+  infoRows += psRow('Last Bill #', g('in-last-bill-num')?.value || '—');
+  infoRows += psRow('Last Bill Amount', num('in-last-bill-amt'));
+
+  /* Returns box */
+  let retRows = '';
+  retRows += psRowOrEmpty('Return 1', g('pos-ret-1')?.value);
+  retRows += psRowOrEmpty('Return 2', g('pos-ret-2')?.value);
+  retRows += psRowOrEmpty('Return 3', g('pos-ret-3')?.value);
+  retRows += psRowOrEmpty('System Return', g('pos-ret-sys')?.value);
+  retRows += psRow('TOTAL RETURNS', num('out-total-returns'), 'ps-total');
+  retRows += psRow('NET SHIFT SALE', num('out-net-sale'), 'ps-highlight');
+
+  /* Card Sales (CC) box */
+  let ccRows = '';
+  ccRows += psRow('Bank Alfalah', num('in-alfalah'));
+  ccRows += psRow('Keenu Machine', num('in-keenu'));
+  ccRows += psRowOrEmpty('Computer Card Sale (−)', g('in-comp-sale')?.value);
+  ccRows += psRow('Current CC', num('out-curr-cc'));
+  ccRows += psRow('Previous Day CC (carried)', num('out-prev-cc'));
+  ccRows += psRow('TOTAL CC', (numRaw('out-prev-cc')+numRaw('out-curr-cc')).toLocaleString('en-PK'), 'ps-total');
+
+  /* Till Cash (denominations) box */
   let tillRows = '';
-  tillRows += psRow('HS Value (A)', num('out-total-hs'));
-  tillRows += psRow('Previous Day CC', num('out-prev-cc'));
-  tillRows += psRow('Current CC (D)', num('out-curr-cc'));
   document.querySelectorAll('.till-cell').forEach(el => {
-    const lbl = el.closest('.row').querySelector('label').textContent;
+    const lbl = el.closest('.row')?.querySelector('label')?.textContent || '';
     if((parseFloat(el.value)||0) !== 0) tillRows += psRow(lbl, (parseFloat(el.value)||0).toLocaleString('en-PK'));
   });
-  tillRows += psRow('TOTAL TILL CASH (E)', num('out-subtotal-c'), 'ps-total');
+  if(!tillRows) tillRows = psRow('— no denominations counted —', '', 'ps-empty');
+  tillRows += psRow('TOTAL TILL CASH', num('out-subtotal-c'), 'ps-total');
 
-  /* DRAW CASH box */
+  /* Draw / Vault Cash box */
   let drawRows = '';
   document.querySelectorAll('.vault-cell').forEach(el => {
-    const lbl = el.closest('.row').querySelector('label').textContent;
+    const lbl = el.closest('.row')?.querySelector('label')?.textContent || '';
     if((parseFloat(el.value)||0) !== 0) drawRows += psRow(lbl, (parseFloat(el.value)||0).toLocaleString('en-PK'));
   });
-  drawRows += psRow('Strips / Inventory Revenue (B)', num('out-total-a'));
-  drawRows += psRow('TOTAL DRAW CASH (F)', num('out-subtotal-d'), 'ps-total');
+  if(!drawRows) drawRows = psRow('— no vault cash counted —', '', 'ps-empty');
+  drawRows += psRow('TOTAL DRAW CASH', num('out-subtotal-d'), 'ps-total');
 
-  /* STRIPS DETAIL box */
+  /* HS + Strips box */
   let stripRows = '';
+  document.querySelectorAll('#hs-rows .row').forEach(row => {
+    const name = row.querySelector('.hs-lbl')?.value;
+    const v    = row.querySelector('.hs-val')?.value;
+    if(name && (parseFloat(v)||0) !== 0) stripRows += psRow(name, (parseFloat(v)||0).toLocaleString('en-PK'));
+  });
   document.querySelectorAll('#ledger-strips .strip-row').forEach(row => {
     const name = row.querySelector('.strip-name')?.textContent || row.querySelector('.aux-strip-lbl')?.value;
     const qty  = row.querySelector('.strip-qty,.aux-strip-qty')?.value;
     const line = row.querySelector('.strip-line,.aux-strip-total')?.value;
     if(name && (parseFloat(qty)||0) !== 0) stripRows += psRow(`${name} ×${qty}`, (parseFloat(line)||0).toLocaleString('en-PK'));
   });
-  document.querySelectorAll('#hs-rows .row').forEach(row => {
-    const name = row.querySelector('.hs-lbl')?.value;
-    const v    = row.querySelector('.hs-val')?.value;
-    if(name && (parseFloat(v)||0) !== 0) stripRows += psRow(name, (parseFloat(v)||0).toLocaleString('en-PK'));
-  });
-  if(!stripRows) stripRows = psRow('— no items —', '');
+  if(!stripRows) stripRows = psRow('— no items —', '', 'ps-empty');
+  stripRows += psRow('TOTAL HS + STRIPS', num('out-total-hs')==='0'&&num('out-total-a')==='0' ? '0' : (numRaw('out-total-hs')+numRaw('out-total-a')).toLocaleString('en-PK'), 'ps-total');
 
-  /* CREDIT DETAIL box */
+  /* Credit Detail box */
   let credRows = '';
-  credRows += psRow('Carried Debt from Previous', num('out-prev-credit'));
-  if((parseFloat(g('in-credit-adj')?.value)||0) !== 0) credRows += psRow('Credit Adjustment', num('in-credit-adj'));
+  credRows += psRow('Carried from Previous', num('out-prev-credit'));
+  if(numRaw('in-credit-adj') !== 0) credRows += psRow('Credit Adjustment', num('in-credit-adj'));
   document.querySelectorAll('.named-cred-lbl').forEach((lblEl, i) => {
     const valEl = document.querySelectorAll('.named-cred-val')[i];
     if((parseFloat(valEl?.value)||0) !== 0) credRows += psRow(lblEl.textContent, (parseFloat(valEl.value)||0).toLocaleString('en-PK'));
@@ -4150,7 +3440,7 @@ function buildPrintSheet() {
   for(let i=1;i<=3;i++) {
     const grp = g(`sel-tier-${i}`), name = g(`sel-name-${i}`), amt = g(`in-nested-${i}`);
     if(amt && (parseFloat(amt.value)||0) !== 0) {
-      const grpLbl = grp?.selectedOptions?.[0]?.textContent || '';
+      const grpLbl  = grp?.selectedOptions?.[0]?.textContent || '';
       const nameLbl = name?.selectedOptions?.[0]?.textContent || '';
       credRows += psRow(`${grpLbl} — ${nameLbl}`, (parseFloat(amt.value)||0).toLocaleString('en-PK'));
     }
@@ -4160,75 +3450,20 @@ function buildPrintSheet() {
     const v   = row.querySelector('.aux-cred-val')?.value;
     if(lbl && (parseFloat(v)||0) !== 0) credRows += psRow(lbl, (parseFloat(v)||0).toLocaleString('en-PK'));
   });
-  credRows += psRow('TOTAL CREDIT (G)', num('out-total-e'), 'ps-total');
+  if(credRows === psRow('Carried from Previous', num('out-prev-credit'))) { /* no-op guard, keep as-is */ }
+  credRows += psRow('TOTAL CREDIT', num('out-total-e'), 'ps-total');
 
-  /* DEPOSIT DETAIL box */
+  /* Deposit Detail box */
   let depRows = '';
-  depRows += psRow('Carried Deposits from Previous', num('out-prev-dep'));
+  depRows += psRow('Carried from Previous', num('out-prev-dep'));
   document.querySelectorAll('#ledger-deposits .row').forEach(row => {
     const lbl = row.querySelector('.dep-lbl')?.value;
     const v   = row.querySelector('.dep-val')?.value;
     if(lbl && (parseFloat(v)||0) !== 0) depRows += psRow(lbl, (parseFloat(v)||0).toLocaleString('en-PK'));
   });
-  depRows += psRow('TOTAL DEPOSITS (H)', num('out-total-f'), 'ps-total');
+  depRows += psRow('TOTAL DEPOSITS', num('out-total-f'), 'ps-total');
 
-  /* HEADER / SALE INFO box */
-  let infoRows = '';
-  infoRows += psRow('Bank Alfalah', num('in-alfalah'));
-  infoRows += psRow('Keenu Machine', num('in-keenu'));
-  infoRows += psRow('Total Machine', ((parseFloat(g('in-alfalah')?.value)||0)+(parseFloat(g('in-keenu')?.value)||0)).toLocaleString('en-PK'));
-  infoRows += psRow('Computer Card Sale (D)', num('in-comp-sale'));
-  infoRows += psRow('Computer Cash Sale', num('in-sys-cash'));
-  infoRows += psRow('Last Bill #', num('in-last-bill-num'));
-  infoRows += psRow('Last Amount', num('in-last-bill-amt'));
-  infoRows += psRow('Shift Sale', num('out-shift-sale'));
-  infoRows += psRow('Sale Book 1', num('in-book-1'));
-  infoRows += psRow('Sale Book 2', num('in-book-2'));
-  infoRows += psRow('Customers', num('out-cust'));
-  infoRows += psRow('Total Sale', num('out-total-returns')==='0'? num('out-net-sale') : num('out-net-sale'), '');
-
-  /* Return / Net Shift Sale box */
-  let retRows = '';
-  retRows += psRow('Return 1', num('pos-ret-1'));
-  retRows += psRow('Return 2', num('pos-ret-2'));
-  retRows += psRow('Return 3', num('pos-ret-3'));
-  retRows += psRow('System Return', num('pos-ret-sys'));
-  retRows += psRow('Total Return', num('out-total-returns'), 'ps-red');
-  retRows += psRow('NET SHIFT SALE', num('out-net-sale'), 'ps-highlight');
-
-  /* Grand summary box */
-  const diffLbl = document.getElementById('ban-variance-label')?.textContent || 'Variance';
-  const diffVal = document.getElementById('ban-variance')?.textContent || 'Rs. 0';
-  let sumRows = '';
-  sumRows += psRow('Deposit (H)', num('out-total-f'));
-  sumRows += psRow('Credit (G)', num('out-total-e'));
-  sumRows += psRow('GRAND TOTAL', num('out-grand'), 'ps-total');
-  sumRows += psRow('Cash Reserve (held)', '45,000');
-  sumRows += psRow('Net Cash Available', num('out-liquid'));
-  sumRows += psRow('Previous Sale', num('out-prev-cash'));
-  sumRows += psRow('NET SALE (this shift)', num('out-net-cash'), 'ps-highlight');
-  if((parseFloat(g('in-extra-cash')?.value)||0) !== 0) sumRows += psRow('Extra Cash Added to Pharmacy', num('in-extra-cash'));
-  sumRows += psRow(diffLbl + ' (Diff in Cash)', diffVal, diffLbl==='Less' ? 'ps-red' : 'ps-highlight');
-
-  let finalRows = '';
-  {
-    const parts2 = activeKey ? activeKey.split('_') : ['',''];
-    finalRows = `<div class="ps-box"><h4>Final Closing Aggregation</h4>
-      ${psRow('Shifts since last Final', g('out-final-shifts')?.value || '—')}
-      ${psRow('Total Customers (period)', num('out-final-customers'))}
-      ${psRow('Manual Returns — Return 1+2+3 (period+shift)', num('out-final-manual-returns'))}
-      ${psRow('System Returns — POS (period+shift)', num('out-final-sys-returns-pos'))}
-      ${psRow('Additional System Returns (entered)', num('in-final-sys-returns'))}
-      ${psRow('Net Cash Available', num('out-final-net-cash-base'))}
-      ${psRow('Less: Pre-date Total (POS+Cust-SysRet)', num('out-final-pre-total'))}
-      ${psRow('Less: Extra Cash Added to Pharmacy (period+shift)', num('out-final-extra-cash'))}
-      ${psRow('Less: Target Net Sales (this Final)', num('out-final-target-sale'))}
-      ${psRow('Net Final Cash Available', num('out-final-net-cash'), 'ps-highlight')}
-      ${psRow(g('out-final-diff-label')?.textContent || 'Plus / Less (Final Audit)', num('out-final-diff'), 'ps-highlight')}
-    </div>`;
-  }
-
-  /* MISC rows for print */
+  /* Misc Charges box */
   let miscRows = '';
   document.querySelectorAll('#ledger-misc .misc-row').forEach(row => {
     const lbl = row.querySelector('.lbl-input')?.value;
@@ -4237,35 +3472,158 @@ function buildPrintSheet() {
     const status = g(`misc-st-${stNum}`)?.value || 'Active';
     if(lbl && status !== 'Cleared') miscRows += psRow(`${lbl} [${status}]`, (parseFloat(v)||0).toLocaleString('en-PK'));
   });
-  miscRows += psRow('TOTAL MISC (C)', num('out-total-g'), 'ps-total');
+  if(!miscRows) miscRows = psRow('— no active items —', '', 'ps-empty');
+  miscRows += psRow('TOTAL MISC', num('out-total-g'), 'ps-total');
 
-  document.getElementById('print-sheet').innerHTML = `
-    <div class="ps-title">
-      <h1>FAZAL DINS PHARMA PLUS</h1>
-      <h2>${db.settings.branchName || 'BAHRIA TOWN BRANCH'} — ${formatDisplayDate(ds) || '—'} — ${shift}</h2>
-    </div>
-    <div class="ps-grid">
+  /* Grand Summary box */
+  let sumRows = '';
+  sumRows += psRow('HS + Strips', (numRaw('out-total-hs')+numRaw('out-total-a')).toLocaleString('en-PK'));
+  sumRows += psRow('Misc (active)', num('out-total-g'));
+  sumRows += psRow('CC (Card Sales)', (numRaw('out-prev-cc')+numRaw('out-curr-cc')).toLocaleString('en-PK'));
+  sumRows += psRow('Till Cash', num('out-subtotal-c'));
+  sumRows += psRow('Draw Cash', num('out-subtotal-d'));
+  sumRows += psRow('Credit', num('out-total-e'));
+  sumRows += psRow('Deposits', num('out-total-f'));
+  sumRows += psRow('GRAND TOTAL', num('out-grand'), 'ps-total');
+  sumRows += psRow('Less: Cash Reserve (float)', '45,000', 'ps-minus');
+  sumRows += psRow('Liquid Cash', num('out-liquid'));
+  sumRows += psRow('Less: Previous Cash Position', num('out-prev-cash'), 'ps-minus');
+  if(numRaw('in-extra-cash') !== 0) sumRows += psRow('Less: Extra Cash Added', num('in-extra-cash'), 'ps-minus');
+  sumRows += psRow('NET CASH AVAILABLE', num('out-net-cash'), 'ps-highlight');
+
+  /* Hero variance band — page 1 */
+  const diffLbl1 = document.getElementById('ban-variance-label')?.textContent?.trim() || 'Variance';
+  const diffVal1 = document.getElementById('ban-variance')?.textContent?.trim() || 'Rs. 0';
+  const isShort1 = diffLbl1.toLowerCase().includes('less');
+  const hero1 = `
+    <div class="ps-hero ${isShort1 ? 'ps-hero-short' : ''}">
       <div>
-        <div class="ps-box"><h4>Till Cash</h4>${tillRows}</div>
-        <div class="ps-box"><h4>Draw Cash</h4>${drawRows}</div>
+        <div class="ps-hero-label">${diffLbl1} — Net Cash vs Net Sale</div>
+        <div class="ps-hero-val">${diffVal1}</div>
       </div>
+      <div class="ps-hero-sub">Net Cash Available minus Net Shift Sale. Zero means the till matches exactly.</div>
+    </div>`;
+
+  /* Spine ticks (decorative, page 1) */
+  let ticks1 = '';
+  for(let t=60; t<1100; t+=46) ticks1 += `<div class="ps-tick" style="top:${t}px;"></div>`;
+
+  const page1 = `
+    <div class="ps-page ps-page-shift">
+      <div class="ps-spine"><div class="ps-spine-ticks">${ticks1}</div><div class="ps-spine-label">${srLabel(shift)} · ${ds||''}</div></div>
+      <div class="ps-content">
+        <div class="ps-letterhead">
+          <div class="ps-brand">
+            <h1>Fazal Din's Pharma Plus</h1>
+            <p>${branchName}</p>
+          </div>
+          <div class="ps-doctype">
+            <span class="ps-doctype-tag">Shift Closing</span>
+            <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)}</div>
+          </div>
+        </div>
+        ${idStrip}
+        <div class="ps-grid3">
+          <div class="ps-box"><h4><span class="ps-box-icon">🧾</span>Sale Info</h4>${infoRows}</div>
+          <div class="ps-box"><h4><span class="ps-box-icon">💳</span>Card Sales (CC)</h4>${ccRows}</div>
+          <div class="ps-box ps-box-accent"><h4><span class="ps-box-icon">↩</span>Returns &amp; Net Sale</h4>${retRows}</div>
+        </div>
+        <div class="ps-grid3">
+          <div class="ps-box"><h4><span class="ps-box-icon">🗄️</span>Till Cash</h4>${tillRows}</div>
+          <div class="ps-box"><h4><span class="ps-box-icon">🔐</span>Draw / Vault Cash</h4>${drawRows}</div>
+          <div class="ps-box"><h4><span class="ps-box-icon">💧</span>HS &amp; Strips</h4>${stripRows}</div>
+        </div>
+        <div class="ps-grid2">
+          <div class="ps-box"><h4><span class="ps-box-icon">📇</span>Credit Detail</h4>${credRows}</div>
+          <div class="ps-box"><h4><span class="ps-box-icon">🏦</span>Deposit Detail</h4>${depRows}</div>
+        </div>
+        <div class="ps-grid2">
+          <div class="ps-box"><h4><span class="ps-box-icon">📌</span>Misc Charges</h4>${miscRows}</div>
+          <div class="ps-box ps-box-accent"><h4><span class="ps-box-icon">∑</span>Grand Summary</h4>${sumRows}</div>
+        </div>
+        ${hero1}
+      </div>
+      <div class="ps-foot"><span>Fazal Din's Pharma Plus — Shift Register</span><span class="ps-foot-page">Page 1 of 2 · Generated ${genStamp}</span></div>
+    </div>`;
+
+  /* ════════════════════════════════════════════════════════
+     PAGE 2 — FINAL CLOSING (Period Aggregation)
+  ════════════════════════════════════════════════════════ */
+
+  const shiftsLabel = g('out-final-shifts')?.value || '— none —';
+  const shiftChips = (shiftsLabel.includes('—') ? shiftsLabel.split('—')[1] : shiftsLabel)
+    .split(',').map(s=>s.trim()).filter(Boolean)
+    .map(s => `<span class="ps-chip">${s}</span>`).join('') || `<span class="ps-chip">— none yet —</span>`;
+
+  /* Part 1 — Net Final Sale */
+  let part1Rows = '';
+  part1Rows += psRow('POS Sale', num('out-final-same-sys'), 'ps-plus');
+  part1Rows += psRow('Book Bills', num('out-final-books'), 'ps-plus');
+  part1Rows += psRow('Customers', num('out-final-same-cust'), 'ps-plus');
+  part1Rows += psRow('Manual Returns', num('out-final-man-ret'), 'ps-minus ps-red');
+  part1Rows += psRow('System Returns', num('out-final-same-sysret'), 'ps-minus ps-red');
+  part1Rows += psRowOrEmpty('Additional System Returns', g('in-final-sys-returns')?.value, 'ps-minus ps-red');
+  part1Rows += psRow('NET FINAL SALE', num('out-final-net-sale'), 'ps-highlight');
+
+  /* Part 2 — Net Final Cash Available */
+  let part2Rows = '';
+  part2Rows += psRow('Net Cash Available (after float)', num('out-final-net-cash-base'));
+  part2Rows += psRow('Pre-date POS Sales', num('out-final-pre-sys'), 'ps-minus ps-red');
+  part2Rows += psRow('Pre-date Customers', num('out-final-pre-cust'), 'ps-minus ps-red');
+  part2Rows += psRow('Pre-date System Returns', num('out-final-pre-sysret'), 'ps-minus ps-red');
+  part2Rows += psRow('Extra Cash Added to Pharmacy', num('out-final-extra-cash'), 'ps-minus ps-red');
+  part2Rows += psRow('Target Net Sale (Part 1 result)', num('out-final-target-sale'), 'ps-minus ps-red');
+  part2Rows += psRow('NET FINAL CASH AVAILABLE', num('out-final-net-cash'), 'ps-highlight');
+
+  /* Variance detail box */
+  let varRows = '';
+  varRows += psRow('Pre-date Total (POS + Cust − SysRet)', num('out-final-pre-total'));
+  const diffLbl2 = g('out-final-diff-label')?.textContent?.trim() || 'Plus / Less (Final Audit)';
+  const isShort2 = diffLbl2.toLowerCase().includes('less');
+  varRows += psRow(diffLbl2, num('out-final-diff'), isShort2 ? 'ps-red' : 'ps-highlight');
+
+  /* Hero variance band — page 2 */
+  const hero2 = `
+    <div class="ps-hero ${isShort2 ? 'ps-hero-short' : ''}">
       <div>
-        <div class="ps-box"><h4>Strips / Items Detail</h4>${stripRows}</div>
-        <div class="ps-box"><h4>Misc Charges (C)</h4>${miscRows}</div>
-        <div class="ps-box"><h4>Deposit Detail</h4>${depRows}</div>
+        <div class="ps-hero-label">${diffLbl2} — Period Reconciliation</div>
+        <div class="ps-hero-val">Rs. ${num('out-final-diff')}</div>
       </div>
-      <div>
-        <div class="ps-box"><h4>Sale Info</h4>${infoRows}</div>
-        <div class="ps-box"><h4>Return / Net Shift Sale</h4>${retRows}</div>
+      <div class="ps-hero-sub">Net Final Cash Available compared to Net Final Sale across the full period since the last Final Closing.</div>
+    </div>`;
+
+  let ticks2 = '';
+  for(let t=60; t<1100; t+=46) ticks2 += `<div class="ps-tick" style="top:${t}px;"></div>`;
+
+  const page2 = `
+    <div class="ps-page ps-page-final">
+      <div class="ps-spine ps-spine-final"><div class="ps-spine-ticks">${ticks2}</div><div class="ps-spine-label">Final Closing · ${ds||''}</div></div>
+      <div class="ps-content">
+        <div class="ps-letterhead">
+          <div class="ps-brand">
+            <h1>Fazal Din's Pharma Plus</h1>
+            <p>${branchName}</p>
+          </div>
+          <div class="ps-doctype">
+            <span class="ps-doctype-tag">Final Closing</span>
+            <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)}</div>
+          </div>
+        </div>
+        ${idStrip}
+        <div class="ps-box"><h4><span class="ps-box-icon">🗂️</span>Shifts Since Last Final</h4>
+          <div style="padding:10px 12px;"><div class="ps-chiprow">${shiftChips}</div></div>
+        </div>
+        <div class="ps-grid2">
+          <div class="ps-box ps-box-final"><h4><span class="ps-box-icon">📊</span>Part 1 — Net Final Sale</h4>${part1Rows}</div>
+          <div class="ps-box ps-box-final"><h4><span class="ps-box-icon">💵</span>Part 2 — Net Final Cash Available</h4>${part2Rows}</div>
+        </div>
+        <div class="ps-box"><h4><span class="ps-box-icon">⚖️</span>Variance (Final Audit)</h4>${varRows}</div>
+        ${hero2}
       </div>
-    </div>
-    <div class="ps-grid">
-      <div class="ps-box"><h4>Credit Detail</h4>${credRows}</div>
-      <div class="ps-box"><h4>Grand Summary</h4>${sumRows}</div>
-      ${finalRows}
-    </div>
-    <div class="ps-foot">Generated by PharmaPos — ${new Date().toLocaleString('en-PK')}</div>
-  `;
+      <div class="ps-foot"><span>Fazal Din's Pharma Plus — Shift Register</span><span class="ps-foot-page">Page 2 of 2 · Generated ${genStamp}</span></div>
+    </div>`;
+
+  document.getElementById('print-sheet').innerHTML = page1 + page2;
 }
 
 async function renderPDF() {
@@ -4273,17 +3631,27 @@ async function renderPDF() {
   const sheet = document.getElementById('print-sheet');
   sheet.classList.add('show');
   await new Promise(r => setTimeout(r, 80));
-  const canvas = await html2canvas(sheet, {scale:2, useCORS:true});
-  sheet.classList.remove('show');
+
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF('p','mm','a4');
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  let imgH = canvas.height * pageW / canvas.width;
-  if(imgH > pageH) imgH = pageH; /* clamp to one page */
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, imgH);
+
+  const pages = sheet.querySelectorAll('.ps-page');
+  for(let i = 0; i < pages.length; i++) {
+    const canvas = await html2canvas(pages[i], {scale:2, useCORS:true});
+    /* fit each page's own content to the full A4 sheet, preserving aspect ratio */
+    let imgW = pageW, imgH = canvas.height * pageW / canvas.width;
+    if(imgH > pageH) { imgH = pageH; imgW = canvas.width * pageH / canvas.height; }
+    const xOff = (pageW - imgW) / 2;
+    if(i > 0) pdf.addPage();
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', xOff, 0, imgW, imgH);
+  }
+
+  sheet.classList.remove('show');
   return pdf;
 }
+
 
 function exportPDF() {
   const status = document.getElementById('pdf-status');
@@ -4292,8 +3660,7 @@ function exportPDF() {
   document.querySelectorAll('#page-ledger .card.collapsed').forEach(c => c.classList.remove('collapsed'));
   renderPDF().then(pdf => {
     const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-    const extraSuffix = activeExtraId && db.extraSheets[activeExtraId] ? `_Extra-${db.extraSheets[activeExtraId].extraSequence}` : '';
-    const fname = `${formatDisplayDate(parts[0])}_${parts[1]}${extraSuffix}.pdf`;
+    const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
     pdf.save(fname);
     /* also trigger system print dialog for physical print */
     buildPrintSheet();
@@ -4308,25 +3675,21 @@ function sendWhatsApp() {
   const status = document.getElementById('pdf-status');
   status.style.display='block'; status.textContent='Preparing PDF for WhatsApp…';
   const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-  const extraSuffix = activeExtraId && db.extraSheets[activeExtraId] ? `_Extra-${db.extraSheets[activeExtraId].extraSequence}` : '';
-  const fname = `${formatDisplayDate(parts[0])}_${parts[1]}${extraSuffix}.pdf`;
-  const displayName = activeExtraId && db.extraSheets[activeExtraId]
-    ? extraDisplayName(db.extraSheets[activeExtraId])
-    : recordDisplayName(activeKey || 'sheet_closing');
+  const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
   renderPDF().then(async pdf => {
     const blob = pdf.output('blob');
     const file = new File([blob], fname, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})) {
       await navigator.share({
         files:[file],
-        title: `Fazal Din's Pharma Plus — ${displayName}`,
-        text: `Closing sheet for ${displayName}`
+        title: `PharmaPos Closing — ${parts[0]} ${srLabel(parts[1])}`,
+        text: `Closing sheet for ${parts[0]} — ${srLabel(parts[1])}`
       });
       status.style.display='none';
     } else {
       /* fallback: download PDF and open WhatsApp chat for manual attach */
       pdf.save(fname);
-      const msg = encodeURIComponent(`Fazal Din's Pharma Plus — ${displayName}. PDF downloaded — please attach it here.`);
+      const msg = encodeURIComponent(`PharmaPos Closing — ${parts[0]} ${srLabel(parts[1])}. PDF downloaded — please attach it here.`);
       window.open(`https://wa.me/923028496090?text=${msg}`, '_blank');
       status.style.display='none';
     }
@@ -4339,21 +3702,7 @@ function saveDraft() {
   const rec = buildSheetRecord();
   rec.draft  = true;
   rec.locked = false;
-  if(activeExtraId) {
-    const existing = db.extraSheets[activeExtraId];
-    if(existing) {
-      rec.id            = existing.id;
-      rec.date          = existing.date;
-      rec.shift         = existing.shift;
-      rec.closingType   = 'EXTRA';
-      rec.extraSequence = existing.extraSequence;
-      rec.createdAt     = existing.createdAt;
-      rec.updatedAt     = Date.now();
-      db.extraSheets[activeExtraId] = rec;
-    }
-  } else {
-    db.sheets[activeKey] = rec;
-  }
+  db.sheets[activeKey] = rec;
   persist();
   /* NOTE: isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
      This ensures carry-over fields remain live (not frozen) while drafting. */
@@ -4363,43 +3712,33 @@ function saveDraft() {
   setTimeout(()=>{ status.style.display='none'; }, 1500);
 }
 
-async function deleteCurrentSheet() {
-  if(activeExtraId) { await deleteExtraSheet(activeExtraId); return; }
+function deleteCurrentSheet() {
   if(!activeKey) return;
   if(!db.sheets[activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = activeKey.split('_');
-  const ok = await requireManagerPin('Enter the manager PIN to delete this closing.');
-  if(!ok) return;
-  const confirmed = await _showDeleteConfirm(`Are you sure you want to permanently delete this closing?\n\n${recordDisplayName(activeKey)}`);
-  if(!confirmed) return;
-  const label = recordDisplayName(activeKey);
+  if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
   delete db.sheets[activeKey];
   persist();
-  appendAuditLog('Closing Deleted', label, 'Deleted');
   goToDashboard();
 }
 
 
-async function deleteSheet(key) {
+function deleteSheet(key) {
   if(!db.sheets[key]) return;
-  const ok = await requireManagerPin('Enter the manager PIN to delete this closing.');
-  if(!ok) return;
-  const confirmed = await _showDeleteConfirm(`Are you sure you want to permanently delete this closing?\n\n${recordDisplayName(key)}`);
-  if(!confirmed) return;
-  const label = recordDisplayName(key);
+  const parts = key.split('_');
+  const sr = srLabel(parts[1]);
+  if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
   delete db.sheets[key];
   persist();
-  appendAuditLog('Closing Deleted', label, 'Deleted');
   if(activeKey === key) { activeKey = null; goToDashboard(); }
   else { renderManifest(); buildCalendar(); }
 }
 
 function loadKey(key) {
-  activeKey     = key;
-  activeExtraId = null;
-  const p       = key.split('_');
-  activeMode    = db.sheets[key]?.profileMode || 'shift';
-  overrides     = db.sheets[key]?.overrides || {};
+  activeKey  = key;
+  const p    = key.split('_');
+  activeMode = db.sheets[key]?.profileMode || 'shift';
+  overrides  = db.sheets[key]?.overrides || {};
   initLedger(p[0], p[1], activeMode);
 }
 
@@ -4451,162 +3790,6 @@ function goToCredit() {
   refreshCreditLedger();
 }
 
-
-/* ═══════════════════════════════════════════
-   PHASE 3 — STICKY SUMMARY BAR UPDATE
-═══════════════════════════════════════════ */
-function updateStickySummary(saleVal, cashVal) {
-  const sbSale = document.getElementById('sb-sale');
-  const sbCash = document.getElementById('sb-cash');
-  const sbDiff = document.getElementById('sb-diff');
-  const chip   = document.getElementById('sticky-status-chip');
-  if(!sbSale) return;
-
-  const diff = cashVal - saleVal;
-  const fmt = v => 'Rs.' + Math.round(Math.abs(v)).toLocaleString('en-PK');
-
-  sbSale.textContent = fmt(saleVal);
-  sbCash.textContent = fmt(cashVal);
-
-  if(Math.abs(diff) < 1) {
-    sbDiff.textContent = 'Rs.0';
-    if(chip) { chip.textContent = 'Balanced'; chip.className = 'balanced'; }
-  } else if(diff > 0) {
-    sbDiff.textContent = '+' + fmt(diff);
-    if(chip) { chip.textContent = 'Extra'; chip.className = 'extra'; }
-  } else {
-    sbDiff.textContent = '-' + fmt(diff);
-    if(chip) { chip.textContent = 'Short'; chip.className = 'short'; }
-  }
-}
-
-/* ═══════════════════════════════════════════
-   PHASE 3 — SECTION STATUS INDICATORS
-   Updates ○/✓/⚠/⏳ for each card
-═══════════════════════════════════════════ */
-function sectionStatusEl(id) {
-  return document.getElementById('status-' + id);
-}
-
-function setStatus(id, type) {
-  const el = sectionStatusEl(id);
-  if(!el) return;
-  const map = { done:'✓', progress:'⏳', warn:'⚠', empty:'○' };
-  el.textContent = map[type] || '○';
-  el.className = 'section-status status-' + type;
-}
-
-function hasValue(...ids) {
-  return ids.some(id => {
-    const el = document.getElementById(id);
-    return el && parseFloat(el.value) !== 0;
-  });
-}
-
-function updateSectionStatuses() {
-  /* POS — any POS data entered */
-  const posHasData = hasValue('in-sys-cash','in-comp-sale','in-alfalah','in-keenu','in-last-bill-amt');
-  setStatus('pos', posHasData ? 'done' : 'empty');
-
-  /* Shift Calculations */
-  const shiftSale = parseFloat(document.getElementById('out-shift-sale')?.value)||0;
-  const shiftNet  = parseFloat(document.getElementById('out-net-sale')?.value)||0;
-  setStatus('shift', shiftSale > 0 ? 'done' : (hasValue('in-book-1','in-book-2') ? 'progress' : 'empty'));
-
-  /* HS Block */
-  const hsTot = parseFloat(document.getElementById('out-total-hs')?.value)||0;
-  setStatus('hs', hsTot > 0 ? 'done' : 'empty');
-
-  /* Strips */
-  const stripTot = parseFloat(document.getElementById('out-total-a')?.value)||0;
-  setStatus('strips', stripTot > 0 ? 'done' : 'empty');
-
-  /* Misc */
-  const miscTot = parseFloat(document.getElementById('out-total-g')?.value)||0;
-  const miscRows = document.querySelectorAll('#ledger-misc .misc-row');
-  setStatus('misc', miscRows.length > 0 ? (miscTot > 0 ? 'progress' : 'done') : 'empty');
-
-  /* CC */
-  const ccTotal = (parseFloat(document.getElementById('out-prev-cc')?.value)||0) +
-                  (parseFloat(document.getElementById('out-curr-cc')?.value)||0);
-  setStatus('cc', ccTotal !== 0 ? 'done' : 'empty');
-
-  /* Till cash */
-  const tillTot = parseFloat(document.getElementById('out-subtotal-c')?.value)||0;
-  setStatus('till', tillTot > 0 ? 'done' : 'empty');
-
-  /* Vault cash */
-  const vaultTot = parseFloat(document.getElementById('out-subtotal-d')?.value)||0;
-  setStatus('vault', vaultTot > 0 ? 'done' : 'empty');
-
-  /* Credit */
-  const creditTot = parseFloat(document.getElementById('out-total-e')?.value)||0;
-  setStatus('credit', creditTot > 0 ? 'progress' : 'empty');
-
-  /* Deposits */
-  const depTot = parseFloat(document.getElementById('out-total-f')?.value)||0;
-  setStatus('deposits', depTot > 0 ? 'done' : 'empty');
-
-  /* Auto-advance: if enabled, collapse complete section and expand next */
-  if(_autoAdvanceEnabled) autoAdvanceCheck();
-}
-
-/* ═══════════════════════════════════════════
-   PHASE 3 — AUTO-ADVANCE WORKFLOW
-═══════════════════════════════════════════ */
-let _autoAdvanceEnabled = true; /* default ON */
-let _lastAutoAdvancedFrom = null;
-
-const CARD_ORDER = ['card-pos','card-shift','card-hs','card-strips','card-misc','card-cc','card-till','card-vault','card-credit','card-deposits','card-audit','card-final-agg'];
-const STATUS_IDS  = ['pos','shift','hs','strips','misc','cc','till','vault','credit','deposits'];
-
-function autoAdvanceCheck() {
-  /* Find last card that just completed (status=done) and is currently expanded */
-  STATUS_IDS.forEach((sid, idx) => {
-    const el = sectionStatusEl(sid);
-    if(!el || el.className.indexOf('status-done') === -1) return;
-    const cardId = CARD_ORDER[idx];
-    const card = document.getElementById(cardId);
-    if(!card || card.classList.contains('collapsed')) return;
-
-    /* This section is done and expanded — check if it was previously incomplete */
-    const prevDone = card.dataset.wasComplete === '1';
-    if(!prevDone && _lastAutoAdvancedFrom !== cardId) {
-      /* Collapse this card */
-      card.classList.add('collapsed');
-      card.dataset.wasComplete = '1';
-      _lastAutoAdvancedFrom = cardId;
-      /* Expand next incomplete card */
-      for(let j = idx+1; j < CARD_ORDER.length; j++) {
-        const nextCard = document.getElementById(CARD_ORDER[j]);
-        if(nextCard && nextCard.classList.contains('collapsed')) {
-          nextCard.classList.remove('collapsed');
-          /* Smooth scroll to it */
-          setTimeout(() => {
-            nextCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 150);
-          break;
-        }
-      }
-    } else if(prevDone === false || !card.dataset.wasComplete) {
-      card.dataset.wasComplete = '1';
-    }
-  });
-}
-
-/* ═══════════════════════════════════════════
-   PHASE 3 — KEYBOARD SCROLL INTO VIEW
-   Ensures focused input is not hidden by keyboard
-═══════════════════════════════════════════ */
-document.addEventListener('focusin', function(e) {
-  const el = e.target;
-  if(el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
-    setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 300);
-  }
-}, true);
-
 function refreshCreditLedger() {
   const box = document.getElementById('credit-ledger-rows');
   box.innerHTML = "";
@@ -4642,7 +3825,7 @@ function refreshCreditLedger() {
     div.className = 'row' + (mode==='final' ? ' highlight-blue' : '');
     div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid #f1f5f9;font-size:0.82rem;';
     div.innerHTML = `
-      <span style="flex:1;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--slate);">${recordDisplayName(key)}</span>
+      <span style="flex:1;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--slate);">${parts[0]} — ${srLabel(parts[1])}</span>
       <span style="width:80px;text-align:right;font-size:0.75rem;color:var(--muted);">${mode==='final'?'🔴 FINAL':'🔵 shift'}</span>
       <span style="width:100px;text-align:right;font-weight:600;color:var(--navy);font-family:'JetBrains Mono',monospace;">Rs.${creditThisShift.toLocaleString('en-PK')}</span>
       <span style="width:110px;text-align:right;font-weight:700;color:var(--teal-dark);font-family:'JetBrains Mono',monospace;">∑ Rs.${runningCredit.toLocaleString('en-PK')}</span>`;
@@ -4963,230 +4146,7 @@ async function syncPullFromCloud(manual = false) {
     dbxSetBusy(false);
   }
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE 2 — MANAGER PIN UPGRADE (Item 1)
-   Current PIN verification before allowing change.
-   Min 6 / max 20 characters enforced.
-═══════════════════════════════════════════════════════════════ */
-async function changeManagerPIN() {
-  const currentPin = (document.getElementById('set-current-pin')?.value || '').trim();
-  const newPin     = (document.getElementById('set-new-pin')?.value     || '').trim();
-  const confirmPin = (document.getElementById('set-confirm-pin')?.value || '').trim();
-  const msgEl      = document.getElementById('pin-change-msg');
-
-  function showMsg(text, isError) {
-    if(!msgEl) return;
-    msgEl.textContent = text;
-    msgEl.style.color = isError ? 'var(--red)' : 'var(--teal-dark)';
-  }
-
-  if(!currentPin) { showMsg('Please enter your current PIN.', true); return; }
-  if(!newPin)     { showMsg('Please enter a new PIN.', true); return; }
-  if(newPin.length < 6)  { showMsg('New PIN must be at least 6 characters.', true); return; }
-  if(newPin.length > 20) { showMsg('New PIN must be 20 characters or fewer.', true); return; }
-  if(newPin !== confirmPin) { showMsg('New PIN and confirmation do not match.', true); return; }
-
-  const currentHash = await sha256Hex(currentPin);
-  if(currentHash !== db.settings.managerPinHash) {
-    showMsg('Current PIN is incorrect.', true);
-    document.getElementById('set-current-pin').value = '';
-    return;
-  }
-
-  const newHash = await sha256Hex(newPin);
-  db.settings.managerPinHash = newHash;
-  persist();
-  appendAuditLog('PIN Changed', 'Manager Security', 'Success');
-  ['set-current-pin','set-new-pin','set-confirm-pin'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = '';
-  });
-  showMsg('✓ Manager PIN updated successfully.', false);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE 2 — CLOUD SYNC LOCK (Item 2)
-   Intercept toggleCard only for card-cloud-sync.
-   All sync push/pull/connect functions are completely UNTOUCHED.
-═══════════════════════════════════════════════════════════════ */
-const _origToggleCard = toggleCard;
-window.toggleCard = function(id) {
-  if(id === 'card-cloud-sync') {
-    const body = document.getElementById('card-cloud-sync-body');
-    const isCurrentlyHidden = body.style.display === 'none';
-    if(isCurrentlyHidden) {
-      requireManagerPin('Manager PIN required to access Cloud Synchronization.').then(ok => {
-        if(!ok) return;
-        appendAuditLog('Cloud Sync Unlocked', 'Cloud Synchronization', 'Unlocked');
-        _origToggleCard(id);
-      });
-      return;
-    }
-  }
-  _origToggleCard(id);
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE 2 — UUID GENERATOR (Items 3/5)
-═══════════════════════════════════════════════════════════════ */
-function generateUUID() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE 2 — EXTRA CLOSING OPEN (Item 3)
-   Stored in db.extraSheets[uuid] — NEVER touches db.sheets.
-   timelineStep / carry-forward / cascade continue operating on
-   db.sheets exclusively → financial calculations unaffected.
-═══════════════════════════════════════════════════════════════ */
-function openExtraClosingFromPicker() {
-  const ds    = document.getElementById('lbl-picker-date').dataset.date;
-  const shift = document.getElementById('pick-shift').value;
-  document.getElementById('shift-picker').classList.add('hidden');
-
-  const existingExtras = Object.values(db.extraSheets).filter(
-    r => r.date === ds && r.shift === shift
-  );
-  const maxSeq  = existingExtras.reduce((m, r) => Math.max(m, r.extraSequence || 0), 0);
-  const nextSeq = maxSeq + 1;
-
-  const id  = generateUUID();
-  const now = Date.now();
-  db.extraSheets[id] = {
-    id,
-    date: ds, shift,
-    closingType: 'EXTRA', extraSequence: nextSeq,
-    createdAt: now, updatedAt: now,
-    draft: true, locked: false,
-    profileMode: 'shift', overrides: {}
-  };
-  persist();
-  appendAuditLog('Extra Closing Created',
-    `${recordDisplayName(`${ds}_${shift}`)} Extra-${nextSeq}`, 'Opened');
-
-  activeKey     = `${ds}_${shift}`;
-  activeExtraId = id;
-  activeMode    = 'shift';
-  overrides     = {};
-  initLedger(ds, shift, 'shift', id);
-}
-
-function getActiveExtra() {
-  return activeExtraId ? (db.extraSheets[activeExtraId] || null) : null;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE 2 — EXTRA CLOSING: LOAD / SAVE / DELETE (Items 3/5)
-═══════════════════════════════════════════════════════════════ */
-function loadExtraKey(id) {
-  const extra = db.extraSheets[id];
-  if(!extra) return;
-  activeKey     = `${extra.date}_${extra.shift}`;
-  activeExtraId = id;
-  activeMode    = extra.profileMode || 'shift';
-  overrides     = extra.overrides   || {};
-  initLedger(extra.date, extra.shift, activeMode, id);
-}
-
-function saveExtraSheet(silent = false) {
-  if(!activeExtraId) return;
-  const existing = db.extraSheets[activeExtraId];
-  if(!existing) return;
-  const record         = buildSheetRecord();
-  record.id            = existing.id;
-  record.date          = existing.date;
-  record.shift         = existing.shift;
-  record.closingType   = 'EXTRA';
-  record.extraSequence = existing.extraSequence;
-  record.createdAt     = existing.createdAt;
-  record.updatedAt     = Date.now();
-  record.draft         = false;
-  record.locked        = true;
-  db.extraSheets[activeExtraId] = record;
-  persist();
-  isSavedSheet = true;
-  if(!silent) {
-    setLockedState(true);
-    alert('Extra closing saved.');
-  }
-}
-
-async function deleteExtraSheet(id) {
-  if(!db.extraSheets[id]) return;
-  const extra = db.extraSheets[id];
-  const label = `${recordDisplayName(`${extra.date}_${extra.shift}`)} Extra-${extra.extraSequence}`;
-  const ok    = await requireManagerPin('Enter manager PIN to delete this extra closing.');
-  if(!ok) return;
-  const confirmed = await _showDeleteConfirm(`Permanently delete extra closing?\n\n${label}`);
-  if(!confirmed) return;
-  delete db.extraSheets[id];
-  persist();
-  appendAuditLog('Closing Deleted', label, 'Deleted');
-  if(activeExtraId === id) { activeExtraId = null; goToDashboard(); }
-  else { renderManifest(); }
-}
-
-/* Extra-closing display label: "DD-MMM-YYYY Shift Extra-N" */
-function extraDisplayName(extra) {
-  if(!extra) return '';
-  return `${recordDisplayName(`${extra.date}_${extra.shift}`)} Extra-${extra.extraSequence}`;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PHASE 2 — AUDIT LOG (Item 8)
-   Max 200 entries, local only. db.auditLog[].
-═══════════════════════════════════════════════════════════════ */
-const AUDIT_MAX = 200;
-function appendAuditLog(action, target, result) {
-  if(!db.auditLog) db.auditLog = [];
-  db.auditLog.unshift({ ts: new Date().toISOString(), action, target: target||'', result: result||'' });
-  if(db.auditLog.length > AUDIT_MAX) db.auditLog.length = AUDIT_MAX;
-  try { localStorage.setItem('pharmpos_v2', JSON.stringify(db)); } catch(e) {}
-}
-
-function renderAuditLog() {
-  const box = document.getElementById('audit-log-list');
-  if(!box) return;
-  if(!db.auditLog || !db.auditLog.length) {
-    box.innerHTML = '<div style="padding:12px 16px;color:var(--muted);font-size:0.8rem;">No audit entries yet.</div>';
-    return;
-  }
-  box.innerHTML = db.auditLog.map(entry => {
-    const d  = new Date(entry.ts);
-    const ts = `${d.toLocaleDateString('en-PK')} ${d.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit'})}`;
-    return `<div class="audit-row">
-      <span class="audit-ts">${ts}</span>
-      <span class="audit-action">${entry.action}</span>
-      <span class="audit-detail">${entry.target}${entry.result ? ' → '+entry.result : ''}</span>
-    </div>`;
-  }).join('');
-}
 </script>
-
-<!-- ═══ STICKY LIVE SUMMARY BAR ═══ -->
-<div id="sticky-summary-bar">
-  <div class="sticky-col">
-    <span class="sticky-label">Sale</span>
-    <span class="sticky-value" id="sb-sale">Rs. 0</span>
-  </div>
-  <div class="sticky-divider"></div>
-  <div class="sticky-col">
-    <span class="sticky-label">Cash</span>
-    <span class="sticky-value" id="sb-cash">Rs. 0</span>
-  </div>
-  <div class="sticky-divider"></div>
-  <div class="sticky-col">
-    <span class="sticky-label">Diff</span>
-    <span class="sticky-value" id="sb-diff">Rs. 0</span>
-  </div>
-  <div class="sticky-divider"></div>
-  <span id="sticky-status-chip" class="balanced">Balanced</span>
-</div>
 <div id="print-sheet"></div>
 </body>
 </html>
