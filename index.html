@@ -3844,14 +3844,17 @@ function refreshCreditLedger() {
 
 <!-- ══════════════════════════════════════════════════════════
      DROPBOX CLOUD SYNC ENGINE
-     OAuth2 Implicit Grant · client-side only · no backend
+     OAuth2 PKCE (Authorization Code, offline access) · client-side only · no backend
+     Issues a long-lived refresh token so the app never needs to
+     re-show the connect popup — access tokens renew silently.
 ══════════════════════════════════════════════════════════ -->
 <script>
 /* ── CONFIGURATION ─────────────────────────────────────── */
-const DBX_APP_KEY_STORE = 'dropbox_app_key';          /* localStorage key for app key */
-const DBX_SYNC_PATH     = '/pharmpos_sync_data.json';
-const DBX_TOKEN_KEY     = 'dropbox_access_token';
-const DBX_ACCOUNT_KEY   = 'dropbox_account_name';
+const DBX_APP_KEY_STORE   = 'dropbox_app_key';          /* localStorage key for app key */
+const DBX_SYNC_PATH       = '/pharmpos_sync_data.json';
+const DBX_REFRESH_KEY     = 'dropbox_refresh_token';    /* long-lived — survives forever until disconnect */
+const DBX_ACCOUNT_KEY     = 'dropbox_account_name';
+const DBX_VERIFIER_KEY    = 'dropbox_pkce_verifier';     /* short-lived — only needed across the redirect */
 
 /* Dynamic getter — reads from localStorage so user can set it from UI */
 function dbxGetAppKey() {
@@ -3859,7 +3862,8 @@ function dbxGetAppKey() {
 }
 
 /* ── STATE ──────────────────────────────────────────────── */
-let dbxClient     = null;
+let dbxClient     = null;   /* Dropbox API client (files, account info) */
+let dbxAuth        = null;   /* DropboxAuth instance — holds refresh-token renewal logic */
 let dbxSyncBusy   = false;
 
 /* ── UI HELPERS ─────────────────────────────────────────── */
@@ -3913,22 +3917,31 @@ function dbxShowUnlinked() {
   if(l) l.classList.add('hidden');
 }
 
-/* ── TOKEN MANAGEMENT ───────────────────────────────────── */
-function dbxSaveToken(token) {
-  localStorage.setItem(DBX_TOKEN_KEY, token);
+/* ── REFRESH-TOKEN STORAGE ──────────────────────────────────
+   Only the refresh token is persisted. It does not expire and
+   is not single-use, so capturing it once at connect time is
+   enough — the SDK mints short-lived access tokens from it in
+   memory for the lifetime of the page, and we re-supply it to
+   a fresh DropboxAuth on every app load. ──────────────────── */
+function dbxSaveRefreshToken(token) {
+  localStorage.setItem(DBX_REFRESH_KEY, token);
 }
-
-function dbxGetToken() {
-  return localStorage.getItem(DBX_TOKEN_KEY) || null;
+function dbxGetRefreshToken() {
+  return localStorage.getItem(DBX_REFRESH_KEY) || null;
 }
-
 function dbxClearToken() {
-  localStorage.removeItem(DBX_TOKEN_KEY);
+  localStorage.removeItem(DBX_REFRESH_KEY);
   localStorage.removeItem(DBX_ACCOUNT_KEY);
+  localStorage.removeItem(DBX_VERIFIER_KEY);
   /* Note: DBX_APP_KEY_STORE is intentionally NOT cleared here — user keeps their key */
 }
 
-/* ── OAUTH2 TOKEN PARSING ───────────────────────────────── */
+/* ── APP KEY SETUP ──────────────────────────────────────── */
+function dbxShowKeyError(msg) {
+  const el = document.getElementById('dbx-key-error');
+  if(el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+}
+
 function dbxSaveAppKey() {
   const inp = document.getElementById('dbx-app-key-input');
   const key = (inp?.value || '').trim();
@@ -3939,12 +3952,12 @@ function dbxSaveAppKey() {
   dbxAuthStart();
 }
 
-function dbxShowKeyError(msg) {
-  const el = document.getElementById('dbx-key-error');
-  if(el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
-}
-
-function dbxAuthStart() {
+/* ── OAUTH2 PKCE START ───────────────────────────────────────
+   Requests offline access so Dropbox issues a refresh token
+   alongside the short-lived access token. The PKCE code
+   verifier must survive the full-page redirect, so it's saved
+   to localStorage (the SDK only keeps it in memory). ───────── */
+async function dbxAuthStart() {
   const appKey = dbxGetAppKey();
   if(!appKey) {
     /* Show the App Key input panel instead of the connect button */
@@ -3953,13 +3966,22 @@ function dbxAuthStart() {
     return;
   }
   const redirectUri = window.location.href.split('#')[0].split('?')[0];
-  const authUrl =
-    'https://www.dropbox.com/oauth2/authorize' +
-    '?client_id='     + encodeURIComponent(appKey) +
-    '&response_type=token' +
-    '&redirect_uri='  + encodeURIComponent(redirectUri) +
-    '&token_access_type=legacy';
-  window.location.href = authUrl;
+  const auth = new Dropbox.DropboxAuth({ clientId: appKey });
+
+  const authUrl = await auth.getAuthenticationUrl(
+    redirectUri,
+    undefined,        // state
+    'code',           // response_type — authorization code, not implicit token
+    'offline',        // token_access_type — REQUESTS THE REFRESH TOKEN
+    undefined,         // scope (use app's configured default scopes)
+    undefined,
+    true              // usePKCE
+  );
+
+  /* Persist the verifier the SDK just generated so we can hand it
+     back to a brand-new DropboxAuth instance after the redirect. */
+  localStorage.setItem(DBX_VERIFIER_KEY, auth.getCodeVerifier());
+  window.location.href = authUrl.toString ? authUrl.toString() : authUrl;
 }
 
 function dbxShowConnectStep() {
@@ -3971,58 +3993,86 @@ function dbxClearAppKey() {
   localStorage.removeItem(DBX_APP_KEY_STORE);
   dbxClearToken();
   dbxClient = null;
+  dbxAuth = null;
   dbxShowUnlinked();
   document.getElementById('sync-setup-step').classList.add('hidden');
   document.getElementById('sync-connect-step').classList.remove('hidden');
 }
 
-function dbxParseTokenFromHash() {
-  const hash = window.location.hash;
-  if(!hash || !hash.includes('access_token')) return null;
-  const params = {};
-  hash.replace(/^#/, '').split('&').forEach(pair => {
-    const [k, v] = pair.split('=');
-    params[decodeURIComponent(k)] = decodeURIComponent(v);
-  });
-  /* Strip token from URL bar immediately */
-  if(params.access_token) {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+/* ── OAUTH2 REDIRECT: pull ?code= from the URL ──────────── */
+function dbxParseCodeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if(code) {
+    /* Strip the code from the URL bar immediately so refresh/back-nav can't resubmit it */
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
   }
-  return params.access_token || null;
+  return code || null;
 }
 
-/* ── CLIENT INITIALISATION ──────────────────────────────── */
+/* ── CLIENT INITIALISATION ──────────────────────────────── 
+   Runs on every app load. If we already have a refresh token,
+   it's handed straight to a new DropboxAuth — the SDK then
+   silently mints a fresh access token as needed, with no user
+   interaction, for as long as the refresh token is valid
+   (effectively indefinitely, until you Disconnect). ───────── */
 async function dbxInit() {
-  /* 1. Check if returning from OAuth redirect */
-  const freshToken = dbxParseTokenFromHash();
-  if(freshToken) {
-    dbxSaveToken(freshToken);
-  }
+  const appKey = dbxGetAppKey();
 
-  /* 2. Pre-fill app key input if we have one saved */
-  const savedKey = dbxGetAppKey();
+  /* Pre-fill app key input if we have one saved */
   const keyInput = document.getElementById('dbx-app-key-input');
-  if(keyInput && savedKey) keyInput.value = savedKey;
+  if(keyInput && appKey) keyInput.value = appKey;
   /* Always show current URL as redirect hint */
   const hintEl = document.getElementById('dbx-redirect-hint');
   if(hintEl) hintEl.textContent = window.location.href.split('#')[0].split('?')[0];
 
-  const token = dbxGetToken();
-  if(!token) {
+  /* 1. Returning from the OAuth redirect with a one-time code? */
+  const code = dbxParseCodeFromUrl();
+  if(code && appKey) {
+    try {
+      dbxSetStatus('Finishing Dropbox connection…', 'busy', true);
+      const verifier = localStorage.getItem(DBX_VERIFIER_KEY);
+      const auth = new Dropbox.DropboxAuth({ clientId: appKey });
+      if(verifier) auth.setCodeVerifier(verifier);
+
+      const redirectUri = window.location.href.split('#')[0].split('?')[0];
+      const tokenResult = await auth.getAccessTokenFromCode(redirectUri, code);
+      const refreshToken = tokenResult?.result?.refresh_token;
+
+      localStorage.removeItem(DBX_VERIFIER_KEY);
+      if(refreshToken) dbxSaveRefreshToken(refreshToken);
+    } catch(err) {
+      console.warn('[DBX] Code exchange failed:', err);
+      dbxSetStatus('Dropbox connection failed — please try Link again.', 'error');
+    }
+  }
+
+  /* 2. Do we have a refresh token to resume from? */
+  const refreshToken = dbxGetRefreshToken();
+  if(!refreshToken) {
     dbxShowUnlinked();
     /* Show connect button (not setup panel) if key already saved */
-    if(savedKey) {
+    if(appKey) {
       document.getElementById('sync-setup-step')?.classList.add('hidden');
       document.getElementById('sync-connect-step')?.classList.remove('hidden');
     }
     return;
   }
+  if(!appKey) { dbxShowUnlinked(); return; }
 
-  /* 3. Build client */
+  /* 3. Build a persistent auth object wired to auto-refresh,
+        then hand it to the API client. checkAndRefreshAccessToken
+        (called internally by the SDK before each request) will
+        silently mint a new access token whenever needed. */
   try {
-    dbxClient = new Dropbox.Dropbox({ accessToken: token });
+    dbxAuth = new Dropbox.DropboxAuth({
+      clientId:     appKey,
+      refreshToken: refreshToken
+    });
+    dbxClient = new Dropbox.Dropbox({ auth: dbxAuth });
 
-    /* 4. Verify token by fetching account info */
+    /* 4. Verify by fetching account info — this alone will trigger
+          a silent refresh under the hood if the access token is stale. */
     const account = await dbxClient.usersGetCurrentAccount();
     const name    = account.result?.name?.display_name || account.result?.email || 'Dropbox User';
     localStorage.setItem(DBX_ACCOUNT_KEY, name);
@@ -4034,9 +4084,19 @@ async function dbxInit() {
 
   } catch(err) {
     console.warn('[DBX] Init failed:', err);
-    dbxClearToken();
-    dbxClient = null;
-    dbxShowUnlinked();
+    /* Only a genuinely invalid/revoked refresh token should force a
+       reconnect. Transient network errors should not wipe the
+       saved refresh token — that would recreate the original bug. */
+    const summary = err?.error?.error_summary || err?.message || '';
+    const isAuthError = err?.status === 401 || (typeof summary === 'string' && summary.includes('invalid_grant'));
+    if(isAuthError) {
+      dbxClearToken();
+      dbxClient = null;
+      dbxAuth = null;
+      dbxShowUnlinked();
+    } else {
+      dbxSetStatus('Dropbox temporarily unreachable — will retry automatically.', 'error');
+    }
   }
 }
 
@@ -4045,6 +4105,7 @@ function dbxDisconnect() {
   if(!confirm('Disconnect Dropbox?\n\nYour local data will not be deleted. You can re-link at any time.')) return;
   dbxClearToken();
   dbxClient = null;
+  dbxAuth = null;
   dbxShowUnlinked();
 }
 
