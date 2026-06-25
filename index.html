@@ -563,204 +563,106 @@
   }
 
   /* ══════════════════════════════════════════════════════════
-     PRINT / PDF EXPORT — PREMIUM LEDGER DESIGN
-     Page 1: Shift Closing   ·   Page 2: Final Closing
+     PRINT / PDF EXPORT — COMPACT A4 SINGLE PAGE
   ══════════════════════════════════════════════════════════ */
   #print-sheet { display:none; }
-  #print-sheet.show {
-    display:block; position:fixed; left:0; top:0; z-index:-1;
-    background:#fff;
-  }
+  #print-sheet.show { display:block; position:fixed; left:0; top:0; z-index:-1; background:#fff; }
   #print-sheet .ps-page {
-    width: 794px;              /* A4 @ 96dpi */
-    min-height: 1123px;
-    background: #f7f5f0;
-    color: #1c2b2b;
+    width: 794px; height: 1123px;
+    background: #f7f5f0; color: #1c2b2b;
     font-family: 'Inter', Arial, sans-serif;
-    position: relative;
-    overflow: hidden;
-    page-break-after: always;
+    position: relative; overflow: hidden; page-break-after: always; box-sizing: border-box;
   }
   #print-sheet .ps-page:last-child { page-break-after: auto; }
-
-  /* ── Ledger spine: signature element, left margin tick rule ── */
   #print-sheet .ps-spine {
-    position: absolute; left: 0; top: 0; bottom: 0; width: 34px;
-    background: #0b1e2d;
+    position: absolute; left: 0; top: 0; bottom: 0; width: 20px; background: #0b1e2d;
   }
   #print-sheet .ps-spine-final { background: #8a5a1e; }
   #print-sheet .ps-spine-label {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%,-50%) rotate(-90deg);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; letter-spacing: 3px; color: rgba(255,255,255,.55);
+    font-size: 7px; letter-spacing: 3px; color: rgba(255,255,255,.4);
     white-space: nowrap; text-transform: uppercase;
   }
-  #print-sheet .ps-spine-ticks { position:absolute; left:0; top:0; bottom:0; width:34px; }
-  #print-sheet .ps-tick {
-    position:absolute; left:8px; width:18px; height:1px; background: rgba(255,255,255,.18);
-  }
-
-  /* ── Content wrapper, offset for spine ── */
-  #print-sheet .ps-content { margin-left: 34px; padding: 26px 30px 22px; }
-
-  /* ── Letterhead band ── */
+  #print-sheet .ps-spine-ticks { position:absolute; left:0; top:0; bottom:0; width:20px; }
+  #print-sheet .ps-tick { position:absolute; left:4px; width:12px; height:1px; background:rgba(255,255,255,.12); }
+  #print-sheet .ps-content { margin-left: 20px; padding: 10px 14px 6px; }
   #print-sheet .ps-letterhead {
-    display:flex; align-items:flex-end; justify-content:space-between;
-    border-bottom: 2px solid #0b1e2d; padding-bottom: 12px; margin-bottom: 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom: 1.5px solid #0b1e2d; padding-bottom: 6px; margin-bottom: 7px;
   }
   #print-sheet .ps-brand h1 {
     font-family: 'Source Serif 4', Georgia, serif;
-    font-size: 22px; font-weight: 600; color: #0b1e2d; letter-spacing: .2px;
+    font-size: 15px; font-weight: 600; color: #0b1e2d;
   }
   #print-sheet .ps-brand p {
-    font-size: 9.5px; color: #5b6b6b; letter-spacing: 1.6px; text-transform: uppercase; margin-top: 2px;
+    font-size: 7px; color: #5b6b6b; letter-spacing: 1.4px; text-transform: uppercase; margin-top: 1px;
   }
-  #print-sheet .ps-doctype {
-    text-align: right;
-  }
+  #print-sheet .ps-doctype { text-align: right; }
   #print-sheet .ps-doctype .ps-doctype-tag {
-    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:7.5px;
     letter-spacing: 2px; text-transform:uppercase; color:#fff;
-    background:#0d7d72; padding: 4px 10px; border-radius: 3px;
+    background:#0d7d72; padding: 2px 7px; border-radius: 3px;
   }
   #print-sheet .ps-page-final .ps-doctype .ps-doctype-tag { background:#8a5a1e; }
-  #print-sheet .ps-doctype .ps-doctype-date {
-    margin-top: 5px; font-size: 11px; color: #1c2b2b; font-weight: 600;
-  }
-
-  /* ── Identity strip ── */
-  #print-sheet .ps-idstrip {
-    display:flex; gap: 10px; margin-bottom: 18px;
-  }
-  #print-sheet .ps-idchip {
-    flex: 1; background:#fff; border:1px solid #e2ddd2; border-radius:6px;
-    padding: 9px 12px;
-  }
-  #print-sheet .ps-idchip .ps-idchip-label {
-    font-size: 8.5px; letter-spacing: 1.4px; text-transform:uppercase; color:#8a8475;
-  }
-  #print-sheet .ps-idchip .ps-idchip-val {
-    font-family:'JetBrains Mono',monospace; font-size: 13px; font-weight:700; color:#0b1e2d; margin-top:2px;
-  }
-
-  /* ── Section card ── */
+  #print-sheet .ps-doctype .ps-doctype-date { margin-top: 3px; font-size: 8.5px; color: #1c2b2b; font-weight: 600; }
   #print-sheet .ps-box {
-    background:#fff; border:1px solid #e2ddd2; border-radius: 7px;
-    overflow:hidden; margin-bottom: 12px;
-    box-shadow: 0 1px 2px rgba(11,30,45,.04);
+    background:#fff; border:1px solid #e2ddd2; border-radius: 4px;
+    overflow:hidden; margin-bottom: 5px;
   }
   #print-sheet .ps-box h4 {
-    margin:0; padding: 7px 12px; font-size: 10px; font-weight:700;
-    text-transform: uppercase; letter-spacing: 1.2px;
+    margin:0; padding: 3px 7px; font-size: 7px; font-weight:700;
+    text-transform: uppercase; letter-spacing: 1px;
     background: #0b1e2d; color: #f7f5f0;
-    display:flex; align-items:center; gap:6px;
   }
-  #print-sheet .ps-box h4 .ps-box-icon { font-size: 11px; opacity:.85; }
   #print-sheet .ps-box.ps-box-accent h4 { background:#0d7d72; }
   #print-sheet .ps-box.ps-box-final h4  { background:#8a5a1e; }
-
   #print-sheet .ps-row {
-    display:flex; justify-content:space-between; gap: 10px;
-    padding: 5px 12px; font-size: 10.5px;
+    display:flex; justify-content:space-between; gap: 6px;
+    padding: 2px 7px; font-size: 8px;
     border-bottom: 1px solid #f1efe9;
   }
   #print-sheet .ps-row:last-child { border-bottom:none; }
   #print-sheet .ps-row span:first-child { color:#4a5757; flex:1; }
   #print-sheet .ps-row span:last-child {
-    font-family:'JetBrains Mono',monospace; font-weight:700; color:#0b1e2d;
-    white-space:nowrap;
+    font-family:'JetBrains Mono',monospace; font-weight:700; color:#0b1e2d; white-space:nowrap;
   }
-  #print-sheet .ps-row.ps-total {
-    background:#f1efe9; font-weight:700;
-  }
-  #print-sheet .ps-row.ps-total span:first-child { color:#0b1e2d; font-weight:700; }
-  #print-sheet .ps-row.ps-highlight {
-    background: #e6f4f1; border-top: 1px solid #0d7d72; border-bottom: 1px solid #0d7d72;
-  }
+  #print-sheet .ps-row.ps-total { background:#f1efe9; }
+  #print-sheet .ps-row.ps-total span { color:#0b1e2d !important; font-weight:700; }
+  #print-sheet .ps-row.ps-highlight { background:#e6f4f1; border-top:1px solid #0d7d72; border-bottom:1px solid #0d7d72; }
   #print-sheet .ps-row.ps-highlight span { color:#0d7d72 !important; font-weight:800; }
-  #print-sheet .ps-row.ps-red {
-    background: #fbeeec; border-top: 1px solid #c8463c; border-bottom: 1px solid #c8463c;
-  }
-  #print-sheet .ps-row.ps-red span { color:#c8463c !important; font-weight:800; }
+  #print-sheet .ps-row.ps-red { background:#fbeeec; }
+  #print-sheet .ps-row.ps-red span { color:#c8463c !important; font-weight:700; }
   #print-sheet .ps-row.ps-minus span:last-child::before { content:'\2212\00A0'; }
-  #print-sheet .ps-row.ps-plus span:last-child::before  { content:'+\00A0'; }
+  #print-sheet .ps-row.ps-plus  span:last-child::before { content:'+\00A0'; }
   #print-sheet .ps-row.ps-empty span:last-child { color:#c4bfae; font-weight:500; }
-
-  /* ── Three-column main grid for page 1 ── */
   #print-sheet .ps-main3 {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    align-items: start;
-    margin-bottom: 10px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 5px; align-items: start; margin-bottom: 5px;
   }
-  #print-sheet .ps-col { display: flex; flex-direction: column; gap: 10px; }
-
-  /* ── Closing summary strip ── */
-  #print-sheet .ps-summary-strip {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-  #print-sheet .ps-sum-cell {
-    background: #fff;
-    border: 1px solid #e2ddd2;
-    border-radius: 6px;
-    padding: 8px 10px;
-    text-align: center;
-  }
-  #print-sheet .ps-sum-cell .ps-sum-lbl {
-    font-size: 8px;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: #8a8475;
-  }
-  #print-sheet .ps-sum-cell .ps-sum-val {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 800;
-    color: #0b1e2d;
-    margin-top: 2px;
-  }
-  #print-sheet .ps-sum-cell.ps-sum-accent .ps-sum-val { color: #0d7d72; }
-  #print-sheet .ps-sum-cell.ps-sum-red    .ps-sum-val { color: #c8463c; }
-
-
-
-  /* ── Hero variance band ── */
+  #print-sheet .ps-col { display: flex; flex-direction: column; gap: 5px; }
+  #print-sheet .ps-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; align-items:start; }
   #print-sheet .ps-hero {
-    border-radius: 8px; padding: 16px 20px; margin-top: 6px;
+    border-radius: 4px; padding: 8px 12px; margin-top: 4px;
     display:flex; align-items:center; justify-content:space-between;
-    background: linear-gradient(135deg,#0b1e2d 0%, #16323f 100%);
+    background: linear-gradient(135deg,#0b1e2d 0%,#16323f 100%);
   }
   #print-sheet .ps-hero.ps-hero-short { background: linear-gradient(135deg,#5c1f1a 0%,#7a2c24 100%); }
-  #print-sheet .ps-hero .ps-hero-label {
-    font-size: 10.5px; letter-spacing: 1.6px; text-transform:uppercase; color: rgba(255,255,255,.65);
-  }
-  #print-sheet .ps-hero .ps-hero-val {
-    font-family:'JetBrains Mono',monospace; font-size: 26px; font-weight:800; color:#fff; margin-top:2px;
-  }
-  #print-sheet .ps-hero .ps-hero-sub {
-    text-align:right; font-size:9.5px; color: rgba(255,255,255,.55); max-width: 220px; line-height:1.5;
-  }
-
-  /* ── Shift timeline chips (Final page) ── */
-  #print-sheet .ps-chiprow { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  #print-sheet .ps-hero .ps-hero-label { font-size:7.5px; letter-spacing:1.4px; text-transform:uppercase; color:rgba(255,255,255,.6); }
+  #print-sheet .ps-hero .ps-hero-val { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; color:#fff; margin-top:1px; }
+  #print-sheet .ps-hero .ps-hero-sub { text-align:right; font-size:7.5px; color:rgba(255,255,255,.5); max-width:180px; line-height:1.4; }
+  #print-sheet .ps-chiprow { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; }
   #print-sheet .ps-chip {
-    background:#fff; border:1px solid #e2ddd2; border-radius: 20px;
-    padding: 4px 11px; font-size:9.5px; font-family:'JetBrains Mono',monospace; color:#0b1e2d;
+    background:#fff; border:1px solid #e2ddd2; border-radius:20px;
+    padding:2px 7px; font-size:8px; font-family:'JetBrains Mono',monospace; color:#0b1e2d;
   }
-
-  /* ── Footer ── */
   #print-sheet .ps-foot {
-    position:absolute; bottom: 14px; left: 34px; right: 0;
-    display:flex; justify-content:space-between; padding: 0 30px;
-    font-size: 8.5px; color:#9a9484; letter-spacing:.4px;
+    position:absolute; bottom:6px; left:20px; right:0;
+    padding:4px 14px 0; display:flex; justify-content:space-between;
+    font-size:7px; color:#9a9484; border-top:1px solid #e2ddd2;
   }
-  #print-sheet .ps-foot .ps-foot-page { font-family:'JetBrains Mono',monospace; }
-
+  #print-sheet .ps-foot-page { font-family:'JetBrains Mono',monospace; }
   @media print {
     #print-sheet { display:block !important; position:static !important; z-index:auto !important; }
     #print-sheet .ps-page { page-break-after: always; }
@@ -3695,19 +3597,8 @@ function buildPrintSheet() {
       <div class="ps-hero-sub">Net Cash Available minus Net Shift Sale. Zero means the till matches exactly.</div>
     </div>`;
 
-  /* Spine ticks (decorative, page 1) */
   let ticks1 = '';
   for(let t=60; t<1100; t+=46) ticks1 += `<div class="ps-tick" style="top:${t}px;"></div>`;
-
-  /* ── Closing Summary Strip (top row of key figures) ── */
-  const summaryStrip = `
-    <div class="ps-summary-strip">
-      <div class="ps-sum-cell"><div class="ps-sum-lbl">Net Shift Sale</div><div class="ps-sum-val ps-sum-accent">${num('out-net-sale')}</div></div>
-      <div class="ps-sum-cell"><div class="ps-sum-lbl">Net Cash</div><div class="ps-sum-val">${num('out-net-cash')}</div></div>
-      <div class="ps-sum-cell"><div class="ps-sum-lbl">Grand Total</div><div class="ps-sum-val">${num('out-grand')}</div></div>
-      <div class="ps-sum-cell"><div class="ps-sum-lbl">Total Credit</div><div class="ps-sum-val">${num('out-total-e')}</div></div>
-      <div class="ps-sum-cell ps-sum-accent"><div class="ps-sum-lbl">Total Deposits</div><div class="ps-sum-val">${num('out-total-f')}</div></div>
-    </div>`;
 
   const page1 = `
     <div class="ps-page ps-page-shift">
@@ -3721,65 +3612,32 @@ function buildPrintSheet() {
           </div>
           <div class="ps-doctype">
             <span class="ps-doctype-tag">${(activeMode||'shift')==='final'?'Final Closing':'Shift Closing'}</span>
-            <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)}</div>
+            <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)} · ${isSheetLocked?'CLOSED':'DRAFT'} · Generated ${genStamp}</div>
           </div>
         </div>
-
-        ${idStrip}
-        ${summaryStrip}
 
         <div class="ps-main3">
 
           <!-- COL 1: Cash & Summary -->
           <div class="ps-col">
-            <div class="ps-box">
-              <h4>Till Cash</h4>
-              ${tillRows}
-            </div>
-            <div class="ps-box">
-              <h4>Draw / Vault Cash</h4>
-              ${drawRows}
-            </div>
-            <div class="ps-box">
-              <h4>Deposit Details</h4>
-              ${depRows}
-            </div>
-            <div class="ps-box ps-box-accent">
-              <h4>Grand Summary</h4>
-              ${sumRows}
-            </div>
+            <div class="ps-box"><h4>Till Cash</h4>${tillRows}</div>
+            <div class="ps-box"><h4>Draw / Vault Cash</h4>${drawRows}</div>
+            <div class="ps-box"><h4>Deposit Details</h4>${depRows}</div>
+            <div class="ps-box ps-box-accent"><h4>Grand Summary</h4>${sumRows}</div>
           </div>
 
-          <!-- COL 2: HS, Misc, Credit -->
+          <!-- COL 2: HS, Misc -->
           <div class="ps-col">
-            <div class="ps-box">
-              <h4>HS Details &amp; Strips</h4>
-              ${stripRows}
-            </div>
-            <div class="ps-box">
-              <h4>Miscellaneous Credits</h4>
-              ${miscRows}
-            </div>
-            <div class="ps-box">
-              <h4>Credit Detail</h4>
-              ${credRows}
-            </div>
+            <div class="ps-box"><h4>HS Details &amp; Strips</h4>${stripRows}</div>
+            <div class="ps-box"><h4>Miscellaneous Credits</h4>${miscRows}</div>
           </div>
 
-          <!-- COL 3: Sale, CC, Returns -->
+          <!-- COL 3: Sale, CC, Returns, Credit -->
           <div class="ps-col">
-            <div class="ps-box">
-              <h4>Sale Info</h4>
-              ${infoRows}
-            </div>
-            <div class="ps-box">
-              <h4>Credit Card Sales (CC)</h4>
-              ${ccRows}
-            </div>
-            <div class="ps-box ps-box-accent">
-              <h4>Returns &amp; Net Sale</h4>
-              ${retRows}
-            </div>
+            <div class="ps-box"><h4>Sale Info</h4>${infoRows}</div>
+            <div class="ps-box"><h4>Credit Card Sales (CC)</h4>${ccRows}</div>
+            <div class="ps-box ps-box-accent"><h4>Returns &amp; Net Sale</h4>${retRows}</div>
+            <div class="ps-box"><h4>Credit Detail</h4>${credRows}</div>
           </div>
 
         </div>
@@ -3787,7 +3645,7 @@ function buildPrintSheet() {
         ${hero1}
 
       </div>
-      <div class="ps-foot"><span>Fazal Din's Pharma Plus — Shift Register</span><span class="ps-foot-page">Page 1 of 2 · Generated ${genStamp}</span></div>
+      <div class="ps-foot"><span>Fazal Din's Pharma Plus — Shift Register</span><span class="ps-foot-page">Page 1 of 2</span></div>
     </div>`;
 
   /* ════════════════════════════════════════════════════════
@@ -3874,22 +3732,24 @@ async function renderPDF() {
   buildPrintSheet();
   const sheet = document.getElementById('print-sheet');
   sheet.classList.add('show');
-  await new Promise(r => setTimeout(r, 80));
+  await new Promise(r => setTimeout(r, 120));
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF('p','mm','a4');
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
+  const pdf   = new jsPDF('p', 'mm', 'a4');
+  const pageW = 210; /* A4 mm */
+  const pageH = 297;
 
   const pages = sheet.querySelectorAll('.ps-page');
   for(let i = 0; i < pages.length; i++) {
-    const canvas = await html2canvas(pages[i], {scale:2, useCORS:true});
-    /* fit each page's own content to the full A4 sheet, preserving aspect ratio */
-    let imgW = pageW, imgH = canvas.height * pageW / canvas.width;
-    if(imgH > pageH) { imgH = pageH; imgW = canvas.width * pageH / canvas.height; }
-    const xOff = (pageW - imgW) / 2;
+    const canvas = await html2canvas(pages[i], {
+      scale: 2,
+      useCORS: true,
+      width: 794,
+      height: 1123,
+      windowWidth: 794
+    });
     if(i > 0) pdf.addPage();
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', xOff, 0, imgW, imgH);
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH);
   }
 
   sheet.classList.remove('show');
