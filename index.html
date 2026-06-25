@@ -545,6 +545,16 @@
   }
   #app-toast.hidden { display: none; }
 
+  /* ── PDF MODAL ── */
+  #pdf-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;animation:fadeIn .15s ease; }
+  #pdf-modal-overlay.hidden { display:none; }
+  .pdf-modal-sheet { background:var(--white);border-radius:var(--radius-xl);width:100%;max-width:320px;overflow:hidden;box-shadow:var(--shadow-lg);animation:popIn .18s ease; }
+  .pdf-modal-head { padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center; }
+  .pdf-modal-head h3 { font-size:0.9rem;font-weight:700;color:var(--navy);margin:0; }
+  .pdf-modal-body { padding:18px 20px;display:flex;flex-direction:column;gap:10px; }
+  .pdf-modal-body .btn { font-size:0.9rem;padding:13px;display:flex;align-items:center;justify-content:center;gap:8px; }
+  #pdf-modal-status { font-size:0.78rem;color:var(--muted);text-align:center;min-height:18px;padding-bottom:4px; }
+
   /* ── Final mode notice bar ── */
   .final-mode-bar {
     background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
@@ -677,9 +687,47 @@
   #print-sheet .ps-row.ps-plus span:last-child::before  { content:'+\00A0'; }
   #print-sheet .ps-row.ps-empty span:last-child { color:#c4bfae; font-weight:500; }
 
-  /* ── Two/three column grid ── */
-  #print-sheet .ps-grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items:start; }
-  #print-sheet .ps-grid3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items:start; }
+  /* ── Three-column main grid for page 1 ── */
+  #print-sheet .ps-main3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 10px;
+  }
+  #print-sheet .ps-col { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── Closing summary strip ── */
+  #print-sheet .ps-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  #print-sheet .ps-sum-cell {
+    background: #fff;
+    border: 1px solid #e2ddd2;
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  #print-sheet .ps-sum-cell .ps-sum-lbl {
+    font-size: 8px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: #8a8475;
+  }
+  #print-sheet .ps-sum-cell .ps-sum-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 800;
+    color: #0b1e2d;
+    margin-top: 2px;
+  }
+  #print-sheet .ps-sum-cell.ps-sum-accent .ps-sum-val { color: #0d7d72; }
+  #print-sheet .ps-sum-cell.ps-sum-red    .ps-sum-val { color: #c8463c; }
+
+
 
   /* ── Hero variance band ── */
   #print-sheet .ps-hero {
@@ -1198,8 +1246,6 @@
         <div id="ledger-badge"></div>
         <!-- Primary actions -->
         <button class="ltb-icon-btn" id="btn-save-draft" onclick="saveDraft()" title="Save Draft">💾</button>
-        <button class="ltb-icon-btn" onclick="sendWhatsApp()" title="WhatsApp PDF">📤</button>
-        <button class="ltb-icon-btn" onclick="exportPDF()" title="PDF & Print">🖨</button>
         <!-- More menu -->
         <div class="ltb-more-wrap" id="ltb-more-wrap">
           <button class="ltb-icon-btn" onclick="toggleMoreMenu()" title="More">⋮</button>
@@ -2047,6 +2093,7 @@ function renderManifest() {
       <div style="display:flex;gap:8px;align-items:center;">
         ${badgeHtml}
         <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
+        <button class="btn btn-ghost btn-sm" onclick="openPdfModal('${k}')" title="PDF / Print">🖨</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
       </div>`;
     return div;
@@ -3652,40 +3699,93 @@ function buildPrintSheet() {
   let ticks1 = '';
   for(let t=60; t<1100; t+=46) ticks1 += `<div class="ps-tick" style="top:${t}px;"></div>`;
 
+  /* ── Closing Summary Strip (top row of key figures) ── */
+  const summaryStrip = `
+    <div class="ps-summary-strip">
+      <div class="ps-sum-cell"><div class="ps-sum-lbl">Net Shift Sale</div><div class="ps-sum-val ps-sum-accent">${num('out-net-sale')}</div></div>
+      <div class="ps-sum-cell"><div class="ps-sum-lbl">Net Cash</div><div class="ps-sum-val">${num('out-net-cash')}</div></div>
+      <div class="ps-sum-cell"><div class="ps-sum-lbl">Grand Total</div><div class="ps-sum-val">${num('out-grand')}</div></div>
+      <div class="ps-sum-cell"><div class="ps-sum-lbl">Total Credit</div><div class="ps-sum-val">${num('out-total-e')}</div></div>
+      <div class="ps-sum-cell ps-sum-accent"><div class="ps-sum-lbl">Total Deposits</div><div class="ps-sum-val">${num('out-total-f')}</div></div>
+    </div>`;
+
   const page1 = `
     <div class="ps-page ps-page-shift">
       <div class="ps-spine"><div class="ps-spine-ticks">${ticks1}</div><div class="ps-spine-label">${srLabel(shift)} · ${ds||''}</div></div>
       <div class="ps-content">
+
         <div class="ps-letterhead">
           <div class="ps-brand">
             <h1>Fazal Din's Pharma Plus</h1>
             <p>${branchName}</p>
           </div>
           <div class="ps-doctype">
-            <span class="ps-doctype-tag">Shift Closing</span>
+            <span class="ps-doctype-tag">${(activeMode||'shift')==='final'?'Final Closing':'Shift Closing'}</span>
             <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)}</div>
           </div>
         </div>
+
         ${idStrip}
-        <div class="ps-grid3">
-          <div class="ps-box"><h4><span class="ps-box-icon">🧾</span>Sale Info</h4>${infoRows}</div>
-          <div class="ps-box"><h4><span class="ps-box-icon">💳</span>Card Sales (CC)</h4>${ccRows}</div>
-          <div class="ps-box ps-box-accent"><h4><span class="ps-box-icon">↩</span>Returns &amp; Net Sale</h4>${retRows}</div>
+        ${summaryStrip}
+
+        <div class="ps-main3">
+
+          <!-- COL 1: Cash & Summary -->
+          <div class="ps-col">
+            <div class="ps-box">
+              <h4>Till Cash</h4>
+              ${tillRows}
+            </div>
+            <div class="ps-box">
+              <h4>Draw / Vault Cash</h4>
+              ${drawRows}
+            </div>
+            <div class="ps-box">
+              <h4>Deposit Details</h4>
+              ${depRows}
+            </div>
+            <div class="ps-box ps-box-accent">
+              <h4>Grand Summary</h4>
+              ${sumRows}
+            </div>
+          </div>
+
+          <!-- COL 2: HS, Misc, Credit -->
+          <div class="ps-col">
+            <div class="ps-box">
+              <h4>HS Details &amp; Strips</h4>
+              ${stripRows}
+            </div>
+            <div class="ps-box">
+              <h4>Miscellaneous Credits</h4>
+              ${miscRows}
+            </div>
+            <div class="ps-box">
+              <h4>Credit Detail</h4>
+              ${credRows}
+            </div>
+          </div>
+
+          <!-- COL 3: Sale, CC, Returns -->
+          <div class="ps-col">
+            <div class="ps-box">
+              <h4>Sale Info</h4>
+              ${infoRows}
+            </div>
+            <div class="ps-box">
+              <h4>Credit Card Sales (CC)</h4>
+              ${ccRows}
+            </div>
+            <div class="ps-box ps-box-accent">
+              <h4>Returns &amp; Net Sale</h4>
+              ${retRows}
+            </div>
+          </div>
+
         </div>
-        <div class="ps-grid3">
-          <div class="ps-box"><h4><span class="ps-box-icon">🗄️</span>Till Cash</h4>${tillRows}</div>
-          <div class="ps-box"><h4><span class="ps-box-icon">🔐</span>Draw / Vault Cash</h4>${drawRows}</div>
-          <div class="ps-box"><h4><span class="ps-box-icon">💧</span>HS &amp; Strips</h4>${stripRows}</div>
-        </div>
-        <div class="ps-grid2">
-          <div class="ps-box"><h4><span class="ps-box-icon">📇</span>Credit Detail</h4>${credRows}</div>
-          <div class="ps-box"><h4><span class="ps-box-icon">🏦</span>Deposit Detail</h4>${depRows}</div>
-        </div>
-        <div class="ps-grid2">
-          <div class="ps-box"><h4><span class="ps-box-icon">📌</span>Misc Charges</h4>${miscRows}</div>
-          <div class="ps-box ps-box-accent"><h4><span class="ps-box-icon">∑</span>Grand Summary</h4>${sumRows}</div>
-        </div>
+
         ${hero1}
+
       </div>
       <div class="ps-foot"><span>Fazal Din's Pharma Plus — Shift Register</span><span class="ps-foot-page">Page 1 of 2 · Generated ${genStamp}</span></div>
     </div>`;
@@ -3796,6 +3896,69 @@ async function renderPDF() {
   return pdf;
 }
 
+
+/* ── PDF MODAL (from Saved Records) ─────────────────────── */
+let _pdfModalKey = null;
+
+function openPdfModal(key) {
+  _pdfModalKey = key;
+  document.getElementById('pdf-modal-status').textContent = '';
+  document.getElementById('pdf-modal-overlay').classList.remove('hidden');
+}
+
+function closePdfModal() {
+  document.getElementById('pdf-modal-overlay').classList.add('hidden');
+  _pdfModalKey = null;
+}
+
+async function pdfModalAction(type) {
+  const key = _pdfModalKey;
+  if(!key) return;
+  const statusEl = document.getElementById('pdf-modal-status');
+  statusEl.textContent = type === 'whatsapp' ? 'Preparing PDF…' : 'Generating PDF…';
+
+  /* Temporarily load the sheet into the ledger (hidden) so buildPrintSheet can read DOM */
+  const prevKey  = activeKey;
+  const prevMode = activeMode;
+  activeKey  = key;
+  activeMode = db.sheets[key]?.profileMode || 'shift';
+  const parts = key.split('_');
+  initLedger(parts[0], parts[1], activeMode);
+  await new Promise(r => setTimeout(r, 120)); /* let DOM settle */
+
+  try {
+    const pdf  = await renderPDF();
+    const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
+
+    if(type === 'print') {
+      pdf.save(fname);
+      buildPrintSheet();
+      const sheet = document.getElementById('print-sheet');
+      sheet.classList.add('show');
+      setTimeout(() => { window.print(); sheet.classList.remove('show'); }, 200);
+      closePdfModal();
+    } else {
+      const blob = pdf.output('blob');
+      const file = new File([blob], fname, {type:'application/pdf'});
+      if(navigator.canShare && navigator.canShare({files:[file]})) {
+        await navigator.share({ files:[file], title:`Closing — ${parts[0]} ${srLabel(parts[1])}`, text:`Closing sheet for ${parts[0]} — ${srLabel(parts[1])}` });
+      } else {
+        pdf.save(fname);
+        const msg = encodeURIComponent(`Closing — ${parts[0]} ${srLabel(parts[1])}. PDF downloaded — please attach it here.`);
+        window.open(`https://wa.me/923028496090?text=${msg}`, '_blank');
+      }
+      closePdfModal();
+    }
+  } catch(e) {
+    statusEl.textContent = 'Failed: ' + e.message;
+  }
+
+  /* Restore previous state */
+  activeKey  = prevKey;
+  activeMode = prevMode;
+  if(prevKey) { const p = prevKey.split('_'); initLedger(p[0], p[1], prevMode); }
+  else goToDashboard();
+}
 
 function exportPDF() {
   const status = document.getElementById('pdf-status');
@@ -4470,6 +4633,22 @@ async function syncPullFromCloud(manual = false) {
   }
 }
 </script>
+<!-- ═══ PDF / PRINT MODAL ═══ -->
+<div id="pdf-modal-overlay" class="hidden" onclick="if(event.target===this)closePdfModal()">
+  <div class="pdf-modal-sheet">
+    <div class="pdf-modal-head">
+      <h3>📄 Export Closing</h3>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closePdfModal()">✕</button>
+    </div>
+    <div class="pdf-modal-body">
+      <div id="pdf-modal-status"></div>
+      <button class="btn btn-green" onclick="pdfModalAction('whatsapp')">📤 Send to WhatsApp</button>
+      <button class="btn btn-ghost" onclick="pdfModalAction('print')">🖨 Print / Save PDF</button>
+      <button class="btn btn-ghost" style="color:var(--muted);font-size:0.8rem;padding:8px;" onclick="closePdfModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ SAVE ACTION SHEET ═══ -->
 <div id="save-action-overlay" class="hidden">
   <div class="save-action-sheet">
