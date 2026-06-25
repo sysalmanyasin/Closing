@@ -485,6 +485,66 @@
   .modal-picker-item.selected { background: var(--teal-pale); color: var(--teal-dark); font-weight: 700; }
   .modal-picker-item.selected::after { content: "✓"; color: var(--teal); font-weight: 700; }
 
+  /* ── EDIT MODAL ── */
+  #edit-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 20px;
+    animation: fadeIn .15s ease;
+  }
+  #edit-modal-overlay.hidden { display: none; }
+  .edit-modal-sheet {
+    background: var(--white); border-radius: var(--radius-xl);
+    width: 100%; max-width: 360px;
+    box-shadow: var(--shadow-lg); overflow: hidden;
+    animation: popIn .18s ease;
+  }
+  .edit-modal-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .edit-modal-head h3 { font-size: 0.9rem; font-weight: 700; color: var(--navy); margin: 0; }
+  .edit-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .edit-modal-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+  .edit-modal-pin { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 1rem; font-family: 'JetBrains Mono', monospace; letter-spacing: 4px; text-align: center; }
+  .edit-modal-pin:focus { outline: none; border-color: var(--teal); }
+  .edit-mode-toggle { display: flex; gap: 0; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .edit-mode-btn { flex: 1; padding: 10px; border: none; background: #f8fafc; font-size: 0.85rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
+  .edit-mode-btn.active-shift { background: var(--navy); color: #fff; }
+  .edit-mode-btn.active-final { background: #7c3aed; color: #fff; }
+  .edit-modal-footer { display: flex; gap: 8px; padding: 0 20px 18px; }
+  .edit-modal-err { font-size: 0.78rem; color: var(--red); text-align: center; min-height: 16px; }
+
+  /* ── SAVE ACTION SHEET ── */
+  #save-action-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 9999; animation: fadeIn .15s ease;
+  }
+  #save-action-overlay.hidden { display: none; }
+  .save-action-sheet {
+    background: var(--white); border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    width: 100%; max-width: 480px; padding: 20px 20px 32px;
+    box-shadow: var(--shadow-lg);
+    animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(60px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .save-action-title { font-size: 1rem; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
+  .save-action-sub   { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
+  .save-action-btns  { display: flex; flex-direction: column; gap: 10px; }
+  .save-action-btns .btn { font-size: 0.9rem; padding: 13px; }
+
+  /* ── TOAST ── */
+  #app-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; padding: 10px 20px;
+    border-radius: 999px; font-size: 0.82rem; font-weight: 600;
+    z-index: 99999; white-space: nowrap;
+    animation: fadeIn .2s ease;
+    pointer-events: none;
+  }
+  #app-toast.hidden { display: none; }
+
   /* ── Final mode notice bar ── */
   .final-mode-bar {
     background: linear-gradient(90deg, #7c3aed 0%, #a855f7 100%);
@@ -658,9 +718,6 @@
     #print-sheet .ps-page { page-break-after: always; }
     .view-pane:not(#print-sheet) { display:none !important; }
   }
-  /* ── CREDIT LEDGER ROW ── */
-  #credit-ledger-rows { max-height: 55vh; overflow-y: auto; }
-
   /* ── COMPACT LEDGER TOOLBAR ── */
   .ledger-toolbar {
     display: flex; align-items: center; justify-content: space-between;
@@ -854,7 +911,6 @@
     <div class="page-body">
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
-        <button class="btn btn-teal" onclick="goToCredit()">💳 Credit Ledger</button>
       </div>
 
       <!-- ── CLOUD SYNC CARD ── -->
@@ -938,6 +994,13 @@
                   ⚙ Change App Key
                 </button>
               </div>
+              <div style="margin-top:12px;border-top:1px solid #1e293b;padding-top:12px;">
+                <p class="sync-unlinked-text" style="margin-bottom:8px;font-size:0.75rem;">Already connected on another device? Paste your exported token instead:</p>
+                <textarea id="sync-import-input-unlinked" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
+                <button class="btn-dropbox" style="margin-top:6px;background:#0d9488;" onclick="dbxImportConnectionUnlinked()">
+                  📥 Connect via Imported Token
+                </button>
+              </div>
             </div>
 
           </div>
@@ -966,6 +1029,21 @@
             <button class="btn-sync-disconnect" onclick="dbxDisconnect()">
               Disconnect Account
             </button>
+            <div class="sync-btn-row" style="margin-top:6px;">
+              <button class="btn-sync-action" onclick="dbxExportConnection()" title="Copy connection token to use on another device">
+                📤 Export Connection
+              </button>
+              <button class="btn-sync-action" onclick="dbxShowImport()" title="Paste connection token from another device">
+                📥 Import Connection
+              </button>
+            </div>
+            <div id="sync-import-box" style="display:none;margin-top:8px;">
+              <textarea id="sync-import-input" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
+              <div style="display:flex;gap:8px;margin-top:6px;">
+                <button class="btn-sync-action" style="flex:1;" onclick="dbxImportConnection()">✓ Apply Token</button>
+                <button class="btn-sync-disconnect" style="flex:1;" onclick="document.getElementById('sync-import-box').style.display='none'">Cancel</button>
+              </div>
+            </div>
             <div style="text-align:center;margin-top:4px;">
               <button onclick="dbxClearAppKey()" style="background:none;border:none;color:#475569;font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
                 ⚙ Change App Key
@@ -990,24 +1068,10 @@
       </div>
       <div id="shift-picker" class="date-picker-panel hidden">
         <h4 id="lbl-picker-date">Open shift for: 2026-06-12</h4>
-        <div class="form-row" style="margin-bottom:12px;">
-          <div class="form-field">
-            <label>Shift</label>
-            <select id="pick-shift">
-              <option value="Night">Night</option>
-              <option value="Morning">Morning</option>
-              <option value="Evening">Evening</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Mode</label>
-            <select id="pick-mode">
-              <option value="shift">Shift Closing</option>
-              <option value="final">Final Closing</option>
-            </select>
-          </div>
+        <div id="shift-picker-body">
+          <!-- populated dynamically by openDatePicker() -->
         </div>
-        <div class="btn-row">
+        <div class="btn-row" id="shift-picker-btns" style="margin-top:12px;">
           <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Sheet</button>
           <button class="btn btn-ghost" onclick="document.getElementById('shift-picker').classList.add('hidden')">Cancel</button>
         </div>
@@ -1035,44 +1099,6 @@
           </div>
         </div>
         <div id="manifest-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══ PAGE 2 — CREDIT LEDGER (PIN protected) ══ -->
-  <div id="page-credit" class="view-pane hidden">
-    <div class="pager">
-      <button class="btn btn-nav" onclick="goToDashboard()">⬅ Dashboard</button>
-      <span class="pager-label">💳 CREDIT LEDGER</span>
-      <button class="btn btn-nav" onclick="refreshCreditLedger()">🔄 Refresh</button>
-    </div>
-    <div class="page-body">
-      <div class="card">
-        <div class="card-head" style="cursor:default; background: linear-gradient(135deg,var(--navy) 0%,#1e3a5f 100%);">
-          <h3 style="color:#fff;">📊 Cumulative Credit Totals — All Shifts</h3>
-        </div>
-        <div class="card-body">
-          <p style="font-size:0.75rem;color:var(--muted);padding:8px 16px 4px;">
-            Running totals from the first ever closing. Each row shows the cumulative credit balance after that shift's closing.
-          </p>
-          <div id="credit-ledger-rows"></div>
-          <div class="row computed highlight-blue">
-            <label style="font-weight:800;">TOTAL CREDIT (ALL TIME):</label>
-            <input type="text" id="credit-grand-total" readonly style="font-weight:800;font-size:1rem;color:var(--blue);">
-          </div>
-        </div>
-      </div>
-      <!-- Summary cards -->
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>📈 Credit Summary</h3></div>
-        <div class="card-body">
-          <div class="row computed"><label>Total Shifts Recorded:</label><input type="text" id="credit-shift-count" readonly></div>
-          <div class="row computed"><label>Last Final Closing Credit:</label><input type="text" id="credit-last-final" readonly></div>
-          <div class="row computed highlight-green"><label>Net Sale (all time, computer):</label><input type="text" id="credit-net-sale" readonly></div>
-          <div class="row computed"><label>Total Book Sales:</label><input type="text" id="credit-book-sale" readonly></div>
-          <div class="row computed"><label>Total Customers (all time):</label><input type="text" id="credit-customers" readonly></div>
-          <div class="row computed highlight-red"><label>Total Returns (manual):</label><input type="text" id="credit-returns" readonly></div>
-        </div>
       </div>
     </div>
   </div>
@@ -1791,12 +1817,106 @@ function openDatePicker(ds) {
   panel.classList.remove('hidden');
   document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
   document.getElementById('lbl-picker-date').dataset.date = ds;
+
+  /* ── Find the next shift to open ──────────────────────────
+     Order within a day: Night → Morning → Evening
+     Look for the last saved (non-draft) shift on this date,
+     then the next one in sequence is the suggested shift.
+     If none saved today, look at the last saved shift overall
+     and suggest the one after it. ─────────────────────────── */
+  const CHRONO = ['Night', 'Morning', 'Evening'];
+
+  /* Find last saved shift on this date */
+  let suggestedShift = null;
+  let suggestedMode  = 'shift';
+
+  /* Check which shifts on this date are already saved */
+  const savedToday = CHRONO.filter(s => {
+    const rec = db.sheets[`${ds}_${s}`];
+    return rec && rec.draft !== true;
+  });
+
+  if(savedToday.length > 0) {
+    /* Some shifts saved today — suggest the next one */
+    const lastSavedIdx = CHRONO.indexOf(savedToday[savedToday.length - 1]);
+    if(lastSavedIdx < CHRONO.length - 1) {
+      suggestedShift = CHRONO[lastSavedIdx + 1];
+    } else {
+      /* All 3 shifts saved — nothing left for today */
+      suggestedShift = null;
+    }
+  } else {
+    /* No shifts saved today — find last saved shift across all dates */
+    const allSavedKeys = Object.keys(db.sheets)
+      .filter(k => db.sheets[k] && db.sheets[k].draft !== true)
+      .sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+
+    if(allSavedKeys.length > 0) {
+      const lastKey   = allSavedKeys[allSavedKeys.length - 1];
+      const lastParts = lastKey.split('_');
+      const lastDate  = lastParts[0];
+      const lastShift = lastParts[1];
+      const lastIdx   = CHRONO.indexOf(lastShift);
+
+      if(lastDate === ds) {
+        /* Last saved was today — next shift */
+        suggestedShift = lastIdx < CHRONO.length - 1 ? CHRONO[lastIdx + 1] : null;
+      } else if(lastDate < ds) {
+        /* Last saved was before today */
+        if(lastIdx === CHRONO.length - 1) {
+          /* Last was Evening — next day starts with Night */
+          suggestedShift = 'Night';
+        } else {
+          /* Incomplete previous day — but user clicked a new date, suggest Night */
+          suggestedShift = 'Night';
+        }
+      } else {
+        /* Clicked a past date — default Night */
+        suggestedShift = 'Night';
+      }
+    } else {
+      /* No records at all — first ever closing starts with Night */
+      suggestedShift = 'Night';
+    }
+  }
+
+  /* Check if suggested shift already has a draft (allow reopening) */
+  const body = document.getElementById('shift-picker-body');
+  if(!suggestedShift) {
+    body.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:8px 0;">All shifts for ${ds} are already saved.</p>`;
+    document.getElementById('shift-picker-btns').style.display = 'none';
+    panel.dataset.shift = '';
+    panel.dataset.mode  = '';
+    return;
+  }
+
+  document.getElementById('shift-picker-btns').style.display = '';
+  panel.dataset.shift = suggestedShift;
+  panel.dataset.mode  = suggestedMode;
+
+  const existingRec = db.sheets[`${ds}_${suggestedShift}`];
+  const isDraft = existingRec && existingRec.draft === true;
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
+      <div style="background:var(--teal-pale);border-radius:var(--radius);padding:10px 18px;text-align:center;flex:1;">
+        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Shift</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">${suggestedShift}</div>
+      </div>
+      <div style="background:var(--teal-pale);border-radius:var(--radius);padding:10px 18px;text-align:center;flex:1;">
+        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Mode</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">Shift Closing</div>
+      </div>
+    </div>
+    ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
 }
 
 function openSheetFromPicker() {
   const ds    = document.getElementById('lbl-picker-date').dataset.date;
-  const shift = document.getElementById('pick-shift').value;
-  activeMode  = document.getElementById('pick-mode').value;
+  const panel = document.getElementById('shift-picker');
+  const shift = panel.dataset.shift;
+  activeMode  = panel.dataset.mode || 'shift';
+  if(!shift) return;
   const key   = `${ds}_${shift}`;
 
   /* ── FORWARD-OPEN GUARD ──────────────────────────────────────────
@@ -1872,7 +1992,6 @@ function renderManifest() {
   const fromDate = document.getElementById('filter-date-from')?.value || '';
   const toDate   = document.getElementById('filter-date-to')?.value   || '';
 
-  /* include BOTH saved sheets AND drafts (draft=true) */
   const allKeys = Object.keys(db.sheets).filter(k => {
     const rec = db.sheets[k];
     if(!rec) return false;
@@ -1882,29 +2001,34 @@ function renderManifest() {
     return true;
   });
 
-  /* sort chronologically: date asc, then Night→Morning→Evening */
-  allKeys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+  /* sort: latest first */
+  allKeys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
 
   /* update filter badge */
   const badge = document.getElementById('manifest-filter-badge');
   if(badge) {
     const active = fromDate || toDate;
     badge.style.display = active ? 'inline-flex' : 'none';
-    badge.textContent = active ? `Filtered` : '';
+    badge.textContent = active ? 'Filtered' : '';
   }
 
   if(!allKeys.length) {
     box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
   }
-  box.innerHTML = "";
-  allKeys.forEach(k => {
-    const rec  = db.sheets[k];
+
+  box.innerHTML = '';
+
+  const VISIBLE = 3;
+  const older   = allKeys.slice(VISIBLE);
+
+  function makeItem(k) {
+    const rec     = db.sheets[k];
     const isDraft = rec.draft === true;
-    const mode = rec.profileMode || 'shift';
-    const parts = k.split('_');
-    const sr = srLabel(parts[1]);
-    const div = document.createElement('div');
-    div.className = "manifest-item";
+    const mode    = rec.profileMode || 'shift';
+    const parts   = k.split('_');
+    const sr      = srLabel(parts[1]);
+    const div     = document.createElement('div');
+    div.className = 'manifest-item';
     if(isDraft) div.style.opacity = '0.75';
 
     let badgeHtml = '';
@@ -1925,8 +2049,37 @@ function renderManifest() {
         <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
       </div>`;
-    box.appendChild(div);
-  });
+    return div;
+  }
+
+  /* Top 3 always visible */
+  allKeys.slice(0, VISIBLE).forEach(k => box.appendChild(makeItem(k)));
+
+  /* Older records — collapsible */
+  if(older.length) {
+    const collapseWrap = document.createElement('div');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.style.cssText = 'width:100%;padding:10px;background:#f8fafc;border:none;border-top:1px solid var(--border);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;';
+    toggleBtn.innerHTML = `<span id="manifest-older-icon">▼</span> Show ${older.length} older record${older.length>1?'s':''}`;
+
+    const olderList = document.createElement('div');
+    olderList.id    = 'manifest-older-list';
+    olderList.style.display = 'none';
+    older.forEach(k => olderList.appendChild(makeItem(k)));
+
+    toggleBtn.onclick = () => {
+      const open = olderList.style.display !== 'none';
+      olderList.style.display = open ? 'none' : 'block';
+      const icon = document.getElementById('manifest-older-icon');
+      if(icon) icon.textContent = open ? '▼' : '▲';
+      toggleBtn.innerHTML = `<span id="manifest-older-icon">${open?'▼':'▲'}</span> ${open ? 'Show' : 'Hide'} ${older.length} older record${older.length>1?'s':''}`;
+    };
+
+    collapseWrap.appendChild(olderList);
+    collapseWrap.appendChild(toggleBtn);
+    box.appendChild(collapseWrap);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -1957,7 +2110,7 @@ function renderSummaryPage() {
         <div class="shift-summary-card">
           <div class="card-title">
             <h4>🔵 ${srLabel(shift)} Shift</h4>
-            <button class="btn btn-ghost btn-sm" onclick="loadKey('${key}')">Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}')">Edit</button>
           </div>
           <div class="mini-stats">
             <div class="mini-stat"><h5>Target Sales</h5><p>Rs.${nSale.toLocaleString()}</p></div>
@@ -3090,6 +3243,36 @@ function buildSheetRecord() {
   };
 }
 
+/* ── TOAST ───────────────────────────────────────────────── */
+let _toastTimer = null;
+function showToast(msg, ms = 2200) {
+  const el = document.getElementById('app-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.add('hidden'), ms);
+}
+
+/* ── SAVE ACTION SHEET ───────────────────────────────────── */
+function showSaveAction(title, sub, buttons) {
+  document.getElementById('save-action-title').textContent = title;
+  document.getElementById('save-action-sub').textContent   = sub;
+  const btns = document.getElementById('save-action-btns');
+  btns.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = 'btn ' + (b.style || 'btn-ghost');
+    el.textContent = b.label;
+    el.onclick = () => {
+      document.getElementById('save-action-overlay').classList.add('hidden');
+      b.action();
+    };
+    btns.appendChild(el);
+  });
+  document.getElementById('save-action-overlay').classList.remove('hidden');
+}
+
 function saveSheet(silent=false) {
   const record = buildSheetRecord();
   record.draft  = false;
@@ -3099,51 +3282,12 @@ function saveSheet(silent=false) {
   isSavedSheet = true;
   if(!silent) {
     setLockedState(true);
-    alert("Shift saved.");
     cascadeDownstream(activeKey);
-    const parts3 = activeKey.split('_');
-    const nxt = timelineStep(parts3[0], parts3[1], 1);
-    if(activeMode === 'shift') {
-      const agg = aggregateSinceLastFinal(parts3[0], parts3[1]);
-      const n = db.settings.finalEveryN || 3;
-      if((agg.shiftCount + 1) >= n) {
-        setTimeout(() => {
-          if(confirm(`${agg.shiftCount + 1} shift closings done since the last Final Closing.\nOpen the next shift (${nxt.date} — ${srLabel(nxt.shift)}) as a Final Closing?`)) {
-            activeKey  = nxt.key;
-            activeMode = 'final';
-            overrides  = db.sheets[activeKey]?.overrides || {};
-            initLedger(nxt.date, nxt.shift, 'final');
-          } else {
-            /* Still offer to open next as shift */
-            setTimeout(() => {
-              if(confirm(`Open next shift closing?\n${nxt.date} — ${srLabel(nxt.shift)}`)) {
-                activeKey  = nxt.key;
-                activeMode = 'shift';
-                overrides  = db.sheets[activeKey]?.overrides || {};
-                initLedger(nxt.date, nxt.shift, 'shift');
-              } else {
-                goToDashboard();
-              }
-            }, 50);
-          }
-        }, 50);
-        return;
-      }
-      /* Not yet at final threshold — just offer to open next shift */
-      setTimeout(() => {
-        const nxtHasRecord = !!db.sheets[nxt.key];
-        if(!nxtHasRecord && confirm(`✅ Saved!\n\nOpen next shift?\n${nxt.date} — ${srLabel(nxt.shift)}`)) {
-          activeKey  = nxt.key;
-          activeMode = 'shift';
-          overrides  = {};
-          initLedger(nxt.date, nxt.shift, 'shift');
-        } else {
-          goToDashboard();
-        }
-      }, 50);
-      return;
-    }
-    goToDashboard();
+    showSaveAction(
+      activeMode === 'final' ? '🔴 Final Closing Saved' : '✅ Shift Closing Saved',
+      'Closing completed, saved and locked.',
+      [{ label: 'OK', style: 'btn-green', action: goToDashboard }]
+    );
   }
 }
 
@@ -3727,11 +3871,74 @@ function deleteSheet(key) {
   if(!db.sheets[key]) return;
   const parts = key.split('_');
   const sr = srLabel(parts[1]);
+  const pin = prompt(`Enter PIN to delete ${parts[0]} — ${sr}:`);
+  if(pin !== PIN) { alert('Incorrect PIN.'); return; }
   if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
   delete db.sheets[key];
   persist();
   if(activeKey === key) { activeKey = null; goToDashboard(); }
   else { renderManifest(); buildCalendar(); }
+}
+
+/* ═══════════════════════════════════════════
+   EDIT CLOSING MODAL
+═══════════════════════════════════════════ */
+let _editModalKey = null;
+
+function openEditModal(key) {
+  _editModalKey = key;
+  const currentMode = db.sheets[key]?.profileMode || 'shift';
+  editModalSelectMode(currentMode);
+  document.getElementById('edit-modal-pin').value = '';
+  document.getElementById('edit-modal-err').textContent = '';
+  document.getElementById('edit-modal-overlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('edit-modal-pin').focus(), 120);
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal-overlay').classList.add('hidden');
+  _editModalKey = null;
+}
+
+function editModalOutsideClick(e) {
+  if(e.target === document.getElementById('edit-modal-overlay')) closeEditModal();
+}
+
+function editModalSelectMode(mode) {
+  const btnShift = document.getElementById('em-btn-shift');
+  const btnFinal = document.getElementById('em-btn-final');
+  btnShift.className = 'edit-mode-btn' + (mode === 'shift' ? ' active-shift' : '');
+  btnFinal.className = 'edit-mode-btn' + (mode === 'final' ? ' active-final' : '');
+  btnShift.dataset.selected = mode === 'shift' ? '1' : '';
+}
+
+function getEditModalMode() {
+  return document.getElementById('em-btn-shift').dataset.selected === '1' ? 'shift' : 'final';
+}
+
+function confirmEditModal() {
+  const pin = document.getElementById('edit-modal-pin').value;
+  const errEl = document.getElementById('edit-modal-err');
+  if(pin !== PIN) {
+    errEl.textContent = 'Incorrect PIN — try again.';
+    document.getElementById('edit-modal-pin').value = '';
+    document.getElementById('edit-modal-pin').focus();
+    return;
+  }
+  const key     = _editModalKey;
+  const newMode = getEditModalMode();
+  closeEditModal();
+  /* Apply mode change to saved record before opening */
+  if(db.sheets[key] && db.sheets[key].profileMode !== newMode) {
+    db.sheets[key].profileMode = newMode;
+    persist();
+  }
+  activeKey  = key;
+  activeMode = newMode;
+  overrides  = db.sheets[key]?.overrides || {};
+  const p    = key.split('_');
+  initLedger(p[0], p[1], activeMode);
+  setLockedState(false);
 }
 
 function loadKey(key) {
@@ -3779,67 +3986,6 @@ function clearAllFields() {
   pullPreviousShift(parts[0], parts[1], activeMode);
   calc();
 }
-
-/* ═══════════════════════════════════════════
-   CREDIT LEDGER (PIN protected)
-═══════════════════════════════════════════ */
-function goToCredit() {
-  let pin = prompt("Enter Credit Ledger PIN:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
-  showPage('page-credit');
-  refreshCreditLedger();
-}
-
-function refreshCreditLedger() {
-  const box = document.getElementById('credit-ledger-rows');
-  box.innerHTML = "";
-  const keys = Object.keys(db.sheets).filter(k => isRealSheet(db.sheets[k])).sort();
-  if(!keys.length) {
-    box.innerHTML = '<div class="empty-state"><span>📭</span>No records saved yet.</div>';
-    document.getElementById('credit-grand-total').value = 'Rs. 0';
-    return;
-  }
-
-  let runningCredit = 0;
-  let totalShifts = 0;
-  let lastFinalCredit = 0;
-  let totalNetSale = 0;
-  let totalBook = 0;
-  let totalCustomers = 0;
-  let totalReturns = 0;
-
-  keys.forEach(key => {
-    const rec  = db.sheets[key];
-    const parts = key.split('_');
-    const mode = rec.profileMode || 'shift';
-    const creditThisShift = parseFloat(rec.outTotalE)||0;
-    runningCredit += creditThisShift;
-    totalShifts++;
-    totalNetSale += parseFloat(rec.outNetSale)||0;
-    totalBook += (parseFloat(rec.inBook1)||0) + (parseFloat(rec.inBook2)||0);
-    totalCustomers += parseFloat(rec.outCust)||0;
-    totalReturns += (parseFloat(rec.posRet1)||0)+(parseFloat(rec.posRet2)||0)+(parseFloat(rec.posRet3)||0);
-    if(mode === 'final') lastFinalCredit = runningCredit;
-
-    const div = document.createElement('div');
-    div.className = 'row' + (mode==='final' ? ' highlight-blue' : '');
-    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid #f1f5f9;font-size:0.82rem;';
-    div.innerHTML = `
-      <span style="flex:1;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--slate);">${parts[0]} — ${srLabel(parts[1])}</span>
-      <span style="width:80px;text-align:right;font-size:0.75rem;color:var(--muted);">${mode==='final'?'🔴 FINAL':'🔵 shift'}</span>
-      <span style="width:100px;text-align:right;font-weight:600;color:var(--navy);font-family:'JetBrains Mono',monospace;">Rs.${creditThisShift.toLocaleString('en-PK')}</span>
-      <span style="width:110px;text-align:right;font-weight:700;color:var(--teal-dark);font-family:'JetBrains Mono',monospace;">∑ Rs.${runningCredit.toLocaleString('en-PK')}</span>`;
-    box.appendChild(div);
-  });
-
-  document.getElementById('credit-grand-total').value = 'Rs. ' + runningCredit.toLocaleString('en-PK');
-  document.getElementById('credit-shift-count').value = totalShifts + ' closings';
-  document.getElementById('credit-last-final').value = 'Rs. ' + lastFinalCredit.toLocaleString('en-PK');
-  document.getElementById('credit-net-sale').value = 'Rs. ' + totalNetSale.toLocaleString('en-PK');
-  document.getElementById('credit-book-sale').value = 'Rs. ' + totalBook.toLocaleString('en-PK');
-  document.getElementById('credit-customers').value = totalCustomers.toLocaleString('en-PK') + ' customers';
-  document.getElementById('credit-returns').value = 'Rs. ' + totalReturns.toLocaleString('en-PK');
-}
 </script>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -3847,16 +3993,25 @@ function refreshCreditLedger() {
      OAuth2 PKCE (Authorization Code, offline access) · client-side only · no backend
      Issues a long-lived refresh token so the app never needs to
      re-show the connect popup — access tokens renew silently.
+     v2: Smart retry (3 quick + exponential backoff + tab-focus heal),
+         Export/Import connection token, never wipes token on network errors.
 ══════════════════════════════════════════════════════════ -->
 <script>
 /* ── CONFIGURATION ─────────────────────────────────────── */
-const DBX_APP_KEY_STORE   = 'dropbox_app_key';          /* localStorage key for app key */
+const DBX_APP_KEY_STORE   = 'dropbox_app_key';
 const DBX_SYNC_PATH       = '/pharmpos_sync_data.json';
-const DBX_REFRESH_KEY     = 'dropbox_refresh_token';    /* long-lived — survives forever until disconnect */
+const DBX_REFRESH_KEY     = 'dropbox_refresh_token';
 const DBX_ACCOUNT_KEY     = 'dropbox_account_name';
-const DBX_VERIFIER_KEY    = 'dropbox_pkce_verifier';     /* short-lived — only needed across the redirect */
+const DBX_VERIFIER_KEY    = 'dropbox_pkce_verifier';
 
-/* Dynamic getter — reads from localStorage so user can set it from UI */
+/* ── RETRY CONFIG ───────────────────────────────────────── */
+const DBX_QUICK_RETRIES   = 3;    /* fast retries on load */
+const DBX_QUICK_DELAY_MS  = 5000; /* 5s between quick retries */
+/* After quick retries: exponential backoff — 30s, 2min, 5min */
+const DBX_BACKOFF_DELAYS  = [30000, 120000, 300000];
+let   _dbxRetryTimer      = null; /* handle for clearTimeout */
+let   _dbxBackoffIndex    = 0;    /* which backoff step we're on */
+
 function dbxGetAppKey() {
   return (localStorage.getItem(DBX_APP_KEY_STORE) || '').trim();
 }
@@ -4010,19 +4165,15 @@ function dbxParseCodeFromUrl() {
   return code || null;
 }
 
-/* ── CLIENT INITIALISATION ──────────────────────────────── 
-   Runs on every app load. If we already have a refresh token,
-   it's handed straight to a new DropboxAuth — the SDK then
-   silently mints a fresh access token as needed, with no user
-   interaction, for as long as the refresh token is valid
-   (effectively indefinitely, until you Disconnect). ───────── */
+/* ── CLIENT INITIALISATION ──────────────────────────────────
+   Runs on every app load and on retry.
+   NEVER clears the refresh token on network errors —
+   only on confirmed 401 invalid_grant from Dropbox. ───────── */
 async function dbxInit() {
   const appKey = dbxGetAppKey();
 
-  /* Pre-fill app key input if we have one saved */
   const keyInput = document.getElementById('dbx-app-key-input');
   if(keyInput && appKey) keyInput.value = appKey;
-  /* Always show current URL as redirect hint */
   const hintEl = document.getElementById('dbx-redirect-hint');
   if(hintEl) hintEl.textContent = window.location.href.split('#')[0].split('?')[0];
 
@@ -4034,11 +4185,9 @@ async function dbxInit() {
       const verifier = localStorage.getItem(DBX_VERIFIER_KEY);
       const auth = new Dropbox.DropboxAuth({ clientId: appKey });
       if(verifier) auth.setCodeVerifier(verifier);
-
       const redirectUri = window.location.href.split('#')[0].split('?')[0];
       const tokenResult = await auth.getAccessTokenFromCode(redirectUri, code);
       const refreshToken = tokenResult?.result?.refresh_token;
-
       localStorage.removeItem(DBX_VERIFIER_KEY);
       if(refreshToken) dbxSaveRefreshToken(refreshToken);
     } catch(err) {
@@ -4051,7 +4200,6 @@ async function dbxInit() {
   const refreshToken = dbxGetRefreshToken();
   if(!refreshToken) {
     dbxShowUnlinked();
-    /* Show connect button (not setup panel) if key already saved */
     if(appKey) {
       document.getElementById('sync-setup-step')?.classList.add('hidden');
       document.getElementById('sync-connect-step')?.classList.remove('hidden');
@@ -4060,10 +4208,8 @@ async function dbxInit() {
   }
   if(!appKey) { dbxShowUnlinked(); return; }
 
-  /* 3. Build a persistent auth object wired to auto-refresh,
-        then hand it to the API client. checkAndRefreshAccessToken
-        (called internally by the SDK before each request) will
-        silently mint a new access token whenever needed. */
+  /* 3. Build auth + client — trust the token, don't verify via account call.
+        The SDK will silently refresh the access token on first API use. */
   try {
     dbxAuth = new Dropbox.DropboxAuth({
       clientId:     appKey,
@@ -4071,33 +4217,149 @@ async function dbxInit() {
     });
     dbxClient = new Dropbox.Dropbox({ auth: dbxAuth });
 
-    /* 4. Verify by fetching account info — this alone will trigger
-          a silent refresh under the hood if the access token is stale. */
-    const account = await dbxClient.usersGetCurrentAccount();
-    const name    = account.result?.name?.display_name || account.result?.email || 'Dropbox User';
-    localStorage.setItem(DBX_ACCOUNT_KEY, name);
-    dbxShowLinked(name);
+    /* 4. Show linked immediately using cached name — no network call needed */
+    const cachedName = localStorage.getItem(DBX_ACCOUNT_KEY) || 'Dropbox';
+    dbxShowLinked(cachedName);
     dbxSetStatus('Checking for updates…', 'busy', true);
 
-    /* 5. Background pull on load */
+    /* 5. Background pull — this is where the token gets truly exercised */
     await syncPullFromCloud(false);
+
+    /* Success — reset backoff */
+    _dbxBackoffIndex = 0;
+    if(_dbxRetryTimer) { clearTimeout(_dbxRetryTimer); _dbxRetryTimer = null; }
+
+    /* 6. Refresh account name silently in background (non-blocking) */
+    dbxClient.usersGetCurrentAccount().then(account => {
+      const name = account.result?.name?.display_name || account.result?.email || 'Dropbox User';
+      localStorage.setItem(DBX_ACCOUNT_KEY, name);
+      const el = document.getElementById('sync-account-name');
+      if(el) el.textContent = name;
+    }).catch(() => { /* non-critical — ignore */ });
 
   } catch(err) {
     console.warn('[DBX] Init failed:', err);
-    /* Only a genuinely invalid/revoked refresh token should force a
-       reconnect. Transient network errors should not wipe the
-       saved refresh token — that would recreate the original bug. */
     const summary = err?.error?.error_summary || err?.message || '';
-    const isAuthError = err?.status === 401 || (typeof summary === 'string' && summary.includes('invalid_grant'));
+
+    /* Only a genuine auth rejection should force reconnect */
+    const isAuthError = err?.status === 401 ||
+      (typeof summary === 'string' && (summary.includes('invalid_grant') || summary.includes('expired_access_token')));
+
     if(isAuthError) {
+      /* Token truly revoked — must re-authenticate */
       dbxClearToken();
       dbxClient = null;
-      dbxAuth = null;
+      dbxAuth   = null;
       dbxShowUnlinked();
+      dbxSetStatus('Session expired — please reconnect Dropbox.', 'error');
     } else {
-      dbxSetStatus('Dropbox temporarily unreachable — will retry automatically.', 'error');
+      /* Network/transient error — keep token, schedule retry */
+      dbxSetStatus('Dropbox unreachable — retrying…', 'error');
+      dbxScheduleRetry();
     }
   }
+}
+
+/* ── SMART RETRY SCHEDULER ──────────────────────────────────
+   3 quick retries (5s apart), then exponential backoff
+   (30s → 2min → 5min). Also retries when tab regains focus. ─ */
+let _dbxQuickRetryCount = 0;
+
+function dbxScheduleRetry() {
+  if(_dbxRetryTimer) clearTimeout(_dbxRetryTimer);
+
+  let delay;
+  if(_dbxQuickRetryCount < DBX_QUICK_RETRIES) {
+    delay = DBX_QUICK_DELAY_MS;
+    _dbxQuickRetryCount++;
+    console.log(`[DBX] Quick retry ${_dbxQuickRetryCount}/${DBX_QUICK_RETRIES} in ${delay/1000}s`);
+  } else {
+    delay = DBX_BACKOFF_DELAYS[Math.min(_dbxBackoffIndex, DBX_BACKOFF_DELAYS.length - 1)];
+    _dbxBackoffIndex++;
+    console.log(`[DBX] Backoff retry in ${delay/1000}s`);
+  }
+
+  _dbxRetryTimer = setTimeout(() => {
+    _dbxRetryTimer = null;
+    if(dbxGetRefreshToken()) dbxInit();
+  }, delay);
+}
+
+/* Tab-focus heal: instantly retry when user switches back to the tab */
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && dbxGetRefreshToken() && !dbxClient) {
+    console.log('[DBX] Tab focused — healing connection…');
+    if(_dbxRetryTimer) { clearTimeout(_dbxRetryTimer); _dbxRetryTimer = null; }
+    _dbxQuickRetryCount = 0;
+    _dbxBackoffIndex    = 0;
+    dbxInit();
+  }
+});
+
+/* ── EXPORT / IMPORT CONNECTION TOKEN ───────────────────────
+   Lets the user move their refresh token to another device
+   without going through the full OAuth flow again. The token
+   is base64-encoded (not encrypted) so treat it like a password.
+   It only works with the same App Key. ───────────────────────── */
+function dbxExportConnection() {
+  const appKey      = dbxGetAppKey();
+  const refreshToken = dbxGetRefreshToken();
+  if(!refreshToken || !appKey) {
+    alert('No active connection to export.');
+    return;
+  }
+  const payload = btoa(JSON.stringify({ appKey, refreshToken }));
+  navigator.clipboard.writeText(payload).then(() => {
+    dbxSetStatus('Connection token copied! Paste it on your other device.', 'ok');
+  }).catch(() => {
+    /* Fallback: show in a prompt so user can copy manually */
+    prompt('Copy this connection token:', payload);
+  });
+}
+
+function dbxShowImport() {
+  const box = document.getElementById('sync-import-box');
+  if(box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+async function dbxImportConnection() {
+  const raw = (document.getElementById('sync-import-input')?.value || '').trim();
+  await _dbxApplyImportToken(raw);
+}
+
+async function dbxImportConnectionUnlinked() {
+  const raw = (document.getElementById('sync-import-input-unlinked')?.value || '').trim();
+  await _dbxApplyImportToken(raw);
+}
+
+async function _dbxApplyImportToken(raw) {
+  if(!raw) { alert('Please paste a connection token first.'); return; }
+  let parsed;
+  try {
+    parsed = JSON.parse(atob(raw));
+  } catch(e) {
+    alert('Invalid token — please copy it again from the source device.');
+    return;
+  }
+  const { appKey, refreshToken } = parsed;
+  if(!appKey || !refreshToken) {
+    alert('Token is incomplete. Please export again from the source device.');
+    return;
+  }
+  /* Save both key and token */
+  localStorage.setItem(DBX_APP_KEY_STORE, appKey);
+  dbxSaveRefreshToken(refreshToken);
+  /* Clear import inputs */
+  const i1 = document.getElementById('sync-import-input');
+  const i2 = document.getElementById('sync-import-input-unlinked');
+  if(i1) i1.value = '';
+  if(i2) i2.value = '';
+  const box = document.getElementById('sync-import-box');
+  if(box) box.style.display = 'none';
+  /* Re-init with imported credentials */
+  _dbxQuickRetryCount = 0;
+  _dbxBackoffIndex    = 0;
+  await dbxInit();
 }
 
 /* ── DISCONNECT ─────────────────────────────────────────── */
@@ -4208,6 +4470,46 @@ async function syncPullFromCloud(manual = false) {
   }
 }
 </script>
+<!-- ═══ SAVE ACTION SHEET ═══ -->
+<div id="save-action-overlay" class="hidden">
+  <div class="save-action-sheet">
+    <div class="save-action-title" id="save-action-title">✅ Closing Saved</div>
+    <div class="save-action-sub"  id="save-action-sub"></div>
+    <div class="save-action-btns" id="save-action-btns"></div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="app-toast" class="hidden"></div>
+
+<!-- ═══ EDIT CLOSING MODAL ═══ -->
+<div id="edit-modal-overlay" class="hidden" onclick="editModalOutsideClick(event)">
+  <div class="edit-modal-sheet" onclick="event.stopPropagation()">
+    <div class="edit-modal-head">
+      <h3>✏️ Edit Closing</h3>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="edit-modal-body">
+      <div>
+        <div class="edit-modal-label">Closing Type</div>
+        <div class="edit-mode-toggle">
+          <button id="em-btn-shift" class="edit-mode-btn active-shift" onclick="editModalSelectMode('shift')">🔵 Shift</button>
+          <button id="em-btn-final" class="edit-mode-btn" onclick="editModalSelectMode('final')">🔴 Final</button>
+        </div>
+      </div>
+      <div>
+        <div class="edit-modal-label">PIN</div>
+        <input type="password" inputmode="numeric" id="edit-modal-pin" class="edit-modal-pin" placeholder="••••" maxlength="8" onkeydown="if(event.key==='Enter')confirmEditModal()">
+      </div>
+      <div class="edit-modal-err" id="edit-modal-err"></div>
+    </div>
+    <div class="edit-modal-footer">
+      <button class="btn btn-ghost" style="flex:1;" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-teal" style="flex:1;" onclick="confirmEditModal()">Open & Edit</button>
+    </div>
+  </div>
+</div>
+
 <div id="print-sheet"></div>
 </body>
 </html>
