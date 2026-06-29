@@ -1128,6 +1128,21 @@
         </div>
       </div>
       <!-- /CLOUD SYNC CARD -->
+      <!-- ── CREDIT SPARKLINE CARD ── -->
+      <div class="card" id="card-credit-spark">
+        <div class="card-head" style="cursor:default;">
+          <h3>📈 Credit — Last 14 Days</h3>
+          <div class="card-head-right">
+            <span id="spark-total-badge" style="font-size:0.75rem;font-weight:700;color:var(--teal-dark);background:var(--teal-light);padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;"></span>
+          </div>
+        </div>
+        <div id="credit-sparkline-wrap" style="padding:12px 16px 14px;">
+          <div id="credit-sparkline-inner">
+            <!-- filled by renderCreditSparkline() -->
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-head" style="cursor:default;" onclick="">
           <h3>📅 Pick a Date</h3>
@@ -1869,12 +1884,173 @@ function toggleCard(id) {
 }
 
 /* ═══════════════════════════════════════════
+   CREDIT SPARKLINE — last 14 days
+═══════════════════════════════════════════ */
+function renderCreditSparkline() {
+  const wrap  = document.getElementById('credit-sparkline-inner');
+  const badge = document.getElementById('spark-total-badge');
+  if(!wrap) return;
+
+  /* Build list of last 14 calendar dates (oldest→newest) */
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const dates = [];
+  for(let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    dates.push(d.toISOString().slice(0,10));
+  }
+
+  /* For each date: pick the highest-credit saved (non-draft) record that day
+     (last shift of the day gives the most up-to-date outstanding credit) */
+  const SHIFT_ORDER = ['Night','Morning','Evening'];
+  const dailyCredit = dates.map(ds => {
+    let best = null;
+    for(let si = SHIFT_ORDER.length - 1; si >= 0; si--) {
+      const rec = db.sheets[`${ds}_${SHIFT_ORDER[si]}`];
+      if(rec && rec.draft !== true && rec.outTotalE !== undefined) {
+        best = parseFloat(rec.outTotalE) || 0;
+        break;
+      }
+    }
+    return { ds, val: best };  /* null = no data */
+  });
+
+  /* Stats */
+  const withData   = dailyCredit.filter(d => d.val !== null);
+  const latestVal  = withData.length ? withData[withData.length-1].val : null;
+  const maxVal     = withData.length ? Math.max(...withData.map(d=>d.val)) : 0;
+  const minVal     = withData.length ? Math.min(...withData.map(d=>d.val)) : 0;
+  const hasData    = withData.length > 0;
+
+  /* Badge: show latest outstanding total */
+  if(badge) {
+    badge.textContent = hasData
+      ? 'Rs. ' + latestVal.toLocaleString('en-PK')
+      : 'No data';
+  }
+
+  if(!hasData) {
+    wrap.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:18px 0;">No saved closings yet — credit trend will appear here.</div>`;
+    return;
+  }
+
+  /* ── SVG sparkline ── */
+  const W = 600, H = 90, PAD_L = 4, PAD_R = 4, PAD_T = 12, PAD_B = 22;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+  const n     = dailyCredit.length;                  /* always 14 */
+  const span  = maxVal - minVal || 1;
+  const stepX = plotW / (n - 1);
+
+  function xOf(i)   { return PAD_L + i * stepX; }
+  function yOf(val) {
+    if(val === null) return null;
+    return PAD_T + plotH - ((val - minVal) / span) * plotH;
+  }
+
+  /* Build polyline points (skip gaps) */
+  let polyParts = [];
+  let curPoly   = [];
+  dailyCredit.forEach((d, i) => {
+    const y = yOf(d.val);
+    if(y === null) {
+      if(curPoly.length) { polyParts.push(curPoly); curPoly = []; }
+    } else {
+      curPoly.push(`${xOf(i).toFixed(1)},${y.toFixed(1)}`);
+    }
+  });
+  if(curPoly.length) polyParts.push(curPoly);
+
+  /* Fill area under last segment */
+  let fillPath = '';
+  if(polyParts.length) {
+    const last = polyParts[polyParts.length-1];
+    const pts  = last.join(' ');
+    const firstPt = last[0].split(',');
+    const lastPt  = last[last.length-1].split(',');
+    const baseY   = (PAD_T + plotH).toFixed(1);
+    fillPath = `<path d="M${firstPt[0]},${baseY} L${pts.replace(/,/g,' L').replace(/ L/g,' ')} L${lastPt[0]},${baseY} Z"
+      fill="url(#sparkGrad)" opacity="0.25"/>`;
+  }
+
+  /* Day labels: show every 2nd date (short DD) */
+  let labels = '';
+  dailyCredit.forEach((d, i) => {
+    if(i % 2 !== 0 && i !== n-1) return;
+    const dd  = d.ds.slice(8);
+    const mon = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(d.ds.slice(5,7))];
+    const lbl = i === n-1 ? 'Today' : `${dd} ${mon}`;
+    const x   = xOf(i);
+    const anchor = i === 0 ? 'start' : i === n-1 ? 'end' : 'middle';
+    labels += `<text x="${x.toFixed(1)}" y="${H-3}" font-size="8" fill="#94a3b8" text-anchor="${anchor}" font-family="Inter,sans-serif">${lbl}</text>`;
+  });
+
+  /* Dot for latest data point */
+  let latestDot = '';
+  const lastWithIdx = [...dailyCredit].map((d,i)=>({...d,i})).filter(d=>d.val!==null).pop();
+  if(lastWithIdx) {
+    const cx = xOf(lastWithIdx.i).toFixed(1);
+    const cy = yOf(lastWithIdx.val).toFixed(1);
+    latestDot = `<circle cx="${cx}" cy="${cy}" r="4" fill="#0d9488" stroke="#fff" stroke-width="2"/>`;
+  }
+
+  /* Trend arrow */
+  let trendHtml = '';
+  if(withData.length >= 2) {
+    const prev = withData[withData.length-2].val;
+    const curr = latestVal;
+    const diff = curr - prev;
+    const pct  = prev ? Math.abs(diff/prev*100).toFixed(1) : null;
+    if(diff > 0) {
+      trendHtml = `<span style="color:#ef4444;font-size:0.72rem;font-weight:700;">▲ ${pct ? pct+'%' : ''} vs prev</span>`;
+    } else if(diff < 0) {
+      trendHtml = `<span style="color:#16a34a;font-size:0.72rem;font-weight:700;">▼ ${pct ? pct+'%' : ''} vs prev</span>`;
+    } else {
+      trendHtml = `<span style="color:var(--muted);font-size:0.72rem;">→ unchanged</span>`;
+    }
+  }
+
+  /* Range label */
+  const rangeLbl = withData.length
+    ? `<span style="color:var(--muted);font-size:0.72rem;">Range: Rs.${minVal.toLocaleString('en-PK')} – Rs.${maxVal.toLocaleString('en-PK')}</span>`
+    : '';
+
+  wrap.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">
+      <defs>
+        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0d9488"/>
+          <stop offset="100%" stop-color="#0d9488" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- baseline -->
+      <line x1="${PAD_L}" y1="${PAD_T+plotH}" x2="${W-PAD_R}" y2="${PAD_T+plotH}" stroke="#e2e8f0" stroke-width="1"/>
+      ${fillPath}
+      ${polyParts.map(pts =>
+        `<polyline points="${pts.join(' ')}" fill="none" stroke="#0d9488" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`
+      ).join('')}
+      <!-- gap dots for missing days -->
+      ${dailyCredit.map((d,i) => d.val === null
+        ? `<circle cx="${xOf(i).toFixed(1)}" cy="${(PAD_T+plotH/2).toFixed(1)}" r="2" fill="#e2e8f0"/>`
+        : '').join('')}
+      ${latestDot}
+      ${labels}
+    </svg>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;flex-wrap:wrap;gap:4px;">
+      ${rangeLbl}
+      ${trendHtml}
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
    BOOT
 ═══════════════════════════════════════════ */
 window.onload = () => {
   buildDenomRows();
   buildCalendar();
   renderManifest();
+  renderCreditSparkline();
   dbxInit(); /* ── Cloud sync: parse token & init on load ── */
 };
 
@@ -1891,6 +2067,7 @@ function goToDashboard() {
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
+  renderCreditSparkline();
 }
 function goToSettings()  {
   let pin = prompt("Enter settings PIN:");
@@ -2415,36 +2592,12 @@ function openDatePicker(ds) {
         <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Shift</div>
         <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">${suggestedShift}</div>
       </div>
-      <div style="flex:1;text-align:center;">
-        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Mode</div>
-        <div style="display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
-          <button id="picker-mode-shift" onclick="setPickerMode('shift')"
-            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;transition:background .15s;">
-            🔵 Shift
-          </button>
-          <button id="picker-mode-final" onclick="setPickerMode('final')"
-            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:#f8fafc;color:var(--muted);transition:background .15s;">
-            🔴 Final
-          </button>
-        </div>
+      <div style="background:var(--teal-pale);border-radius:var(--radius);padding:10px 18px;text-align:center;flex:1;">
+        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Mode</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">Shift Closing</div>
       </div>
     </div>
     ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
-}
-
-function setPickerMode(mode) {
-  const panel = document.getElementById('shift-picker');
-  panel.dataset.mode = mode;
-  const btnShift = document.getElementById('picker-mode-shift');
-  const btnFinal = document.getElementById('picker-mode-final');
-  if(!btnShift || !btnFinal) return;
-  if(mode === 'final') {
-    btnShift.style.background = '#f8fafc'; btnShift.style.color = 'var(--muted)';
-    btnFinal.style.background = '#7c3aed'; btnFinal.style.color = '#fff';
-  } else {
-    btnShift.style.background = 'var(--navy)'; btnShift.style.color = '#fff';
-    btnFinal.style.background = '#f8fafc'; btnFinal.style.color = 'var(--muted)';
-  }
 }
 
 function openSheetFromPicker() {
@@ -5050,6 +5203,7 @@ async function syncPullFromCloud(manual = false) {
       /* Refresh live UI */
       buildCalendar();
       renderManifest();
+      renderCreditSparkline();
       const ts = new Date().toLocaleTimeString('en-PK');
       dbxSetStatus(`Pulled from cloud at ${ts} (${cloudSheetCount} records)`, 'ok');
     } else {
