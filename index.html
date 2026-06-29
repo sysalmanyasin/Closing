@@ -2415,12 +2415,36 @@ function openDatePicker(ds) {
         <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Shift</div>
         <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">${suggestedShift}</div>
       </div>
-      <div style="background:var(--teal-pale);border-radius:var(--radius);padding:10px 18px;text-align:center;flex:1;">
-        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Mode</div>
-        <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">Shift Closing</div>
+      <div style="flex:1;text-align:center;">
+        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Mode</div>
+        <div style="display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
+          <button id="picker-mode-shift" onclick="setPickerMode('shift')"
+            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;transition:background .15s;">
+            🔵 Shift
+          </button>
+          <button id="picker-mode-final" onclick="setPickerMode('final')"
+            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:#f8fafc;color:var(--muted);transition:background .15s;">
+            🔴 Final
+          </button>
+        </div>
       </div>
     </div>
     ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
+}
+
+function setPickerMode(mode) {
+  const panel = document.getElementById('shift-picker');
+  panel.dataset.mode = mode;
+  const btnShift = document.getElementById('picker-mode-shift');
+  const btnFinal = document.getElementById('picker-mode-final');
+  if(!btnShift || !btnFinal) return;
+  if(mode === 'final') {
+    btnShift.style.background = '#f8fafc'; btnShift.style.color = 'var(--muted)';
+    btnFinal.style.background = '#7c3aed'; btnFinal.style.color = '#fff';
+  } else {
+    btnShift.style.background = 'var(--navy)'; btnShift.style.color = '#fff';
+    btnFinal.style.background = '#f8fafc'; btnFinal.style.color = 'var(--muted)';
+  }
 }
 
 function openSheetFromPicker() {
