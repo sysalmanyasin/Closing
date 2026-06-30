@@ -1,17 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════
-   FLOOR 1 (Extension) — DROPBOX SYNC MODULE
-   Isolated cloud sync. Reads/writes via repoReplaceDB() and
-   repoPersist(). Emits EventBus events on sync complete.
-   No UI logic here — calls dbxSetStatus() for status display only.
+   FLOOR 1 (Extension) — DROPBOX CLOUD SYNC ENGINE
+   OAuth2 PKCE, client-side only, no backend.
+   Reads/writes via repoReplaceDB() / repoPersist() only.
 ═══════════════════════════════════════════════════════════════ */
-     DROPBOX CLOUD SYNC ENGINE
-     OAuth2 PKCE (Authorization Code, offline access) · client-side only · no backend
-     Issues a long-lived refresh token so the app never needs to
-     re-show the connect popup — access tokens renew silently.
-     v2: Smart retry (3 quick + exponential backoff + tab-focus heal),
-         Export/Import connection token, never wipes token on network errors.
-══════════════════════════════════════════════════════════ -->
-<script>
+
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const DBX_APP_KEY_STORE   = 'dropbox_app_key';
 const DBX_SYNC_PATH       = '/pharmpos_sync_data.json';
@@ -484,63 +476,3 @@ async function syncPullFromCloud(manual = false) {
     dbxSetBusy(false);
   }
 }
-</script>
-<!-- ═══ PDF / PRINT MODAL ═══ -->
-<div id="pdf-modal-overlay" class="hidden" onclick="if(event.target===this)closePdfModal()">
-  <div class="pdf-modal-sheet">
-    <div class="pdf-modal-head">
-      <h3>📄 Export Closing</h3>
-      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closePdfModal()">✕</button>
-    </div>
-    <div class="pdf-modal-body">
-      <div id="pdf-modal-status"></div>
-      <button class="btn btn-green" onclick="pdfModalAction('whatsapp')">📤 Send to WhatsApp</button>
-      <button class="btn btn-ghost" onclick="pdfModalAction('print')">🖨 Print / Save PDF</button>
-      <button class="btn btn-ghost" style="color:var(--muted);font-size:0.8rem;padding:8px;" onclick="closePdfModal()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ SAVE ACTION SHEET ═══ -->
-<div id="save-action-overlay" class="hidden">
-  <div class="save-action-sheet">
-    <div class="save-action-title" id="save-action-title">✅ Closing Saved</div>
-    <div class="save-action-sub"  id="save-action-sub"></div>
-    <div class="save-action-btns" id="save-action-btns"></div>
-  </div>
-</div>
-
-<!-- ═══ TOAST ═══ -->
-<div id="app-toast" class="hidden"></div>
-
-<!-- ═══ EDIT CLOSING MODAL ═══ -->
-<div id="edit-modal-overlay" class="hidden" onclick="editModalOutsideClick(event)">
-  <div class="edit-modal-sheet" onclick="event.stopPropagation()">
-    <div class="edit-modal-head">
-      <h3>✏️ Edit Closing</h3>
-      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closeEditModal()">✕</button>
-    </div>
-    <div class="edit-modal-body">
-      <div>
-        <div class="edit-modal-label">Closing Type</div>
-        <div class="edit-mode-toggle">
-          <button id="em-btn-shift" class="edit-mode-btn active-shift" onclick="editModalSelectMode('shift')">🔵 Shift</button>
-          <button id="em-btn-final" class="edit-mode-btn" onclick="editModalSelectMode('final')">🔴 Final</button>
-        </div>
-      </div>
-      <div>
-        <div class="edit-modal-label">PIN</div>
-        <input type="password" inputmode="numeric" id="edit-modal-pin" class="edit-modal-pin" placeholder="••••" maxlength="8" onkeydown="if(event.key==='Enter')confirmEditModal()">
-      </div>
-      <div class="edit-modal-err" id="edit-modal-err"></div>
-    </div>
-    <div class="edit-modal-footer">
-      <button class="btn btn-ghost" style="flex:1;" onclick="closeEditModal()">Cancel</button>
-      <button class="btn btn-teal" style="flex:1;" onclick="confirmEditModal()">Open & Edit</button>
-    </div>
-  </div>
-</div>
-
-<div id="print-sheet"></div>
-</body>
-</html>

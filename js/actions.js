@@ -1,33 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════
-   FLOOR 3 — ACTIONS + EVENT BUS
-   The ONLY door to change data and notify UI.
-
-   Rules:
-   - Actions read from AppState, write through Repo, then emit events.
-   - Never touch the DOM directly — call Pages to re-render.
-   - Every data change goes through here.
-
-   Event Bus: EventBus.emit(event, payload)
-   Events: 'sheet:saved' | 'sheet:deleted' | 'settings:saved' |
-           'ledger:opened' | 'ledger:calc' | 'sync:push'
+   FLOOR 3 — ACTIONS
+   The only door to change data: calc engine, ledger lifecycle,
+   save/delete sheets, auto-save scheduling.
 ═══════════════════════════════════════════════════════════════ */
 
-/* ── Event Bus ───────────────────────────────────────────────── */
-const EventBus = {
-  _listeners: {},
-  on(event, fn)     { (this._listeners[event] ||= []).push(fn); },
-  off(event, fn)    { this._listeners[event] = (this._listeners[event]||[]).filter(f=>f!==fn); },
-  emit(event, data) { (this._listeners[event]||[]).forEach(fn => fn(data)); }
-};
-
-/* ── Timers ──────────────────────────────────────────────────── */
-let _pushTimer  = null;
-let _draftTimer = null;
-let _draftReady = false;
-
-/* ═══════════════════════════════════════════
-   LEDGER INIT
-═══════════════════════════════════════════ */
 function initLedger(ds, shift, mode) {
   showPage('page-ledger');
 
@@ -656,280 +632,8 @@ function calc() {
 
 /* ═══════════════════════════════════════════
    OVERRIDE HANDLING
-/* ═══════════════════════════════════════════
-   MAIN CALCULATION PIPELINE
 ═══════════════════════════════════════════ */
-function calc() {
-  /* HS */
-  let hsTotal = 0;
-  document.querySelectorAll('.hs-val').forEach(el => hsTotal += parseFloat(el.value)||0);
-  set('out-total-hs', hsTotal);
-  const badge_hs = document.getElementById('badge-hs');
-  if(badge_hs) badge_hs.textContent = 'Rs. ' + hsTotal.toLocaleString();
 
-  /* Strips (A) */
-  let totalA = 0;
-  const stripPrices = document.querySelectorAll('.strip-price');
-  const stripQtys   = document.querySelectorAll('.strip-qty');
-  stripPrices.forEach((el, i) => {
-    const p    = parseFloat(el.value)||0;
-    const q    = parseFloat(stripQtys[i]?.value)||0;
-    const line = p*q;
-    const lineEl = document.getElementById(`strip-line-${i}`);
-    if(lineEl) lineEl.value = line;
-    totalA += line;
-  });
-  document.querySelectorAll('.aux-strip-price').forEach((el, i) => {
-    const p    = parseFloat(el.value)||0;
-    const q    = parseFloat(document.querySelectorAll('.aux-strip-qty')[i]?.value)||0;
-    const line = p*q;
-    const tot  = document.querySelectorAll('.aux-strip-total')[i];
-    if(tot) tot.value = line;
-    totalA += line;
-  });
-  set('out-total-a', totalA);
-  const badge_strips = document.getElementById('badge-strips');
-  if(badge_strips) badge_strips.textContent = 'Rs. ' + totalA.toLocaleString();
-
-  /* POS */
-  const sysCash    = val('in-sys-cash');
-  const lastBillAmt = val('in-last-bill-amt');
-  const lastBillNum = parseInt(g('in-last-bill-num')?.value)||0;
-  const compSale   = val('in-comp-sale');
-  const alfalah    = val('in-alfalah');
-  const keenu      = val('in-keenu');
-
-  /* Returns */
-  const ret1 = val('pos-ret-1'); const ret2 = val('pos-ret-2'); const ret3 = val('pos-ret-3');
-  const retSys = val('pos-ret-sys');
-  const totalReturns = ret1 + ret2 + ret3 + retSys;
-  set('out-total-returns', totalReturns);
-  const badge_pos = document.getElementById('badge-pos');
-  if(badge_pos) badge_pos.textContent = 'Rs. ' + sysCash.toLocaleString();
-
-  /* Shift sale delta */
-  const parts     = activeKey ? activeKey.split('_') : ['',''];
-  const prevNode  = timelineStep(parts[0], parts[1], -1);
-  const prevSheet = getRealSheet(prevNode.key);
-  const dayChanged = (parts[0] !== prevNode.date);
-
-  let shiftSale = 0;
-  if(activeMode==="final" || dayChanged || !prevSheet) {
-    shiftSale = sysCash;
-  } else {
-    shiftSale = sysCash - (parseFloat(prevSheet.inSysCash)||0);
-  }
-  applyOrOverride('out-shift-sale', shiftSale);
-
-  let custDelta = 0;
-  if(prevSheet) {
-    /* Always compute customer delta from bill number difference, regardless of day change or mode */
-    custDelta = Math.max(0, lastBillNum - (parseInt(prevSheet.inLastBillNum)||0));
-  }
-  applyOrOverride('out-cust', custDelta);
-
-  const shiftSaleVal = val('out-shift-sale');
-  const book1  = val('in-book-1');
-  const book2  = val('in-book-2');
-  const custVal = val('out-cust');
-  const netSale = shiftSaleVal + book1 + book2 + custVal - totalReturns;
-  set('out-net-sale', netSale);
-  const badge_shift = document.getElementById('badge-shift');
-  if(badge_shift) badge_shift.textContent = 'Rs. ' + netSale.toLocaleString();
-
-  /* CC (B) */
-  const currCC = (alfalah + keenu) - compSale;
-  applyOrOverride('out-curr-cc', currCC);
-  const badge_cc = document.getElementById('badge-cc');
-  if(badge_cc) badge_cc.textContent = 'Rs. ' + (val('out-prev-cc') + val('out-curr-cc')).toLocaleString();
-
-  /* Denominations (C & D) */
-  let totalC = 0;
-  document.querySelectorAll('.till-cell').forEach(el => {
-    totalC += (parseFloat(el.value)||0) * parseFloat(el.dataset.mult);
-  });
-  set('out-subtotal-c', totalC);
-  const badge_till = document.getElementById('badge-till');
-  if(badge_till) badge_till.textContent = 'Rs. ' + totalC.toLocaleString();
-
-  let totalD = 0;
-  document.querySelectorAll('.vault-cell').forEach(el => {
-    totalD += (parseFloat(el.value)||0) * parseFloat(el.dataset.mult);
-  });
-  set('out-subtotal-d', totalD);
-  const badge_vault = document.getElementById('badge-vault');
-  if(badge_vault) badge_vault.textContent = 'Rs. ' + totalD.toLocaleString();
-
-  /* Debt (E) */
-  const carriedCredit = val('out-prev-credit');
-  let namedDebt = 0;
-  document.querySelectorAll('.named-cred-val').forEach(el => namedDebt += parseFloat(el.value)||0);
-  let tierDebt = 0;
-  for(let i=1;i<=3;i++) tierDebt += val(`in-nested-${i}`);
-  let auxDebt = 0;
-  document.querySelectorAll('.aux-cred-val').forEach(el => auxDebt += parseFloat(el.value)||0);
-  const totalE = carriedCredit + namedDebt + tierDebt + auxDebt + val('in-credit-adj');
-  set('out-total-e', totalE);
-  const badge_credit = document.getElementById('badge-credit');
-  if(badge_credit) badge_credit.textContent = 'Rs. ' + totalE.toLocaleString();
-
-  /* Deposits (F) */
-  const carriedDep = val('out-prev-dep');
-  let depTotal = 0;
-  document.querySelectorAll('.dep-val').forEach(el => depTotal += parseFloat(el.value)||0);
-  const totalF = carriedDep + depTotal;
-  set('out-total-f', totalF);
-  const badge_dep = document.getElementById('badge-deposits');
-  if(badge_dep) badge_dep.textContent = 'Rs. ' + totalF.toLocaleString();
-
-  /* Misc (G) */
-  let totalG = 0;
-  document.querySelectorAll('.misc-row input[type="number"]').forEach(el => {
-    const rowId   = el.closest('.misc-row')?.id;
-    const stNum   = rowId?.replace('misc-row-','');
-    const stEl    = stNum ? g(`misc-st-${stNum}`) : null;
-    const status  = stEl ? stEl.value : 'Active';
-    if(status !== 'Cleared') totalG += parseFloat(el.value)||0;
-  });
-  set('out-total-g', totalG);
-  const badge_misc = document.getElementById('badge-misc');
-  if(badge_misc) badge_misc.textContent = 'Rs. ' + totalG.toLocaleString();
-
-  /* Grand total: A=HS, B=Strips, C=Misc, D=CC, E=Till, F=Draw, G=Credit, H=Deposits */
-  const ccB   = val('out-prev-cc') + val('out-curr-cc');
-  const grand = hsTotal + totalA + totalG + ccB + totalC + totalD + totalE + totalF;
-  set('out-grand', grand);
-  const liquid = grand - 45000;
-  set('out-liquid', liquid);
-
-  const carriedCash = val('out-prev-cash');
-  applyOrOverride('out-prev-cash', carriedCash);
-  const extraCash = val('in-extra-cash');
-  const netCash  = liquid - val('out-prev-cash') - extraCash;
-  set('out-net-cash', netCash);
-
-  /* ── Final Closing aggregation — computed in ALL modes ── */
-  let bannerTarget = netSale, bannerCash = netCash;
-  if(activeKey) {
-    const parts2 = activeKey.split('_');
-    const agg    = aggregateSinceLastFinal(parts2[0], parts2[1]);
-    set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
-
-    /* ─── PART 1: Net Final Sale ─────────────────────────── */
-    let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet;
-    if (activeMode === 'final') {
-      /* Final Closing selected: use current shift values only */
-      totalSameDateSys  = shiftSaleVal;
-      totalBooks        = book1 + book2;
-      totalSameDateCust = custVal;
-      totalManRet       = ret1 + ret2 + ret3;
-      totalSameSysRet   = retSys;
-    } else {
-      /* Non-final modes: aggregate across period as before */
-      /* POS: same-date shifts + last-final (if same date) + this closing */
-      totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
-      /* Book bills: ALL periods */
-      totalBooks        = agg.totalBookBills + book1 + book2;
-      /* Customers: same-date only */
-      totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
-      /* Manual returns: ALL periods */
-      totalManRet       = agg.totalManualReturns + ret1 + ret2 + ret3;
-      /* Sys returns: same-date only (incl. last final if same date) + this closing */
-      totalSameSysRet   = agg.sameDateSysReturns + agg.lfSameDateSysRet + retSys;
-    }
-    /* Additional sys returns entered manually in this final */
-    const finalExtraRet     = val('in-final-sys-returns');
-    const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust
-                       - totalManRet - totalSameSysRet - finalExtraRet;
-
-    set('out-final-same-sys',    totalSameDateSys);
-    set('out-final-books',       totalBooks);
-    set('out-final-same-cust',   totalSameDateCust);
-    set('out-final-man-ret',     totalManRet);
-    set('out-final-same-sysret', totalSameSysRet);
-    set('out-final-net-sale',    finalNetSale);
-
-    /* ─── PART 2: Net Final Cash Available ───────────────── */
-    let preDateSys, preDateCust, preDateSysRet, totalExtraCashPeriod;
-    if (activeMode === 'final') {
-      /* Final Closing selected: no pre-date aggregation, extra cash = current shift only */
-      preDateSys             = 0;
-      preDateCust            = 0;
-      preDateSysRet          = 0;
-      totalExtraCashPeriod   = extraCash;
-    } else {
-      preDateSys             = agg.preDateShiftSale + agg.lfPreDateSale;
-      preDateCust            = agg.preDateCustomers  + agg.lfPreDateCust;
-      preDateSysRet          = agg.preDateSysReturns + agg.lfPreDateSysRet;
-      totalExtraCashPeriod   = agg.totalExtraCash + extraCash;
-    }
-    const preDateTotal      = preDateSys + preDateCust - preDateSysRet;
-    const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod - finalNetSale;
-
-    set('out-final-net-cash-base', liquid);
-    set('out-final-pre-sys',       preDateSys);
-    set('out-final-pre-cust',      preDateCust);
-    set('out-final-pre-sysret',    preDateSysRet);
-    set('out-final-pre-total',     preDateTotal);
-    set('out-final-extra-cash',    totalExtraCashPeriod);
-    set('out-final-target-sale',   finalNetSale);
-    set('out-final-net-cash',      finalNetCash);
-
-    /* ─── VARIANCE ───────────────────────────────────────── */
-    const finalDiff = finalNetCash;
-    const fdEl  = document.getElementById('out-final-diff');
-    const fdLbl = document.getElementById('out-final-diff-label');
-    if(finalDiff === 0) {
-      fdLbl.textContent = 'Variance (Final Audit):';
-      fdEl.value = 0;
-    } else if(finalDiff > 0) {
-      fdLbl.textContent = 'Plus (Final Audit):';
-      fdEl.value = finalDiff;
-    } else {
-      fdLbl.textContent = 'Less (Final Audit):';
-      fdEl.value = Math.abs(finalDiff);
-    }
-
-    /* legacy hidden fields kept for buildSheetRecord compat */
-    set('out-final-net-sale-adj', finalNetSale - totalExtraCashPeriod);
-    set('out-final-net-cash-adj', finalNetCash);
-    set('out-final-prev-sale',    0);
-
-    if(activeMode === 'final') {
-      bannerTarget = netSale;
-      bannerCash   = netCash;
-    }
-  }
-
-  const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) */
-  document.getElementById('ban-target').textContent   = "Rs. " + bannerTarget.toLocaleString('en-PK');
-  document.getElementById('ban-cash').textContent     = "Rs. " + bannerCash.toLocaleString('en-PK');
-  const banEl = document.getElementById('ban-variance');
-  const banLbl = document.getElementById('ban-variance-label');
-  if(diff === 0) {
-    if(banLbl) banLbl.textContent = 'Variance';
-    banEl.textContent = "Rs. 0";
-    banEl.className = 'val pos';
-  } else if(diff > 0) {
-    if(banLbl) banLbl.textContent = 'Plus';
-    banEl.textContent = "Rs. " + diff.toLocaleString('en-PK');
-    banEl.className = 'val pos';
-  } else {
-    if(banLbl) banLbl.textContent = 'Less';
-    banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
-    banEl.className = 'val neg';
-  }
-  /* ── real-time auto-draft ── */
-  scheduleAutoSave();
-}
-
-/* ═══════════════════════════════════════════
-   OVERRIDE HANDLING
-═══════════════════════════════════════════ */
-function toggleSign(id) {
-/* ═══════════════════════════════════════════
-   OVERRIDE HANDLING
-═══════════════════════════════════════════ */
 function toggleSign(id) {
   const el = g(id);
   if(!el) return;
@@ -957,11 +661,6 @@ function applyOrOverride(id, baseVal) {
   }
 }
 
-/* ═══════════════════════════════════════════
-   LEDGER PAGINATION
-═══════════════════════════════════════════ */
-function moveLedgerShift(n) {
-  if(!activeKey) return;
 /* ═══════════════════════════════════════════
    LEDGER PAGINATION
 ═══════════════════════════════════════════ */
@@ -1112,83 +811,7 @@ function buildSheetRecord() {
 }
 
 /* ── TOAST ───────────────────────────────────────────────── */
-let _toastTimer = null;
-function showToast(msg, ms = 2200) {
-  const el = document.getElementById('app-toast');
-  if(!el) return;
-  el.textContent = msg;
-/* ═══════════════════════════════════════════
-   DEBOUNCED CLOUD PUSH
-═══════════════════════════════════════════ */
-let _pushTimer = null;
-function scheduleSyncPush(delay = 0) {
-  if(!dbxClient) return;
-  clearTimeout(_pushTimer);
-  if(delay === 0) {
-    syncPushToCloud(false).catch(() => {});
-  } else {
-    _pushTimer = setTimeout(() => syncPushToCloud(false).catch(() => {}), delay);
-  }
-}
 
-/* ═══════════════════════════════════════════
-   REAL-TIME AUTO DRAFT (from calc)
-═══════════════════════════════════════════ */
-let _draftTimer  = null;
-let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
-
-function scheduleAutoSave() {
-  if(!activeKey || !_draftReady || isSheetLocked) return;
-  clearTimeout(_draftTimer);
-  _draftTimer = setTimeout(() => {
-    try {
-      const record = buildSheetRecord();
-      record.draft  = true;
-      record.locked = false;
-      db.sheets[activeKey] = record;
-      localStorage.setItem('pharmpos_v2', JSON.stringify(db));
-      scheduleSyncPush(0); /* push draft immediately */
-    } catch(e) { /* silent — draft save is best-effort */ }
-  }, 3000); /* 3 s idle after last keystroke */
-}
-
-function persist() {
-  localStorage.setItem('pharmpos_v2', JSON.stringify(db));
-  scheduleSyncPush(0); /* immediate push on every explicit save */
-}
-function g(id) { return document.getElementById(id); }
-function set(id, v) { const el=g(id); if(el) el.value=v; }
-function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
-
-/* A sheet only "counts" for calendar dots, manifest, carry-over,
-   and Final aggregation once it has been explicitly Saved
-   (saveSheet sets draft=false). Auto-drafts (draft=true) are
-   excluded until then. */
-function isRealSheet(rec) {
-  return !!rec && rec.draft !== true;
-}
-function getRealSheet(key) {
-  const rec = db.sheets[key];
-  return isRealSheet(rec) ? rec : null;
-}
-
-function timelineStep(ds, shift, n) {
-  let d   = new Date(ds);
-  let idx = SHIFTS.indexOf(shift) + n;
-  if(idx >= SHIFTS.length) {
-    d.setDate(d.getDate() + Math.floor(idx/SHIFTS.length)); idx = idx % SHIFTS.length;
-  } else if(idx < 0) {
-    const steps = Math.ceil(Math.abs(idx)/SHIFTS.length);
-    d.setDate(d.getDate() - steps);
-    idx = (SHIFTS.length + (idx % SHIFTS.length)) % SHIFTS.length;
-  }
-  const outDs = d.toISOString().split('T')[0];
-  return {key:`${outDs}_${SHIFTS[idx]}`, date:outDs, shift:SHIFTS[idx]};
-}
-
-function buildPrintSheet() {
-  const parts = activeKey ? activeKey.split('_') : ['',''];
-  const ds = parts[0], shift = parts[1];
 function saveSheet(silent=false) {
   const record = buildSheetRecord();
   record.draft  = false;
@@ -1335,6 +958,44 @@ function cascadeDownstream(originKey) {
 ═══════════════════════════════════════════ */
 /* ═══════════════════════════════════════════
    DEBOUNCED CLOUD PUSH
+═══════════════════════════════════════════ */
+let _pushTimer = null;
+function scheduleSyncPush(delay = 0) {
+  if(!dbxClient) return;
+  clearTimeout(_pushTimer);
+  if(delay === 0) {
+    syncPushToCloud(false).catch(() => {});
+  } else {
+    _pushTimer = setTimeout(() => syncPushToCloud(false).catch(() => {}), delay);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   REAL-TIME AUTO DRAFT (from calc)
+═══════════════════════════════════════════ */
+let _draftTimer  = null;
+let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
+
+function scheduleAutoSave() {
+  if(!activeKey || !_draftReady || isSheetLocked) return;
+  clearTimeout(_draftTimer);
+  _draftTimer = setTimeout(() => {
+    try {
+      const record = buildSheetRecord();
+      record.draft  = true;
+      record.locked = false;
+      db.sheets[activeKey] = record;
+      localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+      scheduleSyncPush(0); /* push draft immediately */
+    } catch(e) { /* silent — draft save is best-effort */ }
+  }, 3000); /* 3 s idle after last keystroke */
+}
+
+function persist() {
+  localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+  scheduleSyncPush(0); /* immediate push on every explicit save */
+}
+
 function saveDraft() {
   if(!activeKey) return;
   calc();
@@ -1377,27 +1038,4 @@ function deleteSheet(key) {
 
 /* ═══════════════════════════════════════════
    EDIT CLOSING MODAL
-═══════════════════════════════════════════ */
-let _editModalKey = null;
-function saveSettings() {
-  db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
-  db.settings.namedCredits.forEach((nc, i) => {
-    const el = document.querySelector(`#settings-named-credits .settings-item:nth-child(${i+1}) input`);
-    if(el) nc.label = el.value;
-  });
-  for(let i=1;i<=3;i++) {
-    const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
-    const tnames = document.getElementById(`cfg-tier-names-${i}`)?.value || '';
-    db.settings.subTiers[i-1] = {
-      type: ttype,
-      names: tnames.split(',').map(n=>n.trim()).filter(Boolean)
-    };
-  }
-  persist();
-  alert("Settings saved.");
-  goToDashboard();
-}
-
-/* ═══════════════════════════════════════════
-   DENOMINATION ROW BUILDER
 ═══════════════════════════════════════════ */

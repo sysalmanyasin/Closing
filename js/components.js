@@ -1,16 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════
    FLOOR 4 — COMPONENTS
-   Pure UI building blocks. No business logic. No data writes.
-   Each component receives data as arguments and returns HTML or
-   manipulates a specific DOM region.
-
-   Includes: Numpad, Modal Picker, Row Builders, Toast,
-             Save Action Sheet, Edit Modal, Card Toggle,
-             Print Sheet, PDF Export, More Menu, Clear Fields
+   Pure UI building blocks: numpad, modal picker, row builders,
+   toast, print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════
-   NUMPAD ENGINE
-═══════════════════════════════════════════ */
+
 let numpadTarget    = null;
 let numpadRawStr    = "";
 let numpadCallback  = null;
@@ -115,7 +108,6 @@ function closeModalPicker() {
 }
 
 /* ═══════════════════════════════════════════
-/* ═══════════════════════════════════════════
    COLLAPSIBLE CARDS
 ═══════════════════════════════════════════ */
 function toggleCard(id) {
@@ -146,9 +138,7 @@ window.onload = () => {
 /* ═══════════════════════════════════════════
    PAGE NAVIGATION
 ═══════════════════════════════════════════ */
-/* ═══════════════════════════════════════════
-   DENOMINATION ROW BUILDER
-═══════════════════════════════════════════ */
+
 function buildDenomRows() {
   ['denom-till','denom-vault'].forEach((containerId, setIdx) => {
     const box = document.getElementById(containerId);
@@ -333,7 +323,7 @@ function openTierPicker(num) { /* triggered by change, handled via mousedown */ 
 /* ═══════════════════════════════════════════
    LEDGER INIT
 ═══════════════════════════════════════════ */
-function initLedger(ds, shift, mode) {
+
 let _toastTimer = null;
 function showToast(msg, ms = 2200) {
   const el = document.getElementById('app-toast');
@@ -363,10 +353,37 @@ function showSaveAction(title, sub, buttons) {
   document.getElementById('save-action-overlay').classList.remove('hidden');
 }
 
-function saveSheet(silent=false) {
-  const record = buildSheetRecord();
-  record.draft  = false;
-  record.locked = true;
+
+function g(id) { return document.getElementById(id); }
+function set(id, v) { const el=g(id); if(el) el.value=v; }
+function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
+
+/* A sheet only "counts" for calendar dots, manifest, carry-over,
+   and Final aggregation once it has been explicitly Saved
+   (saveSheet sets draft=false). Auto-drafts (draft=true) are
+   excluded until then. */
+function isRealSheet(rec) {
+  return !!rec && rec.draft !== true;
+}
+function getRealSheet(key) {
+  const rec = db.sheets[key];
+  return isRealSheet(rec) ? rec : null;
+}
+
+function timelineStep(ds, shift, n) {
+  let d   = new Date(ds);
+  let idx = SHIFTS.indexOf(shift) + n;
+  if(idx >= SHIFTS.length) {
+    d.setDate(d.getDate() + Math.floor(idx/SHIFTS.length)); idx = idx % SHIFTS.length;
+  } else if(idx < 0) {
+    const steps = Math.ceil(Math.abs(idx)/SHIFTS.length);
+    d.setDate(d.getDate() - steps);
+    idx = (SHIFTS.length + (idx % SHIFTS.length)) % SHIFTS.length;
+  }
+  const outDs = d.toISOString().split('T')[0];
+  return {key:`${outDs}_${SHIFTS[idx]}`, date:outDs, shift:SHIFTS[idx]};
+}
+
 function buildPrintSheet() {
   const parts = activeKey ? activeKey.split('_') : ['',''];
   const ds = parts[0], shift = parts[1];
@@ -661,9 +678,7 @@ function buildPrintSheet() {
   document.getElementById('print-sheet').innerHTML = page1 + page2;
 }
 
-async function renderPDF() {
-  buildPrintSheet();
-  const sheet = document.getElementById('print-sheet');
+
 async function renderPDF() {
   buildPrintSheet();
   const sheet = document.getElementById('print-sheet');
@@ -799,13 +814,7 @@ function sendWhatsApp() {
   }).catch(e => { status.textContent='WhatsApp share failed: '+e.message; });
 }
 
-function saveDraft() {
-  if(!activeKey) return;
-  calc();
-  const rec = buildSheetRecord();
-/* ═══════════════════════════════════════════
-   EDIT CLOSING MODAL
-═══════════════════════════════════════════ */
+
 let _editModalKey = null;
 
 function openEditModal(key) {
@@ -864,21 +873,7 @@ function confirmEditModal() {
   setLockedState(false);
 }
 
-function loadKey(key) {
-  activeKey  = key;
-  const p    = key.split('_');
-  activeMode = db.sheets[key]?.profileMode || 'shift';
-  overrides  = db.sheets[key]?.overrides || {};
-  initLedger(p[0], p[1], activeMode);
-}
 
-/* ═══════════════════════════════════════════
-   MORE MENU (ledger toolbar)
-═══════════════════════════════════════════ */
-function toggleMoreMenu() {
-  const m = document.getElementById('ltb-more-menu');
-   MORE MENU (ledger toolbar)
-═══════════════════════════════════════════ */
 function toggleMoreMenu() {
   const m = document.getElementById('ltb-more-menu');
   if(m) m.classList.toggle('hidden');
@@ -913,73 +908,4 @@ function clearAllFields() {
   pullPreviousShift(parts[0], parts[1], activeMode);
   calc();
 }
-</script>
 
-<!-- ══════════════════════════════════════════════════════════
-     DROPBOX CLOUD SYNC ENGINE
-     OAuth2 PKCE (Authorization Code, offline access) · client-side only · no backend
-     Issues a long-lived refresh token so the app never needs to
-     re-show the connect popup — access tokens renew silently.
-     v2: Smart retry (3 quick + exponential backoff + tab-focus heal),
-function collapseAllCards() {
-  document.querySelectorAll('#page-ledger .card').forEach(c => c.classList.add('collapsed'));
-}
-function expandAllCards() {
-  document.querySelectorAll('#page-ledger .card').forEach(c => c.classList.remove('collapsed'));
-}
-
-/* ═══════════════════════════════════════════
-   CLEAR ALL FIELDS
-═══════════════════════════════════════════ */
-function clearAllFields() {
-  if(!confirm('Clear ALL fields on this sheet? This cannot be undone unless you saved a draft.')) return;
-  overrides = {};
-  isSavedSheet = false;
-  const parts = activeKey ? activeKey.split('_') : ['',''];
-  flushInputs();
-  pullPreviousShift(parts[0], parts[1], activeMode);
-  calc();
-}
-</script>
-
-<!-- ══════════════════════════════════════════════════════════
-     DROPBOX CLOUD SYNC ENGINE
-     OAuth2 PKCE (Authorization Code, offline access) · client-side only · no backend
-     Issues a long-lived refresh token so the app never needs to
-     re-show the connect popup — access tokens renew silently.
-     v2: Smart retry (3 quick + exponential backoff + tab-focus heal),
-function g(id) { return document.getElementById(id); }
-function set(id, v) { const el=g(id); if(el) el.value=v; }
-function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
-
-/* A sheet only "counts" for calendar dots, manifest, carry-over,
-   and Final aggregation once it has been explicitly Saved
-   (saveSheet sets draft=false). Auto-drafts (draft=true) are
-   excluded until then. */
-function isRealSheet(rec) {
-  return !!rec && rec.draft !== true;
-}
-function getRealSheet(key) {
-  const rec = db.sheets[key];
-  return isRealSheet(rec) ? rec : null;
-}
-
-function timelineStep(ds, shift, n) {
-  let d   = new Date(ds);
-  let idx = SHIFTS.indexOf(shift) + n;
-  if(idx >= SHIFTS.length) {
-    d.setDate(d.getDate() + Math.floor(idx/SHIFTS.length)); idx = idx % SHIFTS.length;
-  } else if(idx < 0) {
-    const steps = Math.ceil(Math.abs(idx)/SHIFTS.length);
-    d.setDate(d.getDate() - steps);
-    idx = (SHIFTS.length + (idx % SHIFTS.length)) % SHIFTS.length;
-  }
-  const outDs = d.toISOString().split('T')[0];
-  return {key:`${outDs}_${SHIFTS[idx]}`, date:outDs, shift:SHIFTS[idx]};
-}
-
-function buildPrintSheet() {
-  const parts = activeKey ? activeKey.split('_') : ['',''];
-  const ds = parts[0], shift = parts[1];
-  const psRow = (label, value, cls='') => `<div class="ps-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
-  const psRowOrEmpty = (label, raw, cls='') => {

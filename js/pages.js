@@ -1,30 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════
    FLOOR 5 — PAGES
-   Reads AppState → Renders UI → Calls Actions.
-   Pages never touch the database directly.
-   Pages never contain business logic.
-
-   Pages: Dashboard (Calendar + Manifest), Settings,
-          Shift Ledger, Credit Ledger, Summary
+   Reads State → Renders UI → Calls Actions.
+   Navigation, Credit Ledger page, Calendar, Manifest, Summary,
+   Settings UI.
 ═══════════════════════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════
-   BOOT
-═══════════════════════════════════════════ */
-window.onload = () => {
-  buildDenomRows();
-  buildCalendar();
-  renderManifest();
-  dbxInit(); /* ── Cloud sync: parse token & init on load ── */
-};
 
-/* ═══════════════════════════════════════════
-   PAGE NAVIGATION
-═══════════════════════════════════════════ */
-function showPage(id) {
-  document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
-}
-function goToDashboard() {
 function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
@@ -58,561 +38,7 @@ function goToCreditLedger() {
 ═══════════════════════════════════════════ */
 
 /* Ensure db.creditLedger exists */
-function clEnsureArray() {
-  if(!Array.isArray(db.creditLedger)) db.creditLedger = [];
-/* ═══════════════════════════════════════════
-   CALENDAR
-═══════════════════════════════════════════ */
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const WDAYS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-function buildCalendar() {
-  const yr = calViewDate.getFullYear();
-  const mo = calViewDate.getMonth();
-  document.getElementById('cal-title').textContent = `${MONTHS[mo]} ${yr}`;
-  const grid = document.getElementById('cal-grid');
-  grid.innerHTML = "";
-  WDAYS.forEach(d => {
-    const lbl = document.createElement('div');
-    lbl.className = "cal-day-lbl"; lbl.textContent = d;
-    grid.appendChild(lbl);
-  });
-  const firstDay     = new Date(yr, mo, 1).getDay();
-  const daysInMonth  = new Date(yr, mo+1, 0).getDate();
-  const today        = new Date();
-  for(let i=0;i<firstDay;i++) {
-    const blank = document.createElement('div'); blank.className="cal-cell empty"; grid.appendChild(blank);
-  }
-  for(let d=1;d<=daysInMonth;d++) {
-    const cell = document.createElement('div'); cell.className="cal-cell";
-    const ds = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    if(today.getFullYear()===yr && today.getMonth()===mo && today.getDate()===d) cell.classList.add('today');
-    cell.innerHTML = `<span>${d}</span>`;
-    const dots = document.createElement('div'); dots.className="cal-dots";
-    SHIFTS.forEach(s => {
-      if(isRealSheet(db.sheets[`${ds}_${s}`])) {
-        const dot = document.createElement('span'); dot.className=`dot dot-${s.toLowerCase()}`; dots.appendChild(dot);
-      }
-    });
-    cell.appendChild(dots);
-    cell.onclick = () => openDatePicker(ds);
-    grid.appendChild(cell);
-  }
-}
-
-function shiftMonth(n) { calViewDate.setMonth(calViewDate.getMonth()+n); buildCalendar(); }
-
-function openDatePicker(ds) {
-  const panel = document.getElementById('shift-picker');
-  panel.classList.remove('hidden');
-  document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
-  document.getElementById('lbl-picker-date').dataset.date = ds;
-
-  /* ── Find the next shift to open ──────────────────────────
-     Order within a day: Night → Morning → Evening
-     Look for the last saved (non-draft) shift on this date,
-     then the next one in sequence is the suggested shift.
-     If none saved today, look at the last saved shift overall
-     and suggest the one after it. ─────────────────────────── */
-  const CHRONO = ['Night', 'Morning', 'Evening'];
-
-  /* Find last saved shift on this date */
-  let suggestedShift = null;
-  let suggestedMode  = 'shift';
-
-  /* Check which shifts on this date are already saved */
-  const savedToday = CHRONO.filter(s => {
-    const rec = db.sheets[`${ds}_${s}`];
-    return rec && rec.draft !== true;
-  });
-
-  if(savedToday.length > 0) {
-    /* Some shifts saved today — suggest the next one */
-    const lastSavedIdx = CHRONO.indexOf(savedToday[savedToday.length - 1]);
-    if(lastSavedIdx < CHRONO.length - 1) {
-      suggestedShift = CHRONO[lastSavedIdx + 1];
-    } else {
-      /* All 3 shifts saved — nothing left for today */
-      suggestedShift = null;
-    }
-  } else {
-    /* No shifts saved today — find last saved shift across all dates */
-    const allSavedKeys = Object.keys(db.sheets)
-      .filter(k => db.sheets[k] && db.sheets[k].draft !== true)
-      .sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
-
-    if(allSavedKeys.length > 0) {
-      const lastKey   = allSavedKeys[allSavedKeys.length - 1];
-      const lastParts = lastKey.split('_');
-      const lastDate  = lastParts[0];
-      const lastShift = lastParts[1];
-      const lastIdx   = CHRONO.indexOf(lastShift);
-
-      if(lastDate === ds) {
-        /* Last saved was today — next shift */
-        suggestedShift = lastIdx < CHRONO.length - 1 ? CHRONO[lastIdx + 1] : null;
-      } else if(lastDate < ds) {
-        /* Last saved was before today */
-        if(lastIdx === CHRONO.length - 1) {
-          /* Last was Evening — next day starts with Night */
-          suggestedShift = 'Night';
-        } else {
-          /* Incomplete previous day — but user clicked a new date, suggest Night */
-          suggestedShift = 'Night';
-        }
-      } else {
-        /* Clicked a past date — default Night */
-        suggestedShift = 'Night';
-      }
-    } else {
-      /* No records at all — first ever closing starts with Night */
-      suggestedShift = 'Night';
-    }
-  }
-
-  /* Check if suggested shift already has a draft (allow reopening) */
-  const body = document.getElementById('shift-picker-body');
-  if(!suggestedShift) {
-    body.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:8px 0;">All shifts for ${ds} are already saved.</p>`;
-    document.getElementById('shift-picker-btns').style.display = 'none';
-    panel.dataset.shift = '';
-    panel.dataset.mode  = '';
-    return;
-  }
-
-  document.getElementById('shift-picker-btns').style.display = '';
-  panel.dataset.shift = suggestedShift;
-  panel.dataset.mode  = suggestedMode;
-
-  const existingRec = db.sheets[`${ds}_${suggestedShift}`];
-  const isDraft = existingRec && existingRec.draft === true;
-
-  body.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
-      <div style="background:var(--teal-pale);border-radius:var(--radius);padding:10px 18px;text-align:center;flex:1;">
-        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Shift</div>
-        <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">${suggestedShift}</div>
-      </div>
-      <div style="flex:1;text-align:center;">
-        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Mode</div>
-        <div style="display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
-          <button id="picker-mode-shift" onclick="setPickerMode('shift')"
-            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;transition:background .15s;">
-            🔵 Shift
-          </button>
-          <button id="picker-mode-final" onclick="setPickerMode('final')"
-            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:#f8fafc;color:var(--muted);transition:background .15s;">
-            🔴 Final
-          </button>
-        </div>
-      </div>
-    </div>
-    ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
-}
-
-function setPickerMode(mode) {
-  const panel = document.getElementById('shift-picker');
-  panel.dataset.mode = mode;
-  const btnShift = document.getElementById('picker-mode-shift');
-  const btnFinal = document.getElementById('picker-mode-final');
-  if(!btnShift || !btnFinal) return;
-  if(mode === 'final') {
-    btnShift.style.background = '#f8fafc'; btnShift.style.color = 'var(--muted)';
-    btnFinal.style.background = '#7c3aed'; btnFinal.style.color = '#fff';
-  } else {
-    btnShift.style.background = 'var(--navy)'; btnShift.style.color = '#fff';
-    btnFinal.style.background = '#f8fafc'; btnFinal.style.color = 'var(--muted)';
-  }
-}
-
-function openSheetFromPicker() {
-  const ds    = document.getElementById('lbl-picker-date').dataset.date;
-  const panel = document.getElementById('shift-picker');
-  const shift = panel.dataset.shift;
-  activeMode  = panel.dataset.mode || 'shift';
-  if(!shift) return;
-  const key   = `${ds}_${shift}`;
-
-  /* ── FORWARD-OPEN GUARD ──────────────────────────────────────────
-     Block opening a new (unsaved) sheet if the immediately previous
-     shift is only a draft or missing (with the one before it being a draft).
-     Opening an already-saved or already-drafted sheet for viewing is allowed.
-  ────────────────────────────────────────────────────────────────── */
-  const existingRec = db.sheets[key];
-  const alreadyHasRecord = !!existingRec; /* has saved OR draft record */
-
-  if(!alreadyHasRecord) {
-    /* Scan back to find the last real saved record — block if there's a draft before it */
-    const prev = timelineStep(ds, shift, -1);
-    const prevSheet = db.sheets[prev.key];
-    const prevIsDraft   = prevSheet && prevSheet.draft === true;
-    const prevIsMissing = !prevSheet;
-
-    const prev2 = timelineStep(prev.date, prev.shift, -1);
-    const prev2Sheet = db.sheets[prev2.key];
-    const prev2IsDraft = prev2Sheet && prev2Sheet.draft === true;
-
-    if(prevIsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
-      return;
-    }
-    if(prevIsMissing && prev2IsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
-      return;
-    }
-  }
-
-  activeKey   = key;
-  overrides   = db.sheets[activeKey]?.overrides || {};
-  initLedger(ds, shift, activeMode);
-}
-
-/* ═══════════════════════════════════════════
-   MANIFEST FILTER TOGGLE
-═══════════════════════════════════════════ */
-function toggleManifestFilter() {
-  const panel = document.getElementById('manifest-filter-panel');
-  const icon  = document.getElementById('manifest-filter-icon');
-  const open  = panel.style.display !== 'none';
-/* ═══════════════════════════════════════════
-   MANIFEST FILTER TOGGLE
-═══════════════════════════════════════════ */
-function toggleManifestFilter() {
-  const panel = document.getElementById('manifest-filter-panel');
-  const icon  = document.getElementById('manifest-filter-icon');
-  const open  = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : 'block';
-  icon.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
-}
-function clearManifestFilter() {
-  const f = document.getElementById('filter-date-from');
-  const t = document.getElementById('filter-date-to');
-  if(f) f.value = '';
-  if(t) t.value = '';
-  renderManifest();
-}
-
-/* ═══════════════════════════════════════════
-   SHIFT SORT KEY — chronological
-   Day cycle: Night (start) → Morning → Evening
-   So within a date: Night=0, Morning=1, Evening=2
-═══════════════════════════════════════════ */
-const SHIFT_CHRONO = {Night: 0, Morning: 1, Evening: 2};
-function sheetSortKey(k) {
-  const parts = k.split('_');
-  return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9);
-}
-
-/* ═══════════════════════════════════════════
-   MANIFEST
-═══════════════════════════════════════════ */
-function renderManifest() {
-  const box = document.getElementById('manifest-list');
-
-  /* date filter values */
-  const fromDate = document.getElementById('filter-date-from')?.value || '';
-  const toDate   = document.getElementById('filter-date-to')?.value   || '';
-
-  const allKeys = Object.keys(db.sheets).filter(k => {
-    const rec = db.sheets[k];
-    if(!rec) return false;
-    const dateStr = k.split('_')[0];
-    if(fromDate && dateStr < fromDate) return false;
-    if(toDate   && dateStr > toDate)   return false;
-    return true;
-  });
-
-  /* sort: latest first */
-  allKeys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
-
-  /* update filter badge */
-  const badge = document.getElementById('manifest-filter-badge');
-  if(badge) {
-    const active = fromDate || toDate;
-    badge.style.display = active ? 'inline-flex' : 'none';
-    badge.textContent = active ? 'Filtered' : '';
-  }
-
-  if(!allKeys.length) {
-    box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
-  }
-
-  box.innerHTML = '';
-
-  const VISIBLE = 3;
-  const older   = allKeys.slice(VISIBLE);
-
-  function makeItem(k) {
-    const rec     = db.sheets[k];
-    const isDraft = rec.draft === true;
-    const mode    = rec.profileMode || 'shift';
-    const parts   = k.split('_');
-    const sr      = srLabel(parts[1]);
-    const div     = document.createElement('div');
-    div.className = 'manifest-item';
-    if(isDraft) div.style.opacity = '0.75';
-
-    let badgeHtml = '';
-    if(isDraft) {
-      badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
-    } else if(mode === 'final') {
-      badgeHtml = `<span class="badge badge-final">FINAL</span>`;
-    } else {
-      badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
-    }
-
-    div.innerHTML = `
-      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
-        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
-      </span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        ${badgeHtml}
-        <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
-        <button class="btn btn-ghost btn-sm" onclick="openPdfModal('${k}')" title="PDF / Print">🖨</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
-      </div>`;
-    return div;
-  }
-
-  /* Top 3 always visible */
-  allKeys.slice(0, VISIBLE).forEach(k => box.appendChild(makeItem(k)));
-
-  /* Older records — collapsible */
-  if(older.length) {
-    const collapseWrap = document.createElement('div');
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.style.cssText = 'width:100%;padding:10px;background:#f8fafc;border:none;border-top:1px solid var(--border);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;';
-    toggleBtn.innerHTML = `<span id="manifest-older-icon">▼</span> Show ${older.length} older record${older.length>1?'s':''}`;
-
-    const olderList = document.createElement('div');
-    olderList.id    = 'manifest-older-list';
-    olderList.style.display = 'none';
-    older.forEach(k => olderList.appendChild(makeItem(k)));
-
-    toggleBtn.onclick = () => {
-      const open = olderList.style.display !== 'none';
-      olderList.style.display = open ? 'none' : 'block';
-      const icon = document.getElementById('manifest-older-icon');
-      if(icon) icon.textContent = open ? '▼' : '▲';
-      toggleBtn.innerHTML = `<span id="manifest-older-icon">${open?'▼':'▲'}</span> ${open ? 'Show' : 'Hide'} ${older.length} older record${older.length>1?'s':''}`;
-    };
-
-    collapseWrap.appendChild(olderList);
-    collapseWrap.appendChild(toggleBtn);
-    box.appendChild(collapseWrap);
-  }
-}
-
-/* ═══════════════════════════════════════════
-   DAILY SUMMARY
-═══════════════════════════════════════════ */
-function moveSummaryDay(n) {
-  const d = new Date(summaryDateStr); d.setDate(d.getDate()+n);
-  summaryDateStr = d.toISOString().split('T')[0]; renderSummaryPage();
-}
-
-function renderSummaryPage() {
-  document.getElementById('lbl-summary-date').textContent = summaryDateStr;
-  const zone = document.getElementById('summary-shifts');
-  zone.innerHTML = "";
-  let totalSale=0, totalCash=0;
-  SHIFTS.forEach(shift => {
-    const key = `${summaryDateStr}_${shift}`;
-    const rec = getRealSheet(key);
-    const card = document.createElement('div');
-    card.className = "card"; card.style.marginBottom = "12px";
-    if(rec) {
-      const nSale = parseFloat(rec.outNetSale)||0;
-      const nCash = parseFloat(rec.outTotalCash)||0;
-      const varAmt = nSale - nCash;
-      totalSale += nSale; totalCash += nCash;
-      const varColor = varAmt===0?'var(--green)':varAmt>0?'var(--red)':'var(--blue)';
-      card.innerHTML = `
-        <div class="shift-summary-card">
-          <div class="card-title">
-            <h4>🔵 ${srLabel(shift)} Shift</h4>
-            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}')">Edit</button>
-          </div>
-          <div class="mini-stats">
-            <div class="mini-stat"><h5>Target Sales</h5><p>Rs.${nSale.toLocaleString()}</p></div>
-            <div class="mini-stat"><h5>Cash Verified</h5><p>Rs.${nCash.toLocaleString()}</p></div>
-            <div class="mini-stat"><h5>Variance</h5><p style="color:${varColor}">Rs.${varAmt.toLocaleString()}</p></div>
-          </div>
-        </div>`;
-    } else {
-      card.innerHTML = `
-        <div class="shift-summary-card">
-          <div class="flex-between">
-            <span class="text-muted">○ ${srLabel(shift)} shift — no entry yet</span>
-            <button class="btn btn-teal btn-sm" onclick="quickInitShift('${shift}')">+ Open</button>
-          </div>
-        </div>`;
-    }
-    zone.appendChild(card);
-  });
-  document.getElementById('sum-total-target').value = "Rs. " + totalSale.toLocaleString();
-  document.getElementById('sum-total-cash').value   = "Rs. " + totalCash.toLocaleString();
-  const totalVar = totalSale - totalCash;
-  document.getElementById('sum-total-var').value = "Rs. " + totalVar.toLocaleString();
-}
-
-function quickInitShift(shift) {
-  activeKey = `${summaryDateStr}_${shift}`; activeMode = "shift"; overrides = {};
-  initLedger(summaryDateStr, shift, "shift");
-}
-
-/* ═══════════════════════════════════════════
-   SETTINGS UI
-═══════════════════════════════════════════ */
-function exportDataJSON() {
-/* ═══════════════════════════════════════════
-   DAILY SUMMARY
-═══════════════════════════════════════════ */
-function moveSummaryDay(n) {
-  const d = new Date(summaryDateStr); d.setDate(d.getDate()+n);
-  summaryDateStr = d.toISOString().split('T')[0]; renderSummaryPage();
-}
-
-function renderSummaryPage() {
-  document.getElementById('lbl-summary-date').textContent = summaryDateStr;
-  const zone = document.getElementById('summary-shifts');
-  zone.innerHTML = "";
-  let totalSale=0, totalCash=0;
-  SHIFTS.forEach(shift => {
-    const key = `${summaryDateStr}_${shift}`;
-    const rec = getRealSheet(key);
-    const card = document.createElement('div');
-    card.className = "card"; card.style.marginBottom = "12px";
-    if(rec) {
-      const nSale = parseFloat(rec.outNetSale)||0;
-      const nCash = parseFloat(rec.outTotalCash)||0;
-      const varAmt = nSale - nCash;
-      totalSale += nSale; totalCash += nCash;
-      const varColor = varAmt===0?'var(--green)':varAmt>0?'var(--red)':'var(--blue)';
-      card.innerHTML = `
-        <div class="shift-summary-card">
-          <div class="card-title">
-            <h4>🔵 ${srLabel(shift)} Shift</h4>
-            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}')">Edit</button>
-          </div>
-          <div class="mini-stats">
-            <div class="mini-stat"><h5>Target Sales</h5><p>Rs.${nSale.toLocaleString()}</p></div>
-            <div class="mini-stat"><h5>Cash Verified</h5><p>Rs.${nCash.toLocaleString()}</p></div>
-            <div class="mini-stat"><h5>Variance</h5><p style="color:${varColor}">Rs.${varAmt.toLocaleString()}</p></div>
-          </div>
-        </div>`;
-    } else {
-      card.innerHTML = `
-        <div class="shift-summary-card">
-          <div class="flex-between">
-            <span class="text-muted">○ ${srLabel(shift)} shift — no entry yet</span>
-            <button class="btn btn-teal btn-sm" onclick="quickInitShift('${shift}')">+ Open</button>
-          </div>
-        </div>`;
-    }
-    zone.appendChild(card);
-  });
-  document.getElementById('sum-total-target').value = "Rs. " + totalSale.toLocaleString();
-  document.getElementById('sum-total-cash').value   = "Rs. " + totalCash.toLocaleString();
-  const totalVar = totalSale - totalCash;
-  document.getElementById('sum-total-var').value = "Rs. " + totalVar.toLocaleString();
-}
-
-function quickInitShift(shift) {
-  activeKey = `${summaryDateStr}_${shift}`; activeMode = "shift"; overrides = {};
-  initLedger(summaryDateStr, shift, "shift");
-}
-
-/* ═══════════════════════════════════════════
-   SETTINGS UI
-═══════════════════════════════════════════ */
-function exportDataJSON() {
-function buildSettingsUI() {
-  document.getElementById('set-final-every-n').value = db.settings.finalEveryN || 3;
-  renderSettingsNamedCredits();
-  const sf = document.getElementById('subtier-fields');
-  sf.innerHTML = "";
-  for(let i=0;i<3;i++) {
-    const t = db.settings.subTiers[i];
-    const div = document.createElement('div');
-    if(i>0) { div.style.borderTop="1px solid var(--border)"; div.style.paddingTop="14px"; }
-    div.style.marginBottom = "14px";
-    div.innerHTML = `
-      <div class="form-field"><label>Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${t?.type||''}"></div>
-      <div class="form-field"><label>Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${t?.names?.join(', ')||''}"></div>`;
-    sf.appendChild(div);
-  }
-  renderSettingsStrips();
-}
-
-function renderSettingsNamedCredits() {
-  const box = document.getElementById('settings-named-credits');
-  box.innerHTML = "";
-  db.settings.namedCredits.forEach((nc, idx) => {
-    const div = document.createElement('div');
-    div.className = "settings-item";
-    div.innerHTML = `
-      <input type="text" value="${nc.label}" placeholder="Account name" onchange="db.settings.namedCredits[${idx}].label=this.value">
-      <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})">✕</button>`;
-    box.appendChild(div);
-  });
-}
-
-function addNamedCreditSetting() {
-  db.settings.namedCredits.push({label:"New Account"});
-  renderSettingsNamedCredits();
-}
-
-function removeNamedCredit(i) {
-  db.settings.namedCredits.splice(i,1);
-  renderSettingsNamedCredits();
-}
-
-function renderSettingsStrips() {
-  const box = document.getElementById('settings-strips');
-  box.innerHTML = "";
-  db.settings.strips.forEach((item, idx) => {
-    const div = document.createElement('div');
-    div.className = "settings-item";
-    div.innerHTML = `
-      <input type="text" value="${item.name}" onchange="db.settings.strips[${idx}].name=this.value">
-      <input type="number" value="${item.price}" onchange="db.settings.strips[${idx}].price=parseFloat(this.value)||0">
-      <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})">✕</button>`;
-    box.appendChild(div);
-  });
-}
-
-function addStripRow()  { db.settings.strips.push({name:"New Item",price:0}); renderSettingsStrips(); }
-function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); }
-
-function saveSettings() {
-  db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
-  db.settings.namedCredits.forEach((nc, i) => {
-    const el = document.querySelector(`#settings-named-credits .settings-item:nth-child(${i+1}) input`);
-    if(el) nc.label = el.value;
-  });
-  for(let i=1;i<=3;i++) {
-    const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
-    const tnames = document.getElementById(`cfg-tier-names-${i}`)?.value || '';
-    db.settings.subTiers[i-1] = {
-      type: ttype,
-      names: tnames.split(',').map(n=>n.trim()).filter(Boolean)
-    };
-  }
-  persist();
-  alert("Settings saved.");
-  goToDashboard();
-}
-
-/* ═══════════════════════════════════════════
-   DENOMINATION ROW BUILDER
-═══════════════════════════════════════════ */
-/* ═══════════════════════════════════════════
-   CREDIT LEDGER — SNAPSHOT ENGINE
-═══════════════════════════════════════════ */
-
-/* Ensure db.creditLedger exists */
 function clEnsureArray() {
   if(!Array.isArray(db.creditLedger)) db.creditLedger = [];
 }
@@ -984,7 +410,485 @@ function clExportTxt() {
 /* ═══════════════════════════════════════════
    CALENDAR
 ═══════════════════════════════════════════ */
+
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const WDAYS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function buildCalendar() {
+  const yr = calViewDate.getFullYear();
+  const mo = calViewDate.getMonth();
+  document.getElementById('cal-title').textContent = `${MONTHS[mo]} ${yr}`;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = "";
+  WDAYS.forEach(d => {
+    const lbl = document.createElement('div');
+    lbl.className = "cal-day-lbl"; lbl.textContent = d;
+    grid.appendChild(lbl);
+  });
+  const firstDay     = new Date(yr, mo, 1).getDay();
+  const daysInMonth  = new Date(yr, mo+1, 0).getDate();
+  const today        = new Date();
+  for(let i=0;i<firstDay;i++) {
+    const blank = document.createElement('div'); blank.className="cal-cell empty"; grid.appendChild(blank);
+  }
+  for(let d=1;d<=daysInMonth;d++) {
+    const cell = document.createElement('div'); cell.className="cal-cell";
+    const ds = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(today.getFullYear()===yr && today.getMonth()===mo && today.getDate()===d) cell.classList.add('today');
+    cell.innerHTML = `<span>${d}</span>`;
+    const dots = document.createElement('div'); dots.className="cal-dots";
+    SHIFTS.forEach(s => {
+      if(isRealSheet(db.sheets[`${ds}_${s}`])) {
+        const dot = document.createElement('span'); dot.className=`dot dot-${s.toLowerCase()}`; dots.appendChild(dot);
+      }
+    });
+    cell.appendChild(dots);
+    cell.onclick = () => openDatePicker(ds);
+    grid.appendChild(cell);
+  }
+}
+
+function shiftMonth(n) { calViewDate.setMonth(calViewDate.getMonth()+n); buildCalendar(); }
+
+function openDatePicker(ds) {
+  const panel = document.getElementById('shift-picker');
+  panel.classList.remove('hidden');
+  document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
+  document.getElementById('lbl-picker-date').dataset.date = ds;
+
+  /* ── Find the next shift to open ──────────────────────────
+     Order within a day: Night → Morning → Evening
+     Look for the last saved (non-draft) shift on this date,
+     then the next one in sequence is the suggested shift.
+     If none saved today, look at the last saved shift overall
+     and suggest the one after it. ─────────────────────────── */
+  const CHRONO = ['Night', 'Morning', 'Evening'];
+
+  /* Find last saved shift on this date */
+  let suggestedShift = null;
+  let suggestedMode  = 'shift';
+
+  /* Check which shifts on this date are already saved */
+  const savedToday = CHRONO.filter(s => {
+    const rec = db.sheets[`${ds}_${s}`];
+    return rec && rec.draft !== true;
+  });
+
+  if(savedToday.length > 0) {
+    /* Some shifts saved today — suggest the next one */
+    const lastSavedIdx = CHRONO.indexOf(savedToday[savedToday.length - 1]);
+    if(lastSavedIdx < CHRONO.length - 1) {
+      suggestedShift = CHRONO[lastSavedIdx + 1];
+    } else {
+      /* All 3 shifts saved — nothing left for today */
+      suggestedShift = null;
+    }
+  } else {
+    /* No shifts saved today — find last saved shift across all dates */
+    const allSavedKeys = Object.keys(db.sheets)
+      .filter(k => db.sheets[k] && db.sheets[k].draft !== true)
+      .sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+
+    if(allSavedKeys.length > 0) {
+      const lastKey   = allSavedKeys[allSavedKeys.length - 1];
+      const lastParts = lastKey.split('_');
+      const lastDate  = lastParts[0];
+      const lastShift = lastParts[1];
+      const lastIdx   = CHRONO.indexOf(lastShift);
+
+      if(lastDate === ds) {
+        /* Last saved was today — next shift */
+        suggestedShift = lastIdx < CHRONO.length - 1 ? CHRONO[lastIdx + 1] : null;
+      } else if(lastDate < ds) {
+        /* Last saved was before today */
+        if(lastIdx === CHRONO.length - 1) {
+          /* Last was Evening — next day starts with Night */
+          suggestedShift = 'Night';
+        } else {
+          /* Incomplete previous day — but user clicked a new date, suggest Night */
+          suggestedShift = 'Night';
+        }
+      } else {
+        /* Clicked a past date — default Night */
+        suggestedShift = 'Night';
+      }
+    } else {
+      /* No records at all — first ever closing starts with Night */
+      suggestedShift = 'Night';
+    }
+  }
+
+  /* Check if suggested shift already has a draft (allow reopening) */
+  const body = document.getElementById('shift-picker-body');
+  if(!suggestedShift) {
+    body.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:8px 0;">All shifts for ${ds} are already saved.</p>`;
+    document.getElementById('shift-picker-btns').style.display = 'none';
+    panel.dataset.shift = '';
+    panel.dataset.mode  = '';
+    return;
+  }
+
+  document.getElementById('shift-picker-btns').style.display = '';
+  panel.dataset.shift = suggestedShift;
+  panel.dataset.mode  = suggestedMode;
+
+  const existingRec = db.sheets[`${ds}_${suggestedShift}`];
+  const isDraft = existingRec && existingRec.draft === true;
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
+      <div style="background:var(--teal-pale);border-radius:var(--radius);padding:10px 18px;text-align:center;flex:1;">
+        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Shift</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--navy);margin-top:2px;">${suggestedShift}</div>
+      </div>
+      <div style="flex:1;text-align:center;">
+        <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Mode</div>
+        <div style="display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
+          <button id="picker-mode-shift" onclick="setPickerMode('shift')"
+            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;transition:background .15s;">
+            🔵 Shift
+          </button>
+          <button id="picker-mode-final" onclick="setPickerMode('final')"
+            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:#f8fafc;color:var(--muted);transition:background .15s;">
+            🔴 Final
+          </button>
+        </div>
+      </div>
+    </div>
+    ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
+}
+
+function setPickerMode(mode) {
+  const panel = document.getElementById('shift-picker');
+  panel.dataset.mode = mode;
+  const btnShift = document.getElementById('picker-mode-shift');
+  const btnFinal = document.getElementById('picker-mode-final');
+  if(!btnShift || !btnFinal) return;
+  if(mode === 'final') {
+    btnShift.style.background = '#f8fafc'; btnShift.style.color = 'var(--muted)';
+    btnFinal.style.background = '#7c3aed'; btnFinal.style.color = '#fff';
+  } else {
+    btnShift.style.background = 'var(--navy)'; btnShift.style.color = '#fff';
+    btnFinal.style.background = '#f8fafc'; btnFinal.style.color = 'var(--muted)';
+  }
+}
+
+function openSheetFromPicker() {
+  const ds    = document.getElementById('lbl-picker-date').dataset.date;
+  const panel = document.getElementById('shift-picker');
+  const shift = panel.dataset.shift;
+  activeMode  = panel.dataset.mode || 'shift';
+  if(!shift) return;
+  const key   = `${ds}_${shift}`;
+
+  /* ── FORWARD-OPEN GUARD ──────────────────────────────────────────
+     Block opening a new (unsaved) sheet if the immediately previous
+     shift is only a draft or missing (with the one before it being a draft).
+     Opening an already-saved or already-drafted sheet for viewing is allowed.
+  ────────────────────────────────────────────────────────────────── */
+  const existingRec = db.sheets[key];
+  const alreadyHasRecord = !!existingRec; /* has saved OR draft record */
+
+  if(!alreadyHasRecord) {
+    /* Scan back to find the last real saved record — block if there's a draft before it */
+    const prev = timelineStep(ds, shift, -1);
+    const prevSheet = db.sheets[prev.key];
+    const prevIsDraft   = prevSheet && prevSheet.draft === true;
+    const prevIsMissing = !prevSheet;
+
+    const prev2 = timelineStep(prev.date, prev.shift, -1);
+    const prev2Sheet = db.sheets[prev2.key];
+    const prev2IsDraft = prev2Sheet && prev2Sheet.draft === true;
+
+    if(prevIsDraft) {
+      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
+      return;
+    }
+    if(prevIsMissing && prev2IsDraft) {
+      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
+      return;
+    }
+  }
+
+  activeKey   = key;
+  overrides   = db.sheets[activeKey]?.overrides || {};
+  initLedger(ds, shift, activeMode);
+}
+
+/* ═══════════════════════════════════════════
+   MANIFEST FILTER TOGGLE
+═══════════════════════════════════════════ */
+function toggleManifestFilter() {
+  const panel = document.getElementById('manifest-filter-panel');
+  const icon  = document.getElementById('manifest-filter-icon');
+  const open  = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  icon.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+function clearManifestFilter() {
+  const f = document.getElementById('filter-date-from');
+  const t = document.getElementById('filter-date-to');
+  if(f) f.value = '';
+  if(t) t.value = '';
+  renderManifest();
+}
+
+/* ═══════════════════════════════════════════
+   SHIFT SORT KEY — chronological
+   Day cycle: Night (start) → Morning → Evening
+   So within a date: Night=0, Morning=1, Evening=2
+═══════════════════════════════════════════ */
+const SHIFT_CHRONO = {Night: 0, Morning: 1, Evening: 2};
+function sheetSortKey(k) {
+  const parts = k.split('_');
+  return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9);
+}
+
+/* ═══════════════════════════════════════════
+   MANIFEST
+═══════════════════════════════════════════ */
+function renderManifest() {
+  const box = document.getElementById('manifest-list');
+
+  /* date filter values */
+  const fromDate = document.getElementById('filter-date-from')?.value || '';
+  const toDate   = document.getElementById('filter-date-to')?.value   || '';
+
+  const allKeys = Object.keys(db.sheets).filter(k => {
+    const rec = db.sheets[k];
+    if(!rec) return false;
+    const dateStr = k.split('_')[0];
+    if(fromDate && dateStr < fromDate) return false;
+    if(toDate   && dateStr > toDate)   return false;
+    return true;
+  });
+
+  /* sort: latest first */
+  allKeys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
+
+  /* update filter badge */
+  const badge = document.getElementById('manifest-filter-badge');
+  if(badge) {
+    const active = fromDate || toDate;
+    badge.style.display = active ? 'inline-flex' : 'none';
+    badge.textContent = active ? 'Filtered' : '';
+  }
+
+  if(!allKeys.length) {
+    box.innerHTML = `<div class="empty-state"><span>📭</span>No records found.</div>`; return;
+  }
+
+  box.innerHTML = '';
+
+  const VISIBLE = 3;
+  const older   = allKeys.slice(VISIBLE);
+
+  function makeItem(k) {
+    const rec     = db.sheets[k];
+    const isDraft = rec.draft === true;
+    const mode    = rec.profileMode || 'shift';
+    const parts   = k.split('_');
+    const sr      = srLabel(parts[1]);
+    const div     = document.createElement('div');
+    div.className = 'manifest-item';
+    if(isDraft) div.style.opacity = '0.75';
+
+    let badgeHtml = '';
+    if(isDraft) {
+      badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
+    } else if(mode === 'final') {
+      badgeHtml = `<span class="badge badge-final">FINAL</span>`;
+    } else {
+      badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
+    }
+
+    div.innerHTML = `
+      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
+        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
+      </span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${badgeHtml}
+        <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
+        <button class="btn btn-ghost btn-sm" onclick="openPdfModal('${k}')" title="PDF / Print">🖨</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSheet('${k}')">🗑</button>
+      </div>`;
+    return div;
+  }
+
+  /* Top 3 always visible */
+  allKeys.slice(0, VISIBLE).forEach(k => box.appendChild(makeItem(k)));
+
+  /* Older records — collapsible */
+  if(older.length) {
+    const collapseWrap = document.createElement('div');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.style.cssText = 'width:100%;padding:10px;background:#f8fafc;border:none;border-top:1px solid var(--border);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;';
+    toggleBtn.innerHTML = `<span id="manifest-older-icon">▼</span> Show ${older.length} older record${older.length>1?'s':''}`;
+
+    const olderList = document.createElement('div');
+    olderList.id    = 'manifest-older-list';
+    olderList.style.display = 'none';
+    older.forEach(k => olderList.appendChild(makeItem(k)));
+
+    toggleBtn.onclick = () => {
+      const open = olderList.style.display !== 'none';
+      olderList.style.display = open ? 'none' : 'block';
+      const icon = document.getElementById('manifest-older-icon');
+      if(icon) icon.textContent = open ? '▼' : '▲';
+      toggleBtn.innerHTML = `<span id="manifest-older-icon">${open?'▼':'▲'}</span> ${open ? 'Show' : 'Hide'} ${older.length} older record${older.length>1?'s':''}`;
+    };
+
+    collapseWrap.appendChild(olderList);
+    collapseWrap.appendChild(toggleBtn);
+    box.appendChild(collapseWrap);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   DAILY SUMMARY
+═══════════════════════════════════════════ */
+
+function moveSummaryDay(n) {
+  const d = new Date(summaryDateStr); d.setDate(d.getDate()+n);
+  summaryDateStr = d.toISOString().split('T')[0]; renderSummaryPage();
+}
+
+function renderSummaryPage() {
+  document.getElementById('lbl-summary-date').textContent = summaryDateStr;
+  const zone = document.getElementById('summary-shifts');
+  zone.innerHTML = "";
+  let totalSale=0, totalCash=0;
+  SHIFTS.forEach(shift => {
+    const key = `${summaryDateStr}_${shift}`;
+    const rec = getRealSheet(key);
+    const card = document.createElement('div');
+    card.className = "card"; card.style.marginBottom = "12px";
+    if(rec) {
+      const nSale = parseFloat(rec.outNetSale)||0;
+      const nCash = parseFloat(rec.outTotalCash)||0;
+      const varAmt = nSale - nCash;
+      totalSale += nSale; totalCash += nCash;
+      const varColor = varAmt===0?'var(--green)':varAmt>0?'var(--red)':'var(--blue)';
+      card.innerHTML = `
+        <div class="shift-summary-card">
+          <div class="card-title">
+            <h4>🔵 ${srLabel(shift)} Shift</h4>
+            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}')">Edit</button>
+          </div>
+          <div class="mini-stats">
+            <div class="mini-stat"><h5>Target Sales</h5><p>Rs.${nSale.toLocaleString()}</p></div>
+            <div class="mini-stat"><h5>Cash Verified</h5><p>Rs.${nCash.toLocaleString()}</p></div>
+            <div class="mini-stat"><h5>Variance</h5><p style="color:${varColor}">Rs.${varAmt.toLocaleString()}</p></div>
+          </div>
+        </div>`;
+    } else {
+      card.innerHTML = `
+        <div class="shift-summary-card">
+          <div class="flex-between">
+            <span class="text-muted">○ ${srLabel(shift)} shift — no entry yet</span>
+            <button class="btn btn-teal btn-sm" onclick="quickInitShift('${shift}')">+ Open</button>
+          </div>
+        </div>`;
+    }
+    zone.appendChild(card);
+  });
+  document.getElementById('sum-total-target').value = "Rs. " + totalSale.toLocaleString();
+  document.getElementById('sum-total-cash').value   = "Rs. " + totalCash.toLocaleString();
+  const totalVar = totalSale - totalCash;
+  document.getElementById('sum-total-var').value = "Rs. " + totalVar.toLocaleString();
+}
+
+function quickInitShift(shift) {
+  activeKey = `${summaryDateStr}_${shift}`; activeMode = "shift"; overrides = {};
+  initLedger(summaryDateStr, shift, "shift");
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS UI
+═══════════════════════════════════════════ */
+
+function buildSettingsUI() {
+  document.getElementById('set-final-every-n').value = db.settings.finalEveryN || 3;
+  renderSettingsNamedCredits();
+  const sf = document.getElementById('subtier-fields');
+  sf.innerHTML = "";
+  for(let i=0;i<3;i++) {
+    const t = db.settings.subTiers[i];
+    const div = document.createElement('div');
+    if(i>0) { div.style.borderTop="1px solid var(--border)"; div.style.paddingTop="14px"; }
+    div.style.marginBottom = "14px";
+    div.innerHTML = `
+      <div class="form-field"><label>Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${t?.type||''}"></div>
+      <div class="form-field"><label>Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${t?.names?.join(', ')||''}"></div>`;
+    sf.appendChild(div);
+  }
+  renderSettingsStrips();
+}
+
+function renderSettingsNamedCredits() {
+  const box = document.getElementById('settings-named-credits');
+  box.innerHTML = "";
+  db.settings.namedCredits.forEach((nc, idx) => {
+    const div = document.createElement('div');
+    div.className = "settings-item";
+    div.innerHTML = `
+      <input type="text" value="${nc.label}" placeholder="Account name" onchange="db.settings.namedCredits[${idx}].label=this.value">
+      <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})">✕</button>`;
+    box.appendChild(div);
+  });
+}
+
+function addNamedCreditSetting() {
+  db.settings.namedCredits.push({label:"New Account"});
+  renderSettingsNamedCredits();
+}
+
+function removeNamedCredit(i) {
+  db.settings.namedCredits.splice(i,1);
+  renderSettingsNamedCredits();
+}
+
+function renderSettingsStrips() {
+  const box = document.getElementById('settings-strips');
+  box.innerHTML = "";
+  db.settings.strips.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = "settings-item";
+    div.innerHTML = `
+      <input type="text" value="${item.name}" onchange="db.settings.strips[${idx}].name=this.value">
+      <input type="number" value="${item.price}" onchange="db.settings.strips[${idx}].price=parseFloat(this.value)||0">
+      <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})">✕</button>`;
+    box.appendChild(div);
+  });
+}
+
+function addStripRow()  { db.settings.strips.push({name:"New Item",price:0}); renderSettingsStrips(); }
+function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); }
+
+function saveSettings() {
+  db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
+  db.settings.namedCredits.forEach((nc, i) => {
+    const el = document.querySelector(`#settings-named-credits .settings-item:nth-child(${i+1}) input`);
+    if(el) nc.label = el.value;
+  });
+  for(let i=1;i<=3;i++) {
+    const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
+    const tnames = document.getElementById(`cfg-tier-names-${i}`)?.value || '';
+    db.settings.subTiers[i-1] = {
+      type: ttype,
+      names: tnames.split(',').map(n=>n.trim()).filter(Boolean)
+    };
+  }
+  persist();
+  alert("Settings saved.");
+  goToDashboard();
+}
+
+/* ═══════════════════════════════════════════
+   DENOMINATION ROW BUILDER
+═══════════════════════════════════════════ */
+
 function loadKey(key) {
   activeKey  = key;
   const p    = key.split('_');
@@ -996,5 +900,4 @@ function loadKey(key) {
 /* ═══════════════════════════════════════════
    MORE MENU (ledger toolbar)
 ═══════════════════════════════════════════ */
-function toggleMoreMenu() {
-  const m = document.getElementById('ltb-more-menu');
+
