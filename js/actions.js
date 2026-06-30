@@ -1,0 +1,1403 @@
+/* ═══════════════════════════════════════════════════════════════
+   FLOOR 3 — ACTIONS + EVENT BUS
+   The ONLY door to change data and notify UI.
+
+   Rules:
+   - Actions read from AppState, write through Repo, then emit events.
+   - Never touch the DOM directly — call Pages to re-render.
+   - Every data change goes through here.
+
+   Event Bus: EventBus.emit(event, payload)
+   Events: 'sheet:saved' | 'sheet:deleted' | 'settings:saved' |
+           'ledger:opened' | 'ledger:calc' | 'sync:push'
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Event Bus ───────────────────────────────────────────────── */
+const EventBus = {
+  _listeners: {},
+  on(event, fn)     { (this._listeners[event] ||= []).push(fn); },
+  off(event, fn)    { this._listeners[event] = (this._listeners[event]||[]).filter(f=>f!==fn); },
+  emit(event, data) { (this._listeners[event]||[]).forEach(fn => fn(data)); }
+};
+
+/* ── Timers ──────────────────────────────────────────────────── */
+let _pushTimer  = null;
+let _draftTimer = null;
+let _draftReady = false;
+
+/* ═══════════════════════════════════════════
+   LEDGER INIT
+═══════════════════════════════════════════ */
+function initLedger(ds, shift, mode) {
+  showPage('page-ledger');
+
+  document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
+  document.getElementById('lbl-ledger-title').textContent = `${srLabel(shift)} Register`;
+  document.getElementById('lbl-ledger-meta').textContent  = `${ds} · BT-PHARMA`;
+  document.getElementById('ledger-badge').innerHTML = `<span class="badge ${mode==='shift'?'badge-shift':'badge-final'}">${mode}</span>`;
+  /* close more menu if open */
+  const mm = document.getElementById('ltb-more-menu');
+  if(mm) mm.classList.add('hidden');
+
+  /* update Final Closing section labels to reflect current mode */
+  const isFinalMode = (mode === 'final');
+  const lblSameSys   = document.getElementById('lbl-final-same-sys');
+  const lblBooks     = document.getElementById('lbl-final-books');
+  const lblSameCust  = document.getElementById('lbl-final-same-cust');
+  const lblManRet    = document.getElementById('lbl-final-man-ret');
+  const lblSameSysRet= document.getElementById('lbl-final-same-sysret');
+  const lblPreSys    = document.getElementById('lbl-final-pre-sys');
+  const lblPreCust   = document.getElementById('lbl-final-pre-cust');
+  const lblPreSysRet = document.getElementById('lbl-final-pre-sysret');
+  const lblExtraCash = document.getElementById('lbl-final-extra-cash');
+  if(isFinalMode) {
+    if(lblSameSys)    lblSameSys.textContent    = '＋ POS Sale — this Final Shift only:';
+    if(lblBooks)      lblBooks.textContent      = '＋ Book Bills — this Final Shift only:';
+    if(lblSameCust)   lblSameCust.textContent   = '＋ Customers — this Final Shift only:';
+    if(lblManRet)     lblManRet.textContent     = '－ Manual Returns — this Final Shift only:';
+    if(lblSameSysRet) lblSameSysRet.textContent = '－ System Returns — this Final Shift only:';
+    if(lblPreSys)     lblPreSys.textContent     = '－ Pre-date POS Sales (shifts before today ＋ last final):';
+    if(lblPreCust)    lblPreCust.textContent    = '－ Pre-date Customers (shifts before today ＋ last final):';
+    if(lblPreSysRet)  lblPreSysRet.textContent  = '－ Less Pre-date System Return (shifts before today ＋ last final):';
+    if(lblExtraCash)  lblExtraCash.textContent  = '－ Extra Cash Added to Pharmacy (this closing only):';
+  } else {
+    if(lblSameSys)    lblSameSys.textContent    = '＋ POS Sale — same-date shifts \u0026 this closing:';
+    if(lblBooks)      lblBooks.textContent      = '＋ Book Bills — all periods ＋ prev. final:';
+    if(lblSameCust)   lblSameCust.textContent   = '＋ Customers — same-date:';
+    if(lblManRet)     lblManRet.textContent     = '－ Manual Returns — all periods ＋ prev. final:';
+    if(lblSameSysRet) lblSameSysRet.textContent = '－ System Returns — same-date:';
+    if(lblPreSys)     lblPreSys.textContent     = '－ Pre-date POS Sales (shifts before today ＋ last final):';
+    if(lblPreCust)    lblPreCust.textContent    = '－ Pre-date Customers (shifts before today ＋ last final):';
+    if(lblPreSysRet)  lblPreSysRet.textContent  = '－ Less Pre-date System Return (shifts before today ＋ last final):';
+    if(lblExtraCash)  lblExtraCash.textContent  = '－ Extra Cash Added to Pharmacy (period since last final included ＋ this closing):';
+  }
+
+  /* final mode notice bar */
+  const bar = document.getElementById('final-mode-bar');
+  bar.classList.toggle('hidden', mode !== 'final');
+  /* card-final-agg always visible now — shows period aggregation in all modes */
+
+  /* reset dynamic counters */
+  auxCreditCount = 0; depositCount = 0; miscCount = 0; hsRowCount = 0; auxStripCount = 0;
+
+  /* clear dynamic containers */
+  ['hs-rows','ledger-strips','ledger-named-credits','ledger-tier-credits',
+   'ledger-aux-credits','ledger-deposits','ledger-misc'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.innerHTML = "";
+  });
+
+  /* build named credit rows from settings */
+  db.settings.namedCredits.forEach((nc, i) => addNamedCreditRow(nc.label, i+1));
+
+  /* build 3 tier credit rows */
+  for(let i=1;i<=3;i++) addTierCreditRow(i);
+
+  /* build strips from settings */
+  const sc = document.getElementById('ledger-strips');
+  db.settings.strips.forEach((st, idx) => {
+    const row = document.createElement('div');
+    row.className = "row strip-row";
+    row.innerHTML = `
+      <span class="strip-name">${st.name}</span>
+      <input type="number" class="strip-price" data-idx="${idx}" value="${st.price}" readonly style="width:80px;background:#f1f5f9;color:var(--muted);">
+      <input type="number" class="strip-qty"   data-idx="${idx}" value="0"           oninput="calc()" style="width:80px;">
+      <input type="number" class="strip-line"  id="strip-line-${idx}" readonly       style="width:80px;">`;
+    sc.appendChild(row);
+    attachNumpad(row.querySelector('.strip-qty'),   'Qty – '+st.name);
+  });
+
+  /* attach numpad to static number fields */
+  ['in-sys-cash','in-last-bill-amt','in-last-bill-num','in-comp-sale','in-alfalah','in-keenu',
+   'pos-ret-1','pos-ret-2','pos-ret-3','pos-ret-sys',
+   'in-book-1','in-book-2',
+   'out-prev-cc','out-curr-cc','out-prev-credit','in-credit-adj','out-prev-dep','out-prev-cash','in-extra-cash'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el && !el.readOnly) attachNumpad(el);
+  });
+
+  /* style carried-value rows for final mode */
+  ['box-out-prev-cc','box-out-curr-cc','box-out-prev-credit','box-out-prev-dep','box-out-prev-cash',
+   'box-out-shift-sale','box-out-cust'].forEach(boxId => {
+    const el = document.getElementById(boxId);
+    if(!el) return;
+    if(mode === 'final') { el.classList.add('final-editable'); }
+    else { el.classList.remove('final-editable'); }
+  });
+
+  if(db.sheets[activeKey]) {
+    /* Only a fully-closed sheet (draft === false) should freeze the
+       computed carry-over fields. An auto-draft or manually-saved draft
+       (draft === true) is still being worked on, so its computed fields
+       must keep recalculating live — matching the intent already
+       documented in saveDraft(). */
+    isSavedSheet = (db.sheets[activeKey].draft !== true);
+    hydrate(db.sheets[activeKey]);
+  } else {
+    isSavedSheet = false;
+    flushInputs();
+    pullPreviousShift(ds, shift, mode);
+    if(mode === 'shift' || mode === 'final') zeroCreditEntries();
+  }
+  calc();
+  /* enable real-time auto-draft after ledger has fully settled */
+  _draftReady = false;
+  setTimeout(() => { _draftReady = true; }, 600);
+
+  /* apply view-only / editable state based on the saved record */
+  setLockedState(!!db.sheets[activeKey]?.locked);
+}
+
+/* ═══════════════════════════════════════════
+   ZERO CREDIT ENTRIES (Shift & Final open)
+═══════════════════════════════════════════ */
+function zeroCreditEntries() {
+  /* named credits */
+  document.querySelectorAll('.named-cred-val').forEach(el => el.value = 0);
+  /* tier amounts */
+  for(let i=1;i<=3;i++) { const el = g(`in-nested-${i}`); if(el) el.value = 0; }
+  /* aux credits */
+  document.querySelectorAll('.aux-cred-val').forEach(el => el.value = 0);
+}
+
+/* ═══════════════════════════════════════════
+   VIEW-ONLY (LOCK) STATE
+   A saved closing ("Save & Close This Shift") becomes a
+   read-only snapshot. It can only be edited again after
+   entering the PIN via "Edit (PIN)".
+═══════════════════════════════════════════ */
+function setLockedState(locked) {
+  isSheetLocked = locked;
+  const scope = document.querySelector('#page-ledger .page-body');
+  if(!scope) return;
+
+  /* number / text inputs and label inputs that are normally editable
+     (i.e. not already readonly by design — computed/output fields) */
+  scope.querySelectorAll('input[type="number"], input[type="text"]').forEach(el => {
+    if(locked) {
+      if(!el.readOnly) {
+        el.readOnly = true;
+        el.classList.add('locked-editable');
+      }
+    } else {
+      if(el.classList.contains('locked-editable')) {
+        el.readOnly = false;
+        el.classList.remove('locked-editable');
+      }
+    }
+  });
+
+  /* selects (tier/name pickers, misc status) — these are driven by
+     mousedown→modal-picker handlers, so pointer-events:none blocks them too */
+  scope.querySelectorAll('select').forEach(el => {
+    el.disabled = locked;
+    el.style.pointerEvents = locked ? 'none' : '';
+  });
+
+  /* hide add-row / delete-row / sign-toggle controls while locked */
+  scope.querySelectorAll('.add-row-btn-wrap, .del-row-btn').forEach(el => {
+    el.classList.toggle('hidden', locked);
+  });
+  scope.querySelectorAll('.row button.btn-ghost.btn-sm').forEach(el => {
+    /* the ± sign-toggle button on Credit Adjustment */
+    if(el.textContent.trim() === '±') el.classList.toggle('hidden', locked);
+  });
+
+  /* toolbar / action buttons */
+  const btnDraft  = document.getElementById('btn-save-draft');
+  const btnClose  = document.getElementById('btn-save-close');
+  const menuEdit  = document.getElementById('menu-edit-pin');
+  const menuClear = document.getElementById('menu-clear-fields');
+  const menuDel   = document.getElementById('menu-delete-sheet');
+  const lockedBar = document.getElementById('locked-mode-bar');
+
+  if(btnDraft)  btnDraft.classList.toggle('hidden', locked);
+  if(btnClose)  btnClose.classList.toggle('hidden', locked);
+  if(menuEdit)  menuEdit.classList.toggle('hidden', !locked);
+  if(menuClear) menuClear.classList.toggle('hidden', locked);
+  if(menuDel)   menuDel.classList.toggle('hidden', locked);
+  if(lockedBar) lockedBar.classList.toggle('hidden', !locked);
+}
+
+function unlockForEditing() {
+  let pin = prompt("Enter PIN to edit this saved closing:");
+  if(pin !== PIN) { alert("Incorrect PIN."); return; }
+  setLockedState(false);
+  /* close more menu if open */
+  const mm = document.getElementById('ltb-more-menu');
+  if(mm) mm.classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════
+   CARRY-OVER PULL
+═══════════════════════════════════════════ */
+function pullPreviousShift(ds, shift, mode) {
+  const prev      = timelineStep(ds, shift, -1);
+  const hs        = getRealSheet(prev.key);
+  const dayChanged = (ds !== prev.date);
+
+  if(!hs) {
+    ['out-prev-cc','out-prev-credit','out-prev-dep','out-prev-cash'].forEach(id => set(id,0));
+    return;
+  }
+
+  /* ── CC CARRY-FORWARD LOGIC ────────────────────────────────────────
+     Day cycle: Night → Morning → Evening  (Night = START of new day)
+
+     Rule:
+       • Night shift (new day start):
+           Carried CC = prevDayEvening.outPrevCC + prevDayEvening.outCurrCC
+           (full running total from end of previous day's Evening)
+       • Morning shift (same day as Night):
+           Carried CC = SAME value Night carried (prevDayEvening total).
+           Night's own currCC is NOT added.
+       • Evening shift (same day):
+           Carried CC = SAME value — neither Night's nor Morning's currCC added.
+
+     Implementation:
+       Night: prev is previous day's Evening → carry prev.outPrevCC + prev.outCurrCC.
+       Morning / Evening: look up this day's Night sheet and use Night.outPrevCC
+       (which equals the prevDayEvening total — the shared base for the whole day).
+  ────────────────────────────────────────────────────────────────── */
+  let carriedCC = 0;
+
+  if(shift === 'Night') {
+    /* Night = new day start. prev is previous day's Evening. */
+    carriedCC = (parseFloat(hs.outPrevCC) || 0) + (parseFloat(hs.outCurrCC) || 0);
+
+  } else {
+    /* Morning or Evening: all same-day shifts share the CC base that Night carried.
+       Night.outPrevCC = prevDayEvening total = the shared base for the whole day. */
+    const nightSheet = getRealSheet(ds + '_Night');
+    if(nightSheet) {
+      carriedCC = parseFloat(nightSheet.outPrevCC) || 0;
+    } else {
+      /* Night not saved yet — use immediate previous shift's prevCC as fallback */
+      carriedCC = parseFloat(hs.outPrevCC) || 0;
+    }
+  }
+
+  set('out-prev-cc', carriedCC);
+
+  /* credit — always pulled in both shift and final */
+  set('out-prev-credit', parseFloat(hs.outTotalE) || 0);
+
+  /* deposits & previous cash position — NOT carried in final mode (reset to 0) */
+  if(mode === 'final') {
+    set('out-prev-dep',  0);
+    set('out-prev-cash', 0);
+  } else {
+    set('out-prev-dep',  parseFloat(hs.outTotalF) || 0);
+    set('out-prev-cash', parseFloat(hs.outTotalCash) || 0);
+  }
+
+  /* misc carry-over — now carried in BOTH shift and final modes
+     Always carries ALL rows from the previous sheet, creating new rows as needed */
+  if(hs.miscRows && hs.miscRows.length) {
+    /* clear any default blank rows that flushInputs() added */
+    document.getElementById('ledger-misc').innerHTML = "";
+    miscCount = 0;
+    hs.miscRows.forEach(m => {
+      if(m.status==='Confirmed'||m.status==='Cleared') {
+        /* carry row as Cleared / zero */
+        addMiscRow(m.label ? m.label+" [NIL]" : "", 0, "Cleared");
+      } else {
+        /* Active — carry label and value as-is */
+        addMiscRow(m.label || "", m.val || 0, "Active");
+      }
+    });
+  }
+}
+
+function findLastFinal(ds, shift) {
+  let cur = {date: ds, shift: shift};
+  for(let i=0;i<400;i++) {
+    cur = timelineStep(cur.date, cur.shift, -1);
+    const rec = getRealSheet(cur.key);
+    if(rec && rec.profileMode === 'final') return {key: cur.key, rec};
+    if(!rec && i>200) break; /* safety: avoid endless scan into empty history */
+  }
+  return null;
+}
+
+function aggregateSinceLastFinal(ds, shift) {
+  const lastFinal = findLastFinal(ds, shift);
+  let totalCustomers = 0, totalShiftSale = 0, totalManualReturns = 0, totalSysReturns = 0,
+      totalExtraCash = 0, totalShiftNetCash = 0, totalBookBills = 0, shiftCount = 0;
+  /* date-split: "same-date" = date === ds, "pre-date" = date < ds */
+  let sameDateShiftSale = 0, preDateShiftSale = 0;
+  let sameDateCustomers = 0, preDateCustomers = 0;
+  let sameDateSysReturns = 0, preDateSysReturns = 0;
+  const labels = [];
+  let cur = {date: ds, shift: shift};
+  for(let i = 0; i < 400; i++) {
+    cur = timelineStep(cur.date, cur.shift, -1);
+    if(lastFinal && cur.key === lastFinal.key) break;
+    const rec = getRealSheet(cur.key);
+    if(!rec) { if(!lastFinal) break; else continue; }
+    if(rec.profileMode === 'final') break;
+    const shiftSale = parseFloat(rec.outShiftSale) || 0;
+    const customers = parseFloat(rec.outCust)      || 0;
+    const sysRet    = parseFloat(rec.posRetSys)    || 0;
+    const manRet    = (parseFloat(rec.posRet1)||0) + (parseFloat(rec.posRet2)||0) + (parseFloat(rec.posRet3)||0);
+    const books     = (parseFloat(rec.inBook1)||0) + (parseFloat(rec.inBook2)||0);
+    const isToday   = (cur.date === ds);
+    totalCustomers     += customers;
+    totalShiftSale     += shiftSale;
+    totalManualReturns += manRet;
+    totalSysReturns    += sysRet;
+    totalExtraCash     += parseFloat(rec.extraCash) || 0;
+    totalShiftNetCash  += parseFloat(rec.outNetCash) || 0;
+    totalBookBills     += books;
+    shiftCount++;
+    labels.unshift(srLabel(cur.shift).replace('Closing','C') + ' ' + cur.date);
+    if(isToday) { sameDateShiftSale += shiftSale; sameDateCustomers += customers; sameDateSysReturns += sysRet; }
+    else        { preDateShiftSale  += shiftSale; preDateCustomers  += customers; preDateSysReturns += sysRet; }
+  }
+  /* categorise last final's own values by date */
+  let lfSameDateSale = 0, lfPreDateSale = 0;
+  let lfSameDateCust = 0, lfPreDateCust = 0;
+  let lfSameDateSysRet = 0, lfPreDateSysRet = 0;
+  if(lastFinal) {
+    const lf     = lastFinal.rec;
+    const lfDate = lastFinal.key.split('_')[0];
+    const lfSale = parseFloat(lf.outShiftSale) || 0;
+    const lfCust = parseFloat(lf.outCust)      || 0;
+    const lfSysR = parseFloat(lf.posRetSys)    || 0;
+    if(lfDate === ds) { lfSameDateSale = lfSale; lfSameDateCust = lfCust; lfSameDateSysRet = lfSysR; }
+    else              { lfPreDateSale  = lfSale; lfPreDateCust  = lfCust; lfPreDateSysRet = lfSysR; }
+
+    /* ── Include previous final closing's own manual returns, book bills & extra cash ──
+       These were recorded on the final closing itself and must carry into the
+       next period's cumulative totals. */
+    const lfManRet    = (parseFloat(lf.posRet1)||0) + (parseFloat(lf.posRet2)||0) + (parseFloat(lf.posRet3)||0);
+    const lfBooks     = (parseFloat(lf.inBook1)||0)  + (parseFloat(lf.inBook2)||0);
+    const lfExtraCash = parseFloat(lf.extraCash) || 0;
+    totalManualReturns += lfManRet;
+    totalBookBills     += lfBooks;
+    totalExtraCash     += lfExtraCash;
+  }
+  return {
+    lastFinal,
+    totalCustomers, totalShiftSale, totalManualReturns, totalSysReturns,
+    totalExtraCash, totalShiftNetCash, totalBookBills, shiftCount, labels,
+    sameDateShiftSale, preDateShiftSale,
+    sameDateCustomers, preDateCustomers, sameDateSysReturns, preDateSysReturns,
+    lfSameDateSale, lfPreDateSale,
+    lfSameDateCust, lfPreDateCust, lfSameDateSysRet, lfPreDateSysRet
+  };
+}
+
+/* ═══════════════════════════════════════════
+   MAIN CALCULATION PIPELINE
+═══════════════════════════════════════════ */
+function calc() {
+  /* HS */
+  let hsTotal = 0;
+  document.querySelectorAll('.hs-val').forEach(el => hsTotal += parseFloat(el.value)||0);
+  set('out-total-hs', hsTotal);
+  const badge_hs = document.getElementById('badge-hs');
+  if(badge_hs) badge_hs.textContent = 'Rs. ' + hsTotal.toLocaleString();
+
+  /* Strips (A) */
+  let totalA = 0;
+  const stripPrices = document.querySelectorAll('.strip-price');
+  const stripQtys   = document.querySelectorAll('.strip-qty');
+  stripPrices.forEach((el, i) => {
+    const p    = parseFloat(el.value)||0;
+    const q    = parseFloat(stripQtys[i]?.value)||0;
+    const line = p*q;
+    const lineEl = document.getElementById(`strip-line-${i}`);
+    if(lineEl) lineEl.value = line;
+    totalA += line;
+  });
+  document.querySelectorAll('.aux-strip-price').forEach((el, i) => {
+    const p    = parseFloat(el.value)||0;
+    const q    = parseFloat(document.querySelectorAll('.aux-strip-qty')[i]?.value)||0;
+    const line = p*q;
+    const tot  = document.querySelectorAll('.aux-strip-total')[i];
+    if(tot) tot.value = line;
+    totalA += line;
+  });
+  set('out-total-a', totalA);
+  const badge_strips = document.getElementById('badge-strips');
+  if(badge_strips) badge_strips.textContent = 'Rs. ' + totalA.toLocaleString();
+
+  /* POS */
+  const sysCash    = val('in-sys-cash');
+  const lastBillAmt = val('in-last-bill-amt');
+  const lastBillNum = parseInt(g('in-last-bill-num')?.value)||0;
+  const compSale   = val('in-comp-sale');
+  const alfalah    = val('in-alfalah');
+  const keenu      = val('in-keenu');
+
+  /* Returns */
+  const ret1 = val('pos-ret-1'); const ret2 = val('pos-ret-2'); const ret3 = val('pos-ret-3');
+  const retSys = val('pos-ret-sys');
+  const totalReturns = ret1 + ret2 + ret3 + retSys;
+  set('out-total-returns', totalReturns);
+  const badge_pos = document.getElementById('badge-pos');
+  if(badge_pos) badge_pos.textContent = 'Rs. ' + sysCash.toLocaleString();
+
+  /* Shift sale delta */
+  const parts     = activeKey ? activeKey.split('_') : ['',''];
+  const prevNode  = timelineStep(parts[0], parts[1], -1);
+  const prevSheet = getRealSheet(prevNode.key);
+  const dayChanged = (parts[0] !== prevNode.date);
+
+  let shiftSale = 0;
+  if(activeMode==="final" || dayChanged || !prevSheet) {
+    shiftSale = sysCash;
+  } else {
+    shiftSale = sysCash - (parseFloat(prevSheet.inSysCash)||0);
+  }
+  applyOrOverride('out-shift-sale', shiftSale);
+
+  let custDelta = 0;
+  if(prevSheet) {
+    /* Always compute customer delta from bill number difference, regardless of day change or mode */
+    custDelta = Math.max(0, lastBillNum - (parseInt(prevSheet.inLastBillNum)||0));
+  }
+  applyOrOverride('out-cust', custDelta);
+
+  const shiftSaleVal = val('out-shift-sale');
+  const book1  = val('in-book-1');
+  const book2  = val('in-book-2');
+  const custVal = val('out-cust');
+  const netSale = shiftSaleVal + book1 + book2 + custVal - totalReturns;
+  set('out-net-sale', netSale);
+  const badge_shift = document.getElementById('badge-shift');
+  if(badge_shift) badge_shift.textContent = 'Rs. ' + netSale.toLocaleString();
+
+  /* CC (B) */
+  const currCC = (alfalah + keenu) - compSale;
+  applyOrOverride('out-curr-cc', currCC);
+  const badge_cc = document.getElementById('badge-cc');
+  if(badge_cc) badge_cc.textContent = 'Rs. ' + (val('out-prev-cc') + val('out-curr-cc')).toLocaleString();
+
+  /* Denominations (C & D) */
+  let totalC = 0;
+  document.querySelectorAll('.till-cell').forEach(el => {
+    totalC += (parseFloat(el.value)||0) * parseFloat(el.dataset.mult);
+  });
+  set('out-subtotal-c', totalC);
+  const badge_till = document.getElementById('badge-till');
+  if(badge_till) badge_till.textContent = 'Rs. ' + totalC.toLocaleString();
+
+  let totalD = 0;
+  document.querySelectorAll('.vault-cell').forEach(el => {
+    totalD += (parseFloat(el.value)||0) * parseFloat(el.dataset.mult);
+  });
+  set('out-subtotal-d', totalD);
+  const badge_vault = document.getElementById('badge-vault');
+  if(badge_vault) badge_vault.textContent = 'Rs. ' + totalD.toLocaleString();
+
+  /* Debt (E) */
+  const carriedCredit = val('out-prev-credit');
+  let namedDebt = 0;
+  document.querySelectorAll('.named-cred-val').forEach(el => namedDebt += parseFloat(el.value)||0);
+  let tierDebt = 0;
+  for(let i=1;i<=3;i++) tierDebt += val(`in-nested-${i}`);
+  let auxDebt = 0;
+  document.querySelectorAll('.aux-cred-val').forEach(el => auxDebt += parseFloat(el.value)||0);
+  const totalE = carriedCredit + namedDebt + tierDebt + auxDebt + val('in-credit-adj');
+  set('out-total-e', totalE);
+  const badge_credit = document.getElementById('badge-credit');
+  if(badge_credit) badge_credit.textContent = 'Rs. ' + totalE.toLocaleString();
+
+  /* Deposits (F) */
+  const carriedDep = val('out-prev-dep');
+  let depTotal = 0;
+  document.querySelectorAll('.dep-val').forEach(el => depTotal += parseFloat(el.value)||0);
+  const totalF = carriedDep + depTotal;
+  set('out-total-f', totalF);
+  const badge_dep = document.getElementById('badge-deposits');
+  if(badge_dep) badge_dep.textContent = 'Rs. ' + totalF.toLocaleString();
+
+  /* Misc (G) */
+  let totalG = 0;
+  document.querySelectorAll('.misc-row input[type="number"]').forEach(el => {
+    const rowId   = el.closest('.misc-row')?.id;
+    const stNum   = rowId?.replace('misc-row-','');
+    const stEl    = stNum ? g(`misc-st-${stNum}`) : null;
+    const status  = stEl ? stEl.value : 'Active';
+    if(status !== 'Cleared') totalG += parseFloat(el.value)||0;
+  });
+  set('out-total-g', totalG);
+  const badge_misc = document.getElementById('badge-misc');
+  if(badge_misc) badge_misc.textContent = 'Rs. ' + totalG.toLocaleString();
+
+  /* Grand total: A=HS, B=Strips, C=Misc, D=CC, E=Till, F=Draw, G=Credit, H=Deposits */
+  const ccB   = val('out-prev-cc') + val('out-curr-cc');
+  const grand = hsTotal + totalA + totalG + ccB + totalC + totalD + totalE + totalF;
+  set('out-grand', grand);
+  const liquid = grand - 45000;
+  set('out-liquid', liquid);
+
+  const carriedCash = val('out-prev-cash');
+  applyOrOverride('out-prev-cash', carriedCash);
+  const extraCash = val('in-extra-cash');
+  const netCash  = liquid - val('out-prev-cash') - extraCash;
+  set('out-net-cash', netCash);
+
+  /* ── Final Closing aggregation — computed in ALL modes ── */
+  let bannerTarget = netSale, bannerCash = netCash;
+  if(activeKey) {
+    const parts2 = activeKey.split('_');
+    const agg    = aggregateSinceLastFinal(parts2[0], parts2[1]);
+    set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
+
+    /* ─── PART 1: Net Final Sale ─────────────────────────── */
+    let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet;
+    if (activeMode === 'final') {
+      /* Final Closing selected: use current shift values only */
+      totalSameDateSys  = shiftSaleVal;
+      totalBooks        = book1 + book2;
+      totalSameDateCust = custVal;
+      totalManRet       = ret1 + ret2 + ret3;
+      totalSameSysRet   = retSys;
+    } else {
+      /* Non-final modes: aggregate across period as before */
+      /* POS: same-date shifts + last-final (if same date) + this closing */
+      totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
+      /* Book bills: ALL periods */
+      totalBooks        = agg.totalBookBills + book1 + book2;
+      /* Customers: same-date only */
+      totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
+      /* Manual returns: ALL periods */
+      totalManRet       = agg.totalManualReturns + ret1 + ret2 + ret3;
+      /* Sys returns: same-date only (incl. last final if same date) + this closing */
+      totalSameSysRet   = agg.sameDateSysReturns + agg.lfSameDateSysRet + retSys;
+    }
+    /* Additional sys returns entered manually in this final */
+    const finalExtraRet     = val('in-final-sys-returns');
+    const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust
+                       - totalManRet - totalSameSysRet - finalExtraRet;
+
+    set('out-final-same-sys',    totalSameDateSys);
+    set('out-final-books',       totalBooks);
+    set('out-final-same-cust',   totalSameDateCust);
+    set('out-final-man-ret',     totalManRet);
+    set('out-final-same-sysret', totalSameSysRet);
+    set('out-final-net-sale',    finalNetSale);
+
+    /* ─── PART 2: Net Final Cash Available ───────────────── */
+    let preDateSys, preDateCust, preDateSysRet, totalExtraCashPeriod;
+    if (activeMode === 'final') {
+      /* Final Closing selected: no pre-date aggregation, extra cash = current shift only */
+      preDateSys             = 0;
+      preDateCust            = 0;
+      preDateSysRet          = 0;
+      totalExtraCashPeriod   = extraCash;
+    } else {
+      preDateSys             = agg.preDateShiftSale + agg.lfPreDateSale;
+      preDateCust            = agg.preDateCustomers  + agg.lfPreDateCust;
+      preDateSysRet          = agg.preDateSysReturns + agg.lfPreDateSysRet;
+      totalExtraCashPeriod   = agg.totalExtraCash + extraCash;
+    }
+    const preDateTotal      = preDateSys + preDateCust - preDateSysRet;
+    const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod - finalNetSale;
+
+    set('out-final-net-cash-base', liquid);
+    set('out-final-pre-sys',       preDateSys);
+    set('out-final-pre-cust',      preDateCust);
+    set('out-final-pre-sysret',    preDateSysRet);
+    set('out-final-pre-total',     preDateTotal);
+    set('out-final-extra-cash',    totalExtraCashPeriod);
+    set('out-final-target-sale',   finalNetSale);
+    set('out-final-net-cash',      finalNetCash);
+
+    /* ─── VARIANCE ───────────────────────────────────────── */
+    const finalDiff = finalNetCash;
+    const fdEl  = document.getElementById('out-final-diff');
+    const fdLbl = document.getElementById('out-final-diff-label');
+    if(finalDiff === 0) {
+      fdLbl.textContent = 'Variance (Final Audit):';
+      fdEl.value = 0;
+    } else if(finalDiff > 0) {
+      fdLbl.textContent = 'Plus (Final Audit):';
+      fdEl.value = finalDiff;
+    } else {
+      fdLbl.textContent = 'Less (Final Audit):';
+      fdEl.value = Math.abs(finalDiff);
+    }
+
+    /* legacy hidden fields kept for buildSheetRecord compat */
+    set('out-final-net-sale-adj', finalNetSale - totalExtraCashPeriod);
+    set('out-final-net-cash-adj', finalNetCash);
+    set('out-final-prev-sale',    0);
+
+    if(activeMode === 'final') {
+      bannerTarget = netSale;
+      bannerCash   = netCash;
+    }
+  }
+
+  const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) */
+  document.getElementById('ban-target').textContent   = "Rs. " + bannerTarget.toLocaleString('en-PK');
+  document.getElementById('ban-cash').textContent     = "Rs. " + bannerCash.toLocaleString('en-PK');
+  const banEl = document.getElementById('ban-variance');
+  const banLbl = document.getElementById('ban-variance-label');
+  if(diff === 0) {
+    if(banLbl) banLbl.textContent = 'Variance';
+    banEl.textContent = "Rs. 0";
+    banEl.className = 'val pos';
+  } else if(diff > 0) {
+    if(banLbl) banLbl.textContent = 'Plus';
+    banEl.textContent = "Rs. " + diff.toLocaleString('en-PK');
+    banEl.className = 'val pos';
+  } else {
+    if(banLbl) banLbl.textContent = 'Less';
+    banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
+    banEl.className = 'val neg';
+  }
+  /* ── real-time auto-draft ── */
+  scheduleAutoSave();
+}
+
+/* ═══════════════════════════════════════════
+   OVERRIDE HANDLING
+/* ═══════════════════════════════════════════
+   MAIN CALCULATION PIPELINE
+═══════════════════════════════════════════ */
+function calc() {
+  /* HS */
+  let hsTotal = 0;
+  document.querySelectorAll('.hs-val').forEach(el => hsTotal += parseFloat(el.value)||0);
+  set('out-total-hs', hsTotal);
+  const badge_hs = document.getElementById('badge-hs');
+  if(badge_hs) badge_hs.textContent = 'Rs. ' + hsTotal.toLocaleString();
+
+  /* Strips (A) */
+  let totalA = 0;
+  const stripPrices = document.querySelectorAll('.strip-price');
+  const stripQtys   = document.querySelectorAll('.strip-qty');
+  stripPrices.forEach((el, i) => {
+    const p    = parseFloat(el.value)||0;
+    const q    = parseFloat(stripQtys[i]?.value)||0;
+    const line = p*q;
+    const lineEl = document.getElementById(`strip-line-${i}`);
+    if(lineEl) lineEl.value = line;
+    totalA += line;
+  });
+  document.querySelectorAll('.aux-strip-price').forEach((el, i) => {
+    const p    = parseFloat(el.value)||0;
+    const q    = parseFloat(document.querySelectorAll('.aux-strip-qty')[i]?.value)||0;
+    const line = p*q;
+    const tot  = document.querySelectorAll('.aux-strip-total')[i];
+    if(tot) tot.value = line;
+    totalA += line;
+  });
+  set('out-total-a', totalA);
+  const badge_strips = document.getElementById('badge-strips');
+  if(badge_strips) badge_strips.textContent = 'Rs. ' + totalA.toLocaleString();
+
+  /* POS */
+  const sysCash    = val('in-sys-cash');
+  const lastBillAmt = val('in-last-bill-amt');
+  const lastBillNum = parseInt(g('in-last-bill-num')?.value)||0;
+  const compSale   = val('in-comp-sale');
+  const alfalah    = val('in-alfalah');
+  const keenu      = val('in-keenu');
+
+  /* Returns */
+  const ret1 = val('pos-ret-1'); const ret2 = val('pos-ret-2'); const ret3 = val('pos-ret-3');
+  const retSys = val('pos-ret-sys');
+  const totalReturns = ret1 + ret2 + ret3 + retSys;
+  set('out-total-returns', totalReturns);
+  const badge_pos = document.getElementById('badge-pos');
+  if(badge_pos) badge_pos.textContent = 'Rs. ' + sysCash.toLocaleString();
+
+  /* Shift sale delta */
+  const parts     = activeKey ? activeKey.split('_') : ['',''];
+  const prevNode  = timelineStep(parts[0], parts[1], -1);
+  const prevSheet = getRealSheet(prevNode.key);
+  const dayChanged = (parts[0] !== prevNode.date);
+
+  let shiftSale = 0;
+  if(activeMode==="final" || dayChanged || !prevSheet) {
+    shiftSale = sysCash;
+  } else {
+    shiftSale = sysCash - (parseFloat(prevSheet.inSysCash)||0);
+  }
+  applyOrOverride('out-shift-sale', shiftSale);
+
+  let custDelta = 0;
+  if(prevSheet) {
+    /* Always compute customer delta from bill number difference, regardless of day change or mode */
+    custDelta = Math.max(0, lastBillNum - (parseInt(prevSheet.inLastBillNum)||0));
+  }
+  applyOrOverride('out-cust', custDelta);
+
+  const shiftSaleVal = val('out-shift-sale');
+  const book1  = val('in-book-1');
+  const book2  = val('in-book-2');
+  const custVal = val('out-cust');
+  const netSale = shiftSaleVal + book1 + book2 + custVal - totalReturns;
+  set('out-net-sale', netSale);
+  const badge_shift = document.getElementById('badge-shift');
+  if(badge_shift) badge_shift.textContent = 'Rs. ' + netSale.toLocaleString();
+
+  /* CC (B) */
+  const currCC = (alfalah + keenu) - compSale;
+  applyOrOverride('out-curr-cc', currCC);
+  const badge_cc = document.getElementById('badge-cc');
+  if(badge_cc) badge_cc.textContent = 'Rs. ' + (val('out-prev-cc') + val('out-curr-cc')).toLocaleString();
+
+  /* Denominations (C & D) */
+  let totalC = 0;
+  document.querySelectorAll('.till-cell').forEach(el => {
+    totalC += (parseFloat(el.value)||0) * parseFloat(el.dataset.mult);
+  });
+  set('out-subtotal-c', totalC);
+  const badge_till = document.getElementById('badge-till');
+  if(badge_till) badge_till.textContent = 'Rs. ' + totalC.toLocaleString();
+
+  let totalD = 0;
+  document.querySelectorAll('.vault-cell').forEach(el => {
+    totalD += (parseFloat(el.value)||0) * parseFloat(el.dataset.mult);
+  });
+  set('out-subtotal-d', totalD);
+  const badge_vault = document.getElementById('badge-vault');
+  if(badge_vault) badge_vault.textContent = 'Rs. ' + totalD.toLocaleString();
+
+  /* Debt (E) */
+  const carriedCredit = val('out-prev-credit');
+  let namedDebt = 0;
+  document.querySelectorAll('.named-cred-val').forEach(el => namedDebt += parseFloat(el.value)||0);
+  let tierDebt = 0;
+  for(let i=1;i<=3;i++) tierDebt += val(`in-nested-${i}`);
+  let auxDebt = 0;
+  document.querySelectorAll('.aux-cred-val').forEach(el => auxDebt += parseFloat(el.value)||0);
+  const totalE = carriedCredit + namedDebt + tierDebt + auxDebt + val('in-credit-adj');
+  set('out-total-e', totalE);
+  const badge_credit = document.getElementById('badge-credit');
+  if(badge_credit) badge_credit.textContent = 'Rs. ' + totalE.toLocaleString();
+
+  /* Deposits (F) */
+  const carriedDep = val('out-prev-dep');
+  let depTotal = 0;
+  document.querySelectorAll('.dep-val').forEach(el => depTotal += parseFloat(el.value)||0);
+  const totalF = carriedDep + depTotal;
+  set('out-total-f', totalF);
+  const badge_dep = document.getElementById('badge-deposits');
+  if(badge_dep) badge_dep.textContent = 'Rs. ' + totalF.toLocaleString();
+
+  /* Misc (G) */
+  let totalG = 0;
+  document.querySelectorAll('.misc-row input[type="number"]').forEach(el => {
+    const rowId   = el.closest('.misc-row')?.id;
+    const stNum   = rowId?.replace('misc-row-','');
+    const stEl    = stNum ? g(`misc-st-${stNum}`) : null;
+    const status  = stEl ? stEl.value : 'Active';
+    if(status !== 'Cleared') totalG += parseFloat(el.value)||0;
+  });
+  set('out-total-g', totalG);
+  const badge_misc = document.getElementById('badge-misc');
+  if(badge_misc) badge_misc.textContent = 'Rs. ' + totalG.toLocaleString();
+
+  /* Grand total: A=HS, B=Strips, C=Misc, D=CC, E=Till, F=Draw, G=Credit, H=Deposits */
+  const ccB   = val('out-prev-cc') + val('out-curr-cc');
+  const grand = hsTotal + totalA + totalG + ccB + totalC + totalD + totalE + totalF;
+  set('out-grand', grand);
+  const liquid = grand - 45000;
+  set('out-liquid', liquid);
+
+  const carriedCash = val('out-prev-cash');
+  applyOrOverride('out-prev-cash', carriedCash);
+  const extraCash = val('in-extra-cash');
+  const netCash  = liquid - val('out-prev-cash') - extraCash;
+  set('out-net-cash', netCash);
+
+  /* ── Final Closing aggregation — computed in ALL modes ── */
+  let bannerTarget = netSale, bannerCash = netCash;
+  if(activeKey) {
+    const parts2 = activeKey.split('_');
+    const agg    = aggregateSinceLastFinal(parts2[0], parts2[1]);
+    set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
+
+    /* ─── PART 1: Net Final Sale ─────────────────────────── */
+    let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet;
+    if (activeMode === 'final') {
+      /* Final Closing selected: use current shift values only */
+      totalSameDateSys  = shiftSaleVal;
+      totalBooks        = book1 + book2;
+      totalSameDateCust = custVal;
+      totalManRet       = ret1 + ret2 + ret3;
+      totalSameSysRet   = retSys;
+    } else {
+      /* Non-final modes: aggregate across period as before */
+      /* POS: same-date shifts + last-final (if same date) + this closing */
+      totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
+      /* Book bills: ALL periods */
+      totalBooks        = agg.totalBookBills + book1 + book2;
+      /* Customers: same-date only */
+      totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
+      /* Manual returns: ALL periods */
+      totalManRet       = agg.totalManualReturns + ret1 + ret2 + ret3;
+      /* Sys returns: same-date only (incl. last final if same date) + this closing */
+      totalSameSysRet   = agg.sameDateSysReturns + agg.lfSameDateSysRet + retSys;
+    }
+    /* Additional sys returns entered manually in this final */
+    const finalExtraRet     = val('in-final-sys-returns');
+    const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust
+                       - totalManRet - totalSameSysRet - finalExtraRet;
+
+    set('out-final-same-sys',    totalSameDateSys);
+    set('out-final-books',       totalBooks);
+    set('out-final-same-cust',   totalSameDateCust);
+    set('out-final-man-ret',     totalManRet);
+    set('out-final-same-sysret', totalSameSysRet);
+    set('out-final-net-sale',    finalNetSale);
+
+    /* ─── PART 2: Net Final Cash Available ───────────────── */
+    let preDateSys, preDateCust, preDateSysRet, totalExtraCashPeriod;
+    if (activeMode === 'final') {
+      /* Final Closing selected: no pre-date aggregation, extra cash = current shift only */
+      preDateSys             = 0;
+      preDateCust            = 0;
+      preDateSysRet          = 0;
+      totalExtraCashPeriod   = extraCash;
+    } else {
+      preDateSys             = agg.preDateShiftSale + agg.lfPreDateSale;
+      preDateCust            = agg.preDateCustomers  + agg.lfPreDateCust;
+      preDateSysRet          = agg.preDateSysReturns + agg.lfPreDateSysRet;
+      totalExtraCashPeriod   = agg.totalExtraCash + extraCash;
+    }
+    const preDateTotal      = preDateSys + preDateCust - preDateSysRet;
+    const finalNetCash      = liquid - preDateTotal - totalExtraCashPeriod - finalNetSale;
+
+    set('out-final-net-cash-base', liquid);
+    set('out-final-pre-sys',       preDateSys);
+    set('out-final-pre-cust',      preDateCust);
+    set('out-final-pre-sysret',    preDateSysRet);
+    set('out-final-pre-total',     preDateTotal);
+    set('out-final-extra-cash',    totalExtraCashPeriod);
+    set('out-final-target-sale',   finalNetSale);
+    set('out-final-net-cash',      finalNetCash);
+
+    /* ─── VARIANCE ───────────────────────────────────────── */
+    const finalDiff = finalNetCash;
+    const fdEl  = document.getElementById('out-final-diff');
+    const fdLbl = document.getElementById('out-final-diff-label');
+    if(finalDiff === 0) {
+      fdLbl.textContent = 'Variance (Final Audit):';
+      fdEl.value = 0;
+    } else if(finalDiff > 0) {
+      fdLbl.textContent = 'Plus (Final Audit):';
+      fdEl.value = finalDiff;
+    } else {
+      fdLbl.textContent = 'Less (Final Audit):';
+      fdEl.value = Math.abs(finalDiff);
+    }
+
+    /* legacy hidden fields kept for buildSheetRecord compat */
+    set('out-final-net-sale-adj', finalNetSale - totalExtraCashPeriod);
+    set('out-final-net-cash-adj', finalNetCash);
+    set('out-final-prev-sale',    0);
+
+    if(activeMode === 'final') {
+      bannerTarget = netSale;
+      bannerCash   = netCash;
+    }
+  }
+
+  const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) */
+  document.getElementById('ban-target').textContent   = "Rs. " + bannerTarget.toLocaleString('en-PK');
+  document.getElementById('ban-cash').textContent     = "Rs. " + bannerCash.toLocaleString('en-PK');
+  const banEl = document.getElementById('ban-variance');
+  const banLbl = document.getElementById('ban-variance-label');
+  if(diff === 0) {
+    if(banLbl) banLbl.textContent = 'Variance';
+    banEl.textContent = "Rs. 0";
+    banEl.className = 'val pos';
+  } else if(diff > 0) {
+    if(banLbl) banLbl.textContent = 'Plus';
+    banEl.textContent = "Rs. " + diff.toLocaleString('en-PK');
+    banEl.className = 'val pos';
+  } else {
+    if(banLbl) banLbl.textContent = 'Less';
+    banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
+    banEl.className = 'val neg';
+  }
+  /* ── real-time auto-draft ── */
+  scheduleAutoSave();
+}
+
+/* ═══════════════════════════════════════════
+   OVERRIDE HANDLING
+═══════════════════════════════════════════ */
+function toggleSign(id) {
+/* ═══════════════════════════════════════════
+   OVERRIDE HANDLING
+═══════════════════════════════════════════ */
+function toggleSign(id) {
+  const el = g(id);
+  if(!el) return;
+  el.value = -(parseFloat(el.value)||0);
+  calc();
+}
+function setOverride(id) {
+  overrides[id] = parseFloat(g(id)?.value)||0;
+  calc();
+}
+function applyOrOverride(id, baseVal) {
+  const el  = g(id);
+  const box = g(`box-${id}`);
+  if(!el) return;
+  if(overrides[id] !== undefined) {
+    el.value = overrides[id];
+    box?.classList.add('override-on');
+  } else if(isSavedSheet) {
+    /* this sheet was already saved — keep the hydrated snapshot value
+       instead of recomputing from the (possibly since-changed) previous shift */
+    box?.classList.remove('override-on');
+  } else {
+    el.value = baseVal;
+    box?.classList.remove('override-on');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   LEDGER PAGINATION
+═══════════════════════════════════════════ */
+function moveLedgerShift(n) {
+  if(!activeKey) return;
+/* ═══════════════════════════════════════════
+   LEDGER PAGINATION
+═══════════════════════════════════════════ */
+function moveLedgerShift(n) {
+  if(!activeKey) return;
+  autoSave();
+  const parts = activeKey.split('_');
+  const dir = n > 0 ? 1 : -1;
+
+  /* ── Scan in the requested direction for the nearest slot
+     that has a real saved record. Backward navigation must
+     never land on / create an empty slot. ── */
+  let cur = {date: parts[0], shift: parts[1]};
+  let found = null;
+  for(let i = 0; i < 400; i++) {
+    cur = timelineStep(cur.date, cur.shift, dir);
+    if(getRealSheet(cur.key)) { found = cur; break; }
+  }
+
+  if(!found) {
+    alert(dir < 0
+      ? '⛔ No earlier saved shift found in history.'
+      : '⛔ No later saved shift found in history.');
+    return;
+  }
+
+  /* ── FORWARD-OPEN GUARD on pagination ──────────────────────────
+     When navigating forward (n > 0), block if the current sheet
+     is not yet saved (still a draft or unsaved). */
+  if(n > 0) {
+    const currSheet = db.sheets[activeKey];
+    const currIsDraft = currSheet && currSheet.draft === true;
+    const currIsUnsaved = !currSheet;
+    if(currIsDraft || currIsUnsaved) {
+      alert(`⛔ Cannot navigate forward.\n\nThe current closing "${parts[0]} — ${srLabel(parts[1])}" has not been saved yet.\n\nPress "Save & Close This Shift" first.`);
+      return;
+    }
+  }
+
+  activeKey   = found.key;
+  activeMode  = db.sheets[activeKey]?.profileMode || 'shift';
+  overrides   = db.sheets[activeKey]?.overrides || {};
+  initLedger(found.date, found.shift, activeMode);
+}
+
+function autoSave() {
+  try { calc(); saveSheet(true); } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════
+   POPULATE NAME DROPDOWN
+═══════════════════════════════════════════ */
+function populateNameDropdown(num) {
+  const tIdx  = g(`sel-tier-${num}`)?.value;
+  const nameS = g(`sel-name-${num}`);
+  if(!nameS) return;
+  nameS.innerHTML = "<option value=''>— Name —</option>";
+  if(tIdx !== '' && tIdx !== undefined) {
+    const tier = db.settings.subTiers[tIdx];
+    tier?.names.forEach(nm => {
+      const o = document.createElement('option'); o.value = nm; o.textContent = nm;
+      nameS.appendChild(o);
+    });
+  }
+  calc();
+}
+
+/* ═══════════════════════════════════════════
+   SAVE / HYDRATE
+═══════════════════════════════════════════ */
+function buildSheetRecord() {
+  return {
+    profileMode: activeMode,
+    overrides:   overrides,
+    inSysCash:    val('in-sys-cash'),
+    inLastBillAmt:val('in-last-bill-amt'),
+    inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
+    inCompSale:   val('in-comp-sale'),
+    inAlfalah:    val('in-alfalah'),
+    inKeenu:      val('in-keenu'),
+    inBook1:      val('in-book-1'),
+    inBook2:      val('in-book-2'),
+    posRet1:      val('pos-ret-1'),
+    posRet2:      val('pos-ret-2'),
+    posRet3:      val('pos-ret-3'),
+    posRetSys:    val('pos-ret-sys'),
+    outNetSale:   val('out-net-sale'),
+    outCurrCC:    val('out-curr-cc'),
+    outPrevCC:    val('out-prev-cc'),
+    outPrevCredit:val('out-prev-credit'),
+    outPrevDep:   val('out-prev-dep'),
+    outPrevCash:  val('out-prev-cash'),
+    outTotalE:    val('out-total-e'),
+    creditAdj:    val('in-credit-adj'),
+    extraCash:    val('in-extra-cash'),
+    outTotalF:    val('out-total-f'),
+    outTotalCash: val('out-liquid'),
+    outNetCash:   val('out-net-cash'),
+    outShiftSale: val('out-shift-sale'),
+    outCust:      val('out-cust'),
+    finalSysReturns: val('in-final-sys-returns'),
+    finalNetSale:    val('out-final-net-sale'),
+    finalNetSaleAdj: val('out-final-net-sale-adj'),
+    finalNetCash:    val('out-final-net-cash'),
+    finalNetCashAdj: val('out-final-net-cash-adj'),
+    finalDiff:       val('out-final-diff'),
+    finalDiffLabel:  document.getElementById('out-final-diff-label')?.textContent || '',
+    finalPrevSale:   val('out-final-prev-sale'),
+    hsRows: Array.from(document.querySelectorAll('#hs-rows .row')).map(r=>({
+      lbl: r.querySelector('.hs-lbl')?.value||'',
+      val: parseFloat(r.querySelector('.hs-val')?.value)||0
+    })),
+    stripQtys:  Array.from(document.querySelectorAll('.strip-qty')).map(e=>parseFloat(e.value)||0),
+    stripPrices:Array.from(document.querySelectorAll('.strip-price')).map(e=>parseFloat(e.value)||0),
+    auxStrips:  Array.from(document.querySelectorAll('#ledger-strips .strip-row .aux-strip-lbl')).map((el,i)=>({
+      label: el.value,
+      p:     parseFloat(document.querySelectorAll('.aux-strip-price')[i]?.value)||0,
+      q:     parseFloat(document.querySelectorAll('.aux-strip-qty')[i]?.value)||0
+    })),
+    tillValues:  Array.from(document.querySelectorAll('.till-cell')).map(e=>parseFloat(e.value)||0),
+    vaultValues: Array.from(document.querySelectorAll('.vault-cell')).map(e=>parseFloat(e.value)||0),
+    namedCredits: Array.from(document.querySelectorAll('.named-cred-val')).map((el,i)=>({
+      lbl: db.settings.namedCredits[i]?.label||'',
+      val: parseFloat(el.value)||0
+    })),
+    tierCredits: [1,2,3].map(i=>({
+      tIdx:  g(`sel-tier-${i}`)?.value,
+      name:  g(`sel-name-${i}`)?.value,
+      val:   val(`in-nested-${i}`)
+    })),
+    auxCredits: Array.from(document.querySelectorAll('#ledger-aux-credits .row')).map(r=>({
+      lbl: r.querySelector('.aux-cred-lbl')?.value||'',
+      val: parseFloat(r.querySelector('.aux-cred-val')?.value)||0
+    })),
+    deposits: Array.from(document.querySelectorAll('#ledger-deposits .row')).map(r=>({
+      lbl: r.querySelector('.dep-lbl')?.value||'',
+      val: parseFloat(r.querySelector('.dep-val')?.value)||0
+    })),
+    miscRows: Array.from(document.querySelectorAll('#ledger-misc .misc-row')).map((r,i)=>{
+      const stNum = r.id.replace('misc-row-','');
+      return {
+        label:  r.querySelector('.lbl-input')?.value||'',
+        val:    parseFloat(r.querySelector('input[type="number"]')?.value)||0,
+        status: g(`misc-st-${stNum}`)?.value||'Active'
+      };
+    })
+  };
+}
+
+/* ── TOAST ───────────────────────────────────────────────── */
+let _toastTimer = null;
+function showToast(msg, ms = 2200) {
+  const el = document.getElementById('app-toast');
+  if(!el) return;
+  el.textContent = msg;
+/* ═══════════════════════════════════════════
+   DEBOUNCED CLOUD PUSH
+═══════════════════════════════════════════ */
+let _pushTimer = null;
+function scheduleSyncPush(delay = 0) {
+  if(!dbxClient) return;
+  clearTimeout(_pushTimer);
+  if(delay === 0) {
+    syncPushToCloud(false).catch(() => {});
+  } else {
+    _pushTimer = setTimeout(() => syncPushToCloud(false).catch(() => {}), delay);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   REAL-TIME AUTO DRAFT (from calc)
+═══════════════════════════════════════════ */
+let _draftTimer  = null;
+let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
+
+function scheduleAutoSave() {
+  if(!activeKey || !_draftReady || isSheetLocked) return;
+  clearTimeout(_draftTimer);
+  _draftTimer = setTimeout(() => {
+    try {
+      const record = buildSheetRecord();
+      record.draft  = true;
+      record.locked = false;
+      db.sheets[activeKey] = record;
+      localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+      scheduleSyncPush(0); /* push draft immediately */
+    } catch(e) { /* silent — draft save is best-effort */ }
+  }, 3000); /* 3 s idle after last keystroke */
+}
+
+function persist() {
+  localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+  scheduleSyncPush(0); /* immediate push on every explicit save */
+}
+function g(id) { return document.getElementById(id); }
+function set(id, v) { const el=g(id); if(el) el.value=v; }
+function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
+
+/* A sheet only "counts" for calendar dots, manifest, carry-over,
+   and Final aggregation once it has been explicitly Saved
+   (saveSheet sets draft=false). Auto-drafts (draft=true) are
+   excluded until then. */
+function isRealSheet(rec) {
+  return !!rec && rec.draft !== true;
+}
+function getRealSheet(key) {
+  const rec = db.sheets[key];
+  return isRealSheet(rec) ? rec : null;
+}
+
+function timelineStep(ds, shift, n) {
+  let d   = new Date(ds);
+  let idx = SHIFTS.indexOf(shift) + n;
+  if(idx >= SHIFTS.length) {
+    d.setDate(d.getDate() + Math.floor(idx/SHIFTS.length)); idx = idx % SHIFTS.length;
+  } else if(idx < 0) {
+    const steps = Math.ceil(Math.abs(idx)/SHIFTS.length);
+    d.setDate(d.getDate() - steps);
+    idx = (SHIFTS.length + (idx % SHIFTS.length)) % SHIFTS.length;
+  }
+  const outDs = d.toISOString().split('T')[0];
+  return {key:`${outDs}_${SHIFTS[idx]}`, date:outDs, shift:SHIFTS[idx]};
+}
+
+function buildPrintSheet() {
+  const parts = activeKey ? activeKey.split('_') : ['',''];
+  const ds = parts[0], shift = parts[1];
+function saveSheet(silent=false) {
+  const record = buildSheetRecord();
+  record.draft  = false;
+  record.locked = true;
+  db.sheets[activeKey] = record;
+  clSaveSnapshot(activeKey, record);  /* ← credit ledger snapshot */
+  persist();
+  isSavedSheet = true;
+  if(!silent) {
+    setLockedState(true);
+    cascadeDownstream(activeKey);
+    showSaveAction(
+      activeMode === 'final' ? '🔴 Final Closing Saved' : '✅ Shift Closing Saved',
+      'Closing completed, saved and locked.',
+      [{ label: 'OK', style: 'btn-green', action: goToDashboard }]
+    );
+  }
+}
+
+function hydrate(s) {
+  const sv = (id, v) => { const el=g(id); if(el && v!==undefined) el.value=v; };
+
+  sv('in-sys-cash',      s.inSysCash);
+  sv('out-shift-sale',   s.outShiftSale);
+  sv('out-curr-cc',      s.outCurrCC);
+  sv('out-cust',         s.outCust);
+  sv('in-last-bill-amt', s.inLastBillAmt);
+  sv('in-last-bill-num', s.inLastBillNum);
+  sv('in-comp-sale',     s.inCompSale);
+  sv('in-alfalah',       s.inAlfalah);
+  sv('in-keenu',         s.inKeenu);
+  sv('in-book-1',        s.inBook1);
+  sv('in-book-2',        s.inBook2);
+  sv('pos-ret-1',        s.posRet1||0);
+  sv('pos-ret-2',        s.posRet2||0);
+  sv('pos-ret-3',        s.posRet3||0);
+  sv('pos-ret-sys',      s.posRetSys||0);
+
+  /* HS rows */
+  document.getElementById('hs-rows').innerHTML = "";
+  hsRowCount = 0;
+  if(s.hsRows && s.hsRows.length) {
+    s.hsRows.forEach(o => addHsRow(o.lbl, o.val));
+  } else if(s.hsRecords) { /* legacy */
+    s.hsRecords.forEach(o => addHsRow(o.lbl, o.val));
+  } else {
+    addHsRow('Home Service 1', 0);
+  }
+
+  /* strips — qty restored from saved sheet, price always taken live from Settings (Inventory Catalog) */
+  const qc = document.querySelectorAll('.strip-qty');
+  if(s.stripQtys)  qc.forEach((el,i) => el.value = s.stripQtys[i]??'');
+
+  /* aux strips */
+  document.querySelectorAll('#ledger-strips .strip-row').forEach(r => {
+    if(r.querySelector('.aux-strip-lbl')) r.remove();
+  });
+  auxStripCount = 0;
+  if(s.auxStrips) s.auxStrips.forEach(o => addAuxStripRow(o.label||'', o.p, o.q));
+
+  /* till / vault */
+  if(s.tillValues)  document.querySelectorAll('.till-cell').forEach((el,i) => el.value=s.tillValues[i]||0);
+  if(s.vaultValues) document.querySelectorAll('.vault-cell').forEach((el,i) => el.value=s.vaultValues[i]||0);
+
+  /* named credits */
+  const ncVals = document.querySelectorAll('.named-cred-val');
+  if(s.namedCredits) {
+    s.namedCredits.forEach((o,i) => { if(ncVals[i]) ncVals[i].value = o.val||0; });
+  } else if(s.auxCredits) { /* legacy */
+    s.auxCredits.forEach((o,i) => { if(ncVals[i]) ncVals[i].value = o.val||0; });
+  }
+
+  /* tier credits */
+  if(s.tierCredits) s.tierCredits.forEach((o,i) => {
+    const ts = g(`sel-tier-${i+1}`); if(ts && o.tIdx!==undefined) ts.value = o.tIdx;
+    populateNameDropdown(i+1);
+    const ns = g(`sel-name-${i+1}`); if(ns) ns.value = o.name||'';
+    sv(`in-nested-${i+1}`, o.val);
+  });
+  /* legacy nestedCredits */
+  else if(s.nestedCredits) s.nestedCredits.forEach((o,i) => {
+    const ts = g(`sel-tier-${i+1}`); if(ts) ts.value = o.tIdx;
+    populateNameDropdown(i+1);
+    const ns = g(`sel-name-${i+1}`); if(ns) ns.value = o.name;
+    sv(`in-nested-${i+1}`, o.val);
+  });
+
+  /* aux credits */
+  document.getElementById('ledger-aux-credits').innerHTML = "";
+  auxCreditCount = 0;
+  if(s.auxCredits) s.auxCredits.forEach(o => addAuxCreditRow(o.lbl, o.val));
+
+  /* deposits */
+  document.getElementById('ledger-deposits').innerHTML = "";
+  depositCount = 0;
+  if(s.deposits) s.deposits.forEach(o => addDepositRow(o.lbl, o.val));
+
+  /* misc */
+  document.getElementById('ledger-misc').innerHTML = "";
+  miscCount = 0;
+  if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val, o.status||'Active'));
+
+  sv('out-prev-cc',     s.outPrevCC);
+  sv('out-prev-credit', s.outPrevCredit ?? s.outTotalE);
+  sv('in-credit-adj',   s.creditAdj||0);
+  sv('in-extra-cash',   s.extraCash||0);
+  sv('out-prev-dep',    s.outPrevDep ?? s.outTotalF);
+  sv('out-prev-cash',   s.outPrevCash ?? s.outTotalCash);
+  sv('in-final-sys-returns', s.finalSysReturns||0);
+}
+
+function flushInputs() {
+  document.querySelectorAll('#page-ledger input[type="number"]').forEach(el => {
+    if(!el.readOnly) el.value = 0;
+  });
+  /* build default HS rows */
+  document.getElementById('hs-rows').innerHTML = "";
+  hsRowCount = 0;
+  for(let i=1;i<=3;i++) addHsRow(`Home Service ${i}`, 0);
+  /* default deposit & misc rows */
+  document.getElementById('ledger-deposits').innerHTML = "";
+  depositCount = 0;
+  for(let i=1;i<=3;i++) addDepositRow();
+  document.getElementById('ledger-misc').innerHTML = "";
+  miscCount = 0;
+  for(let i=1;i<=5;i++) addMiscRow();
+}
+
+/* ═══════════════════════════════════════════
+   CASCADE DOWNSTREAM UPDATES
+═══════════════════════════════════════════ */
+function cascadeDownstream(originKey) {
+  /* NOTE: downstream sheets are immutable snapshots once saved (see isSavedSheet).
+     We deliberately do NOT recompute their "carried from previous" fields here —
+     doing so previously caused double-counted deposits/credits when a downstream
+     sheet already had its own entries plus a freshly recomputed carry-forward.
+     If an earlier sheet's totals change, re-open the affected downstream sheet
+     and adjust its "Carried from Previous" fields manually (they're editable). */
+  return;
+}
+
+/* ═══════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   DEBOUNCED CLOUD PUSH
+function saveDraft() {
+  if(!activeKey) return;
+  calc();
+  const rec = buildSheetRecord();
+  rec.draft  = true;
+  rec.locked = false;
+  db.sheets[activeKey] = rec;
+  persist();
+  /* NOTE: isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
+     This ensures carry-over fields remain live (not frozen) while drafting. */
+  setLockedState(false);
+  const status = document.getElementById('pdf-status');
+  status.style.display='block'; status.textContent='Draft saved ✓';
+  setTimeout(()=>{ status.style.display='none'; }, 1500);
+}
+
+function deleteCurrentSheet() {
+  if(!activeKey) return;
+  if(!db.sheets[activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
+  const parts = activeKey.split('_');
+  if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
+  delete db.sheets[activeKey];
+  persist();
+  goToDashboard();
+}
+
+
+function deleteSheet(key) {
+  if(!db.sheets[key]) return;
+  const parts = key.split('_');
+  const sr = srLabel(parts[1]);
+  const pin = prompt(`Enter PIN to delete ${parts[0]} — ${sr}:`);
+  if(pin !== PIN) { alert('Incorrect PIN.'); return; }
+  if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
+  delete db.sheets[key];
+  persist();
+  if(activeKey === key) { activeKey = null; goToDashboard(); }
+  else { renderManifest(); buildCalendar(); }
+}
+
+/* ═══════════════════════════════════════════
+   EDIT CLOSING MODAL
+═══════════════════════════════════════════ */
+let _editModalKey = null;
+function saveSettings() {
+  db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
+  db.settings.namedCredits.forEach((nc, i) => {
+    const el = document.querySelector(`#settings-named-credits .settings-item:nth-child(${i+1}) input`);
+    if(el) nc.label = el.value;
+  });
+  for(let i=1;i<=3;i++) {
+    const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
+    const tnames = document.getElementById(`cfg-tier-names-${i}`)?.value || '';
+    db.settings.subTiers[i-1] = {
+      type: ttype,
+      names: tnames.split(',').map(n=>n.trim()).filter(Boolean)
+    };
+  }
+  persist();
+  alert("Settings saved.");
+  goToDashboard();
+}
+
+/* ═══════════════════════════════════════════
+   DENOMINATION ROW BUILDER
+═══════════════════════════════════════════ */
