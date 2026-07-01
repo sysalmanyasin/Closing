@@ -326,7 +326,7 @@ function addDepositRow(lbl='', val='') {
   calc();
 }
 
-function addMiscRow(lbl='', val='', status='Active') {
+function addMiscRow(lbl='', val='') {
   miscCount++;
   const id = `misc-row-${miscCount}`;
   const row = document.createElement('div');
@@ -334,26 +334,10 @@ function addMiscRow(lbl='', val='', status='Active') {
   row.innerHTML = `
     <input type="text"   id="misc-lbl-${miscCount}" class="lbl-input" placeholder="Charge / note" value="${lbl}">
     <input type="number" id="misc-val-${miscCount}" value="${val||0}" style="width:90px;" oninput="calc()">
-    <select id="misc-st-${miscCount}" onchange="calc()" style="width:110px;text-align:left;font-size:0.78rem;">
-      <option value="Active"    ${status==='Active'?'selected':''}>Active</option>
-      <option value="Confirmed" ${status==='Confirmed'?'selected':''}>Confirmed / Nil</option>
-      <option value="Cleared"   ${status==='Cleared'?'selected':''}>Cleared / Omit</option>
-    </select>
     <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
   document.getElementById('ledger-misc').appendChild(row);
   const inp = row.querySelector('input[type="number"]');
   attachNumpad(inp);
-
-  /* modal picker for status select */
-  const st = row.querySelector('select');
-  st.addEventListener('mousedown', function(e) {
-    e.preventDefault();
-    openModalPicker('Set Status', [
-      {value:'Active',    label:'Active'},
-      {value:'Confirmed', label:'Confirmed / Nil'},
-      {value:'Cleared',   label:'Cleared / Omit'}
-    ], st.value, (v) => { st.value = v; calc(); });
-  });
   calc();
 }
 
@@ -368,16 +352,6 @@ function openTierPicker(num) { /* triggered by change, handled via mousedown */ 
 /* ═══════════════════════════════════════════
    LEDGER INIT
 ═══════════════════════════════════════════ */
-
-let _toastTimer = null;
-function showToast(msg, ms = 2200) {
-  const el = document.getElementById('app-toast');
-  if(!el) return;
-  el.textContent = msg;
-  el.classList.remove('hidden');
-  if(_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.add('hidden'), ms);
-}
 
 /* ── SAVE ACTION SHEET ───────────────────────────────────── */
 function showSaveAction(title, sub, buttons) {
@@ -563,17 +537,15 @@ function buildPrintSheet() {
   document.querySelectorAll('#ledger-misc .misc-row').forEach(row => {
     const lbl = row.querySelector('.lbl-input')?.value;
     const v   = row.querySelector('input[type="number"]')?.value;
-    const stNum = row.id.replace('misc-row-','');
-    const status = g(`misc-st-${stNum}`)?.value || 'Active';
-    if(lbl && status !== 'Cleared') miscRows += psRow(`${lbl} [${status}]`, (parseFloat(v)||0).toLocaleString('en-PK'));
+    if(lbl) miscRows += psRow(lbl, (parseFloat(v)||0).toLocaleString('en-PK'));
   });
-  if(!miscRows) miscRows = psRow('— no active items —', '', 'ps-empty');
+  if(!miscRows) miscRows = psRow('— no items —', '', 'ps-empty');
   miscRows += psRow('TOTAL MISC', num('out-total-g'), 'ps-total');
 
   /* Grand Summary box */
   let sumRows = '';
   sumRows += psRow('HS + Strips', (numRaw('out-total-hs')+numRaw('out-total-a')).toLocaleString('en-PK'));
-  sumRows += psRow('Misc (active)', num('out-total-g'));
+  sumRows += psRow('Misc', num('out-total-g'));
   sumRows += psRow('CC (Card Sales)', (numRaw('out-prev-cc')+numRaw('out-curr-cc')).toLocaleString('en-PK'));
   sumRows += psRow('Till Cash', num('out-subtotal-c'));
   sumRows += psRow('Draw Cash', num('out-subtotal-d'));
@@ -822,50 +794,6 @@ async function pdfModalAction(type) {
   if(prevKey) { const p = prevKey.split('_'); initLedger(p[0], p[1], prevMode); }
   else goToDashboard();
 }
-
-function exportPDF() {
-  const status = document.getElementById('pdf-status');
-  status.style.display='block'; status.textContent='Generating PDF…';
-  /* expand all collapsed cards so the printout shows everything */
-  document.querySelectorAll('#page-ledger .card.collapsed').forEach(c => c.classList.remove('collapsed'));
-  renderPDF().then(pdf => {
-    const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-    const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
-    pdf.save(fname);
-    /* also trigger system print dialog for physical print */
-    buildPrintSheet();
-    const sheet = document.getElementById('print-sheet');
-    sheet.classList.add('show');
-    setTimeout(() => { window.print(); sheet.classList.remove('show'); }, 200);
-    status.style.display='none';
-  }).catch(e => { status.textContent='PDF failed: '+e.message; });
-}
-
-function sendWhatsApp() {
-  const status = document.getElementById('pdf-status');
-  status.style.display='block'; status.textContent='Preparing PDF for WhatsApp…';
-  const parts = activeKey ? activeKey.split('_') : ['sheet','closing'];
-  const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
-  renderPDF().then(async pdf => {
-    const blob = pdf.output('blob');
-    const file = new File([blob], fname, {type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})) {
-      await navigator.share({
-        files:[file],
-        title: `PharmaPos Closing — ${parts[0]} ${srLabel(parts[1])}`,
-        text: `Closing sheet for ${parts[0]} — ${srLabel(parts[1])}`
-      });
-      status.style.display='none';
-    } else {
-      /* fallback: download PDF and open WhatsApp chat for manual attach */
-      pdf.save(fname);
-      const msg = encodeURIComponent(`PharmaPos Closing — ${parts[0]} ${srLabel(parts[1])}. PDF downloaded — please attach it here.`);
-      window.open(`https://wa.me/923028496090?text=${msg}`, '_blank');
-      status.style.display='none';
-    }
-  }).catch(e => { status.textContent='WhatsApp share failed: '+e.message; });
-}
-
 
 let _editModalKey = null;
 

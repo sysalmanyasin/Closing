@@ -551,17 +551,6 @@
   .save-action-btns  { display: flex; flex-direction: column; gap: 10px; }
   .save-action-btns .btn { font-size: 0.9rem; padding: 13px; }
 
-  /* ── TOAST ── */
-  #app-toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #1e293b; color: #fff; padding: 10px 20px;
-    border-radius: 999px; font-size: 0.82rem; font-weight: 600;
-    z-index: 99999; white-space: nowrap;
-    animation: fadeIn .2s ease;
-    pointer-events: none;
-  }
-  #app-toast.hidden { display: none; }
-
   /* ── PDF MODAL ── */
   #pdf-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;animation:fadeIn .15s ease; }
   #pdf-modal-overlay.hidden { display:none; }
@@ -980,22 +969,8 @@
     background: var(--surface); border-bottom: 1px solid var(--border);
   }
   .lpb-track-row {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
     padding: 6px 16px 4px;
-  }
-  .lpb-dot {
-    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-    background: var(--teal);
-  }
-  .lpb-text {
-    font-size: 0.7rem; color: var(--muted); white-space: nowrap; font-weight: 600;
-  }
-  .lpb-track {
-    flex: 1; height: 4px; border-radius: 4px; background: var(--border); overflow: hidden;
-  }
-  .lpb-fill {
-    height: 100%; background: var(--teal); border-radius: 4px;
-    transition: width .25s ease;
   }
   .lpb-viewall-link {
     flex-shrink: 0; font-size: 0.68rem; font-weight: 700; color: var(--teal-dark);
@@ -1018,13 +993,6 @@
   }
   .lpb-chip:active { transform: scale(0.96); }
   .lpb-chip .lpb-chip-icon { font-size: 0.78rem; line-height: 1; }
-  .lpb-chip.lpb-pending { background: #fffbeb; color: #b45309; border-color: #fde68a; }
-  .lpb-chip.lpb-done {
-    background: var(--teal-light); color: var(--teal-dark);
-    border-color: var(--teal); font-weight: 700;
-  }
-  .lpb-chip.lpb-done::after { content: '✓'; font-weight: 800; margin-left: 1px; }
-  .lpb-chip.lpb-alert { background: var(--red-pale); color: var(--red); }
   .lpb-chip.lpb-current {
     background: var(--teal); color: #fff; transform: scale(1.1);
     box-shadow: 0 2px 8px rgba(13,148,136,.4); z-index: 1;
@@ -1036,15 +1004,6 @@
     border-left: 5px solid transparent; border-right: 5px solid transparent;
     border-top: 6px solid var(--teal);
   }
-
-  /* ═══════════════════════════════════════════════════════════
-     CARD STATUS EDGE  (left accent stripe — 4-state model)
-  ═══════════════════════════════════════════════════════════ */
-  .card[data-section] { border-left: 3px solid transparent; transition: border-color .15s; }
-  .card[data-section].cs-white    { border-left-color: transparent; }
-  .card[data-section].cs-pending  { border-left-color: #f59e0b; }
-  .card[data-section].cs-complete { border-left-color: var(--teal); }
-  .card[data-section].cs-alert    { border-left-color: var(--red); }
 
   /* ═══════════════════════════════════════════════════════════
      FOCUS MODE  (only one section card visible at a time)
@@ -1062,8 +1021,6 @@
   }
   .focus-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .focus-btn.focus-btn-next { background: var(--teal); border-color: var(--teal); color: #fff; }
-  .focus-btn.focus-btn-save { background: #fffbeb; border-color: #f59e0b; color: #b45309; flex: 0 0 auto; padding: 0 14px; }
-  .focus-btn.focus-btn-save.fb-saved { background: var(--teal-pale); border-color: var(--teal); color: var(--teal-dark); }
 
   /* ═══════════════════════════════════════════════════════════
      VIEW ALL  (read-only glance overlay — never editable, never
@@ -1096,9 +1053,6 @@
   .viewall-row .va-icon { font-size: 0.95rem; }
   .viewall-row .va-label { flex: 1; font-weight: 600; }
   .viewall-row .va-value { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); }
-  .viewall-row.va-pending .va-value { color: #b45309; font-weight: 700; }
-  .viewall-row.va-complete .va-value { color: var(--teal-dark); font-weight: 700; }
-  .viewall-row.va-alert .va-value { color: var(--red); font-weight: 700; }
   .viewall-row.va-current { background: var(--teal-pale); }
   .viewall-row.va-current .va-label { color: var(--teal-dark); }
   .viewall-row .va-here {

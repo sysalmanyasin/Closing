@@ -22,11 +22,6 @@ function goToSettings()  {
   showPage('page-settings');
   buildSettingsUI();
 }
-function goToSummary(dateStr) {
-  summaryDateStr = dateStr;
-  showPage('page-summary');
-  renderSummaryPage();
-}
 function goToCreditLedger() {
   showPage('page-credit-ledger');
   clBackfillSnapshots();
@@ -788,63 +783,6 @@ function renderManifest() {
 /* ═══════════════════════════════════════════
    DAILY SUMMARY
 ═══════════════════════════════════════════ */
-
-function moveSummaryDay(n) {
-  const d = new Date(summaryDateStr); d.setDate(d.getDate()+n);
-  summaryDateStr = d.toISOString().split('T')[0]; renderSummaryPage();
-}
-
-function renderSummaryPage() {
-  document.getElementById('lbl-summary-date').textContent = summaryDateStr;
-  const zone = document.getElementById('summary-shifts');
-  zone.innerHTML = "";
-  let totalSale=0, totalCash=0;
-  SHIFTS.forEach(shift => {
-    const key = `${summaryDateStr}_${shift}`;
-    const rec = getRealSheet(key);
-    const card = document.createElement('div');
-    card.className = "card"; card.style.marginBottom = "12px";
-    if(rec) {
-      const nSale = parseFloat(rec.outNetSale)||0;
-      const nCash = parseFloat(rec.outTotalCash)||0;
-      const varAmt = nSale - nCash;
-      totalSale += nSale; totalCash += nCash;
-      const varColor = varAmt===0?'var(--green)':varAmt>0?'var(--red)':'var(--blue)';
-      card.innerHTML = `
-        <div class="shift-summary-card">
-          <div class="card-title">
-            <h4>🔵 ${srLabel(shift)} Shift</h4>
-            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}')">Edit</button>
-          </div>
-          <div class="mini-stats">
-            <div class="mini-stat"><h5>Target Sales</h5><p>Rs.${nSale.toLocaleString()}</p></div>
-            <div class="mini-stat"><h5>Cash Verified</h5><p>Rs.${nCash.toLocaleString()}</p></div>
-            <div class="mini-stat"><h5>Variance</h5><p style="color:${varColor}">Rs.${varAmt.toLocaleString()}</p></div>
-          </div>
-        </div>`;
-    } else {
-      card.innerHTML = `
-        <div class="shift-summary-card">
-          <div class="flex-between">
-            <span class="text-muted">○ ${srLabel(shift)} shift — no entry yet</span>
-            <button class="btn btn-teal btn-sm" onclick="quickInitShift('${shift}')">+ Open</button>
-          </div>
-        </div>`;
-    }
-    zone.appendChild(card);
-  });
-  document.getElementById('sum-total-target').value = "Rs. " + totalSale.toLocaleString();
-  document.getElementById('sum-total-cash').value   = "Rs. " + totalCash.toLocaleString();
-  const totalVar = totalSale - totalCash;
-  document.getElementById('sum-total-var').value = "Rs. " + totalVar.toLocaleString();
-}
-
-function quickInitShift(shift) {
-  activeKey  = `${summaryDateStr}_${shift}`;
-  activeMode = computeAutoClosingMode();
-  overrides  = {};
-  initLedger(summaryDateStr, shift, activeMode);
-}
 
 /* ═══════════════════════════════════════════
    SETTINGS UI

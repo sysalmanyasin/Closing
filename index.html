@@ -345,12 +345,9 @@
 
     <div id="pdf-status" style="display:none;text-align:center;font-size:0.8rem;color:var(--muted);padding:4px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);"></div>
 
-    <!-- ══ STICKY PROGRESS + JUMP NAV ══ -->
+    <!-- ══ JUMP NAV ══ -->
     <div class="ledger-progress-bar" id="ledger-progress-bar">
       <div class="lpb-track-row">
-        <span class="lpb-dot"></span>
-        <span class="lpb-text" id="lpb-progress-text">0 of 11 done</span>
-        <div class="lpb-track"><div class="lpb-fill" id="lpb-progress-fill" style="width:0%"></div></div>
         <button class="lpb-viewall-link" id="lpb-viewall-link" onclick="openViewAll()" title="View all sections (read-only)">
           <span>⊞</span><span>View all</span>
         </button>
@@ -378,7 +375,6 @@
     <!-- ══ FOCUS MODE PREV/NEXT CONTROLS ══ -->
     <div class="focus-controls" id="focus-controls">
       <button class="focus-btn" id="focus-btn-prev" onclick="focusStep(-1)">‹ Back</button>
-      <button class="focus-btn focus-btn-save" id="focus-btn-save">✓ Save Section</button>
       <button class="focus-btn focus-btn-next" id="focus-btn-next" onclick="focusStep(1)">Next ›</button>
     </div>
 
@@ -466,7 +462,6 @@
             <span class="collapse-icon">▼</span>
           </div>
         </div>
-        <div class="notice" style="margin:12px 16px 0;border-radius:var(--radius-md);">Mark items as <b>Confirmed</b> or <b>Cleared</b> to zero them out on the next shift.</div>
         <div id="ledger-misc" class="card-body" style="margin-top:4px;"></div>
         <div class="row computed"><label>Total Misc (C):</label><input type="number" id="out-total-g" readonly value="0"></div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMiscRow()">＋ Add Row</button></div>
@@ -728,7 +723,6 @@
 </div>
 
 <!-- ═══ TOAST ═══ -->
-<div id="app-toast" class="hidden"></div>
 
 <!-- ═══ END-OF-SHIFT SUMMARY MODAL ═══ -->
 <div id="summary-modal-overlay" class="hidden" onclick="if(event.target===this)closeSummaryModal()">

@@ -61,7 +61,6 @@ let activeMode     = "shift";
 let overrides      = {};
 let isSavedSheet   = false;
 let calViewDate    = new Date();
-let summaryDateStr = "";
 let isSheetLocked  = false; /* true = view-only snapshot, false = editable */
 
 /* dynamic row counters */

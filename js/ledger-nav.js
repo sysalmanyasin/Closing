@@ -27,8 +27,7 @@ const LEDGER_SECTIONS = [
 ];
 
 /* ── State ──────────────────────────────────────────────────── */
-let _touchedSections  = {};   /* { sectionKey: true } once a card has been opened (drives "not yet opened" note only) */
-let _sectionComplete   = {};  /* { sectionKey: true } once "Save Section" has been tapped */
+let _touchedSections  = {};   /* { sectionKey: true } once a card has been opened (drives which section focus mode lands on) */
 /* Focus mode is the only mode now — always on. Kept as a body class
    so existing CSS selectors (body.focus-mode ...) keep working unchanged. */
 let _focusIndex        = 0;
@@ -41,11 +40,6 @@ function initLedgerNav() {
   _focusIndex  = 0;
   document.body.classList.add('focus-mode');
   closeViewAll();
-
-  /* ── Restore saved section state ──────────────
-     Just load whatever was saved with the sheet, if anything. */
-  const savedRecord = (typeof db !== 'undefined' && typeof activeKey !== 'undefined') ? db.sheets[activeKey] : null;
-  _sectionComplete = (savedRecord && savedRecord.sectionComplete) ? { ...savedRecord.sectionComplete } : {};
 
   /* All section cards start collapsed for a calmer first impression;
      applyFocusVisibility() below opens whichever one is current. */
@@ -100,32 +94,9 @@ function jumpToSection(key) {
   updateSectionStatus();
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SECTION STATE — a section is either saved or not.
-   white:    not yet saved
-   complete: "Save Section" has been tapped
-═══════════════════════════════════════════════════════════ */
-function getSectionState(key) {
-  return _sectionComplete[key] ? 'complete' : 'white';
-}
-
-/* "Save Section" — marks the section saved. */
-function saveSectionComplete(key) {
-  _sectionComplete[key] = true;
-  updateSectionStatus();
-  const status = document.getElementById('pdf-status');
-  if (status) {
-    status.style.display = 'block';
-    status.textContent = 'Section saved ✓';
-    setTimeout(() => { status.style.display = 'none'; }, 1200);
-  }
-}
-
 function updateSectionStatus() {
   const isFinal = (typeof activeMode !== 'undefined' && activeMode === 'final');
   const visible = LEDGER_SECTIONS.filter(sec => !sec.finalOnly || isFinal);
-
-  let doneCount = 0;
 
   visible.forEach(sec => {
     const card  = document.getElementById(sec.cardId);
@@ -133,30 +104,14 @@ function updateSectionStatus() {
     if (!card) return;
 
     const isOpen = !card.classList.contains('collapsed');
-    const state  = getSectionState(sec.key);
-
-    if (state === 'complete') doneCount++;
-
-    card.classList.remove('cs-white', 'cs-complete');
-    card.classList.add('cs-' + state);
 
     if (chip) {
-      chip.classList.remove('lpb-white', 'lpb-done', 'lpb-current');
-      chip.classList.add(state === 'complete' ? 'lpb-done' : 'lpb-white');
-      const isCurrentChip = isOpen;
-      chip.classList.toggle('lpb-current', isCurrentChip);
-      if (isCurrentChip) {
+      chip.classList.toggle('lpb-current', isOpen);
+      if (isOpen) {
         chip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }
   });
-
-  const total = visible.length;
-  const pct = total ? Math.round((doneCount / total) * 100) : 0;
-  const fill = document.getElementById('lpb-progress-fill');
-  const text = document.getElementById('lpb-progress-text');
-  if (fill) fill.style.width = pct + '%';
-  if (text) text.textContent = doneCount + ' of ' + total + ' complete';
 
   updateFocusButtons();
 }
@@ -226,7 +181,6 @@ function updateFocusButtons() {
   const currentKey = keys[_focusIndex];
   const prevBtn = document.getElementById('focus-btn-prev');
   const nextBtn = document.getElementById('focus-btn-next');
-  const saveBtn = document.getElementById('focus-btn-save');
   if (prevBtn) prevBtn.disabled = (_focusIndex <= 0);
   if (nextBtn) {
     const isLast = (_focusIndex >= keys.length - 1);
@@ -234,12 +188,6 @@ function updateFocusButtons() {
     nextBtn.onclick = isLast
       ? () => { _touchedSections[currentKey] = true; updateSectionStatus(); openSummaryModal(); }
       : () => focusStep(1);
-  }
-  if (saveBtn) {
-    const isComplete = _sectionComplete[currentKey];
-    saveBtn.textContent = isComplete ? '✓ Saved' : '✓ Save Section';
-    saveBtn.classList.toggle('fb-saved', !!isComplete);
-    saveBtn.onclick = () => saveSectionComplete(currentKey);
   }
 }
 
@@ -293,29 +241,13 @@ function openSummaryModal() {
     warnRow.style.display = 'flex';
   }
 
-  /* Section completion breakdown */
-  const keys = visibleSectionKeys();
-  const notSaved = keys.filter(k => getSectionState(k) === 'white');
-  const completeCount = keys.length - notSaved.length;
-  const noteBox = document.getElementById('summary-incomplete-note');
-  if (notSaved.length > 0) {
-    document.getElementById('summary-incomplete-text').textContent =
-      `Not yet saved: ${notSaved.map(k => LEDGER_SECTIONS.find(s => s.key === k)?.label).join(', ')}. You can still save, but double-check these first.`;
-    noteBox.classList.remove('hidden');
-  } else {
-    noteBox.classList.add('hidden');
-  }
-
   const headIcon  = document.getElementById('summary-head-icon');
   const headTitle = document.getElementById('summary-head-title');
   const headSub   = document.getElementById('summary-head-sub');
-  if (notSaved.length > 0) {
-    headIcon.textContent = '📋';
-    headTitle.textContent = completeCount + ' of ' + keys.length + ' sections confirmed complete';
-  } else {
-    headIcon.textContent = '✅';
-    headTitle.textContent = 'All sections complete';
-  }
+  headIcon.textContent = '📋';
+  headTitle.textContent = 'Review closing';
+  const noteBox = document.getElementById('summary-incomplete-note');
+  if (noteBox) noteBox.classList.add('hidden');
   headSub.textContent = isFinal ? 'Review final closing before saving' : 'Review before saving';
 
   document.getElementById('summary-modal-overlay').classList.remove('hidden');
@@ -349,23 +281,20 @@ function openViewAll() {
     .filter(sec => !sec.finalOnly || (typeof activeMode !== 'undefined' && activeMode === 'final'))
     .map(sec => {
       const badgeEl   = sec.badgeId ? document.getElementById(sec.badgeId) : null;
-      const state     = getSectionState(sec.key);
       const isCurrent = sec.key === currentKey;
       const rawText   = badgeEl ? badgeEl.textContent.trim() : '';
       const numeric   = rawText ? parseInt(rawText.replace(/[^\d-]/g, ''), 10) : NaN;
 
       let valueText;
-      if (state === 'white') {
-        valueText = '—';
-      } else if (rawText) {
+      if (rawText) {
         valueText = rawText;
         if (!isNaN(numeric)) { runningTotal += numeric; countedAny = true; }
       } else {
-        valueText = '✓';
+        valueText = '—';
       }
 
       return `
-        <div class="viewall-row va-${state} ${isCurrent ? 'va-current' : ''}">
+        <div class="viewall-row ${isCurrent ? 'va-current' : ''}">
           <span class="va-icon">${sec.icon}</span>
           <span class="va-label">${sec.label}</span>
           <span class="va-value">${valueText}</span>

@@ -172,7 +172,7 @@ function setLockedState(locked) {
     }
   });
 
-  /* selects (tier/name pickers, misc status) — these are driven by
+  /* selects (tier/name pickers) — these are driven by
      mousedown→modal-picker handlers, so pointer-events:none blocks them too */
   scope.querySelectorAll('select').forEach(el => {
     el.disabled = locked;
@@ -202,15 +202,6 @@ function setLockedState(locked) {
   if(menuClear) menuClear.classList.toggle('hidden', locked);
   if(menuDel)   menuDel.classList.toggle('hidden', locked);
   if(lockedBar) lockedBar.classList.toggle('hidden', !locked);
-}
-
-function unlockForEditing() {
-  let pin = prompt("Enter PIN to edit this saved closing:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
-  setLockedState(false);
-  /* close more menu if open */
-  const mm = document.getElementById('ltb-more-menu');
-  if(mm) mm.classList.add('hidden');
 }
 
 /* ═══════════════════════════════════════════
@@ -276,21 +267,13 @@ function pullPreviousShift(ds, shift, mode) {
     set('out-prev-cash', parseFloat(hs.outTotalCash) || 0);
   }
 
-  /* misc carry-over — now carried in BOTH shift and final modes
-     Always carries ALL rows from the previous sheet, creating new rows as needed */
+  /* misc carry-over — carried in BOTH shift and final modes.
+     Always carries ALL rows from the previous sheet, as-is. */
   if(hs.miscRows && hs.miscRows.length) {
     /* clear any default blank rows that flushInputs() added */
     document.getElementById('ledger-misc').innerHTML = "";
     miscCount = 0;
-    hs.miscRows.forEach(m => {
-      if(m.status==='Confirmed'||m.status==='Cleared') {
-        /* carry row as Cleared / zero */
-        addMiscRow(m.label ? m.label+" [NIL]" : "", 0, "Cleared");
-      } else {
-        /* Active — carry label and value as-is */
-        addMiscRow(m.label || "", m.val || 0, "Active");
-      }
-    });
+    hs.miscRows.forEach(m => addMiscRow(m.label || "", m.val || 0));
   }
 }
 
@@ -502,11 +485,7 @@ function calc() {
   /* Misc (G) */
   let totalG = 0;
   document.querySelectorAll('.misc-row input[type="number"]').forEach(el => {
-    const rowId   = el.closest('.misc-row')?.id;
-    const stNum   = rowId?.replace('misc-row-','');
-    const stEl    = stNum ? g(`misc-st-${stNum}`) : null;
-    const status  = stEl ? stEl.value : 'Active';
-    if(status === 'Active') totalG += parseFloat(el.value)||0;
+    totalG += parseFloat(el.value)||0;
   });
   set('out-total-g', totalG);
   const badge_misc = document.getElementById('badge-misc');
@@ -756,7 +735,6 @@ function buildSheetRecord() {
   return {
     profileMode: activeMode,
     overrides:   overrides,
-    sectionComplete: (typeof _sectionComplete !== 'undefined') ? { ..._sectionComplete } : {},
     inSysCash:    val('in-sys-cash'),
     inLastBillAmt:val('in-last-bill-amt'),
     inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
@@ -827,14 +805,10 @@ function buildSheetRecord() {
       lbl: r.querySelector('.dep-lbl')?.value||'',
       val: parseFloat(r.querySelector('.dep-val')?.value)||0
     })),
-    miscRows: Array.from(document.querySelectorAll('#ledger-misc .misc-row')).map((r,i)=>{
-      const stNum = r.id.replace('misc-row-','');
-      return {
-        label:  r.querySelector('.lbl-input')?.value||'',
-        val:    parseFloat(r.querySelector('input[type="number"]')?.value)||0,
-        status: g(`misc-st-${stNum}`)?.value||'Active'
-      };
-    })
+    miscRows: Array.from(document.querySelectorAll('#ledger-misc .misc-row')).map(r => ({
+      label: r.querySelector('.lbl-input')?.value||'',
+      val:   parseFloat(r.querySelector('input[type="number"]')?.value)||0
+    }))
   };
 }
 
@@ -956,7 +930,7 @@ function hydrate(s) {
   /* misc */
   document.getElementById('ledger-misc').innerHTML = "";
   miscCount = 0;
-  if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val, o.status||'Active'));
+  if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val));
 
   sv('out-prev-cc',     s.outPrevCC);
   sv('out-prev-credit', s.outPrevCredit ?? s.outTotalE);
