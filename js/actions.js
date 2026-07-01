@@ -506,7 +506,7 @@ function calc() {
     const stNum   = rowId?.replace('misc-row-','');
     const stEl    = stNum ? g(`misc-st-${stNum}`) : null;
     const status  = stEl ? stEl.value : 'Active';
-    if(status !== 'Cleared') totalG += parseFloat(el.value)||0;
+    if(status === 'Active') totalG += parseFloat(el.value)||0;
   });
   set('out-total-g', totalG);
   const badge_misc = document.getElementById('badge-misc');

@@ -1050,6 +1050,7 @@
      FOCUS MODE  (only one section card visible at a time)
   ═══════════════════════════════════════════════════════════ */
   body.focus-mode .ledger-section.focus-hidden { display: none !important; }
+  body.focus-mode .ledger-section { will-change: transform, opacity; }
   .focus-controls {
     display: none; gap: 8px; padding: 12px 16px 0;
   }

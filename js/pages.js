@@ -529,15 +529,15 @@ function openDatePicker(ds) {
   }
 
   /* ── Auto-suggest Final mode ───────────────────────────────
-     A new (not-yet-saved) closing should default to "Final" once
+     A brand-new (never-touched) closing defaults to "Final" once
      `finalEveryN` shifts have passed since the last saved Final
-     closing. This decides whether a fresh closing gets the FINAL
-     badge/card by default — the cashier can still flip it manually
-     with the Shift/Final toggle. */
+     closing. If a record already exists for this slot — saved OR
+     just a draft — its own stored mode always wins; we never
+     silently flip a closing (or a draft-in-progress) that the
+     cashier already chose a mode for. */
   const existingRec = db.sheets[`${ds}_${suggestedShift}`];
   const isDraft = existingRec && existingRec.draft === true;
-  if(existingRec && !isDraft) {
-    /* Reopening an already-saved closing — respect its saved mode */
+  if(existingRec) {
     suggestedMode = existingRec.profileMode || 'shift';
   } else {
     suggestedMode = computeAutoClosingMode();

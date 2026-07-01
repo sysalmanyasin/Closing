@@ -9,8 +9,8 @@
 
 /* ── Section registry: id, label, icon, badge element id ──────
    Order matches the real DOM order of cards in the ledger.
-   'final-agg' only applies in Final mode and is filtered out
-   dynamically in buildSectionNav().                              */
+   'final-agg' is always the 12th card in every mode — calc()
+   computes its values in all modes, not just Final closings. */
 const LEDGER_SECTIONS = [
   { key: 'pos',       cardId: 'card-pos',       label: 'POS',      icon: '🧾', badgeId: 'badge-pos' },
   { key: 'shift',     cardId: 'card-shift',     label: 'Shift',    icon: '🔁', badgeId: 'badge-shift' },
@@ -23,12 +23,12 @@ const LEDGER_SECTIONS = [
   { key: 'credit',    cardId: 'card-credit',    label: 'Credit',   icon: '📒', badgeId: 'badge-credit' },
   { key: 'deposits',  cardId: 'card-deposits',  label: 'Deposit',  icon: '💰', badgeId: 'badge-deposits' },
   { key: 'audit',     cardId: 'card-audit',     label: 'Audit',    icon: '📊', badgeId: null },
-  { key: 'final-agg', cardId: 'card-final-agg', label: 'Final',    icon: '🧮', badgeId: null, finalOnly: true },
+  { key: 'final-agg', cardId: 'card-final-agg', label: 'Final',    icon: '🧮', badgeId: null },
 ];
 
 /* ── State ──────────────────────────────────────────────────── */
 let _touchedSections  = {};   /* { sectionKey: true } once a card has been opened (drives "not yet opened" note only) */
-let _sectionComplete   = {};  /* { sectionKey: true } once explicitly confirmed via "Save Section" */
+let _sectionComplete   = {};  /* { sectionKey: true } once "Save Section" has been tapped */
 /* Focus mode is the only mode now — always on. Kept as a body class
    so existing CSS selectors (body.focus-mode ...) keep working unchanged. */
 let _focusIndex        = 0;
@@ -42,19 +42,10 @@ function initLedgerNav() {
   document.body.classList.add('focus-mode');
   closeViewAll();
 
-  /* ── Restore / default section-complete state ──────────────
-     - Sheet has explicit sectionComplete data → use it as-is.
-     - Sheet exists but predates this feature → treat every section
-       as already complete (it was saved under the old rules; it
-       shouldn't retroactively look unfinished).
-     - No saved sheet at all (new/unsaved) → everything starts blank. */
+  /* ── Restore saved section state ──────────────
+     Just load whatever was saved with the sheet, if anything. */
   const savedRecord = (typeof db !== 'undefined' && typeof activeKey !== 'undefined') ? db.sheets[activeKey] : null;
-  _sectionComplete = {};
-  if (savedRecord && savedRecord.sectionComplete) {
-    _sectionComplete = { ...savedRecord.sectionComplete };
-  } else if (savedRecord) {
-    LEDGER_SECTIONS.forEach(sec => { _sectionComplete[sec.key] = true; });
-  }
+  _sectionComplete = (savedRecord && savedRecord.sectionComplete) ? { ...savedRecord.sectionComplete } : {};
 
   /* All section cards start collapsed for a calmer first impression;
      applyFocusVisibility() below opens whichever one is current. */
@@ -62,11 +53,6 @@ function initLedgerNav() {
     const card = document.getElementById(sec.cardId);
     if (!card) return;
     card.classList.add('collapsed');
-    /* Editing a Complete section un-confirms it — property assignment
-       (not addEventListener) so re-running initLedgerNav() never stacks
-       duplicate handlers on the same card. */
-    card.oninput  = () => demoteIfEdited(sec.key);
-    card.onchange = () => demoteIfEdited(sec.key);
   });
 
   buildSectionNav();
@@ -104,67 +90,27 @@ function jumpToSection(key) {
   const card = document.getElementById(sec.cardId);
   if (!card) return;
 
-  _focusIndex = visibleSectionKeys().indexOf(key);
-  applyFocusVisibility();
+  const oldIndex = _focusIndex;
+  const newIndex = visibleSectionKeys().indexOf(key);
+  _focusIndex = newIndex;
+  const direction = newIndex === oldIndex ? 0 : (newIndex > oldIndex ? 1 : -1);
+  applyFocusVisibility(direction);
 
   _touchedSections[key] = true;
   updateSectionStatus();
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SECTION STATE — the single source of truth for a section's color.
-   white:    never confirmed, no data entered
-   pending:  has some data entered, but not (re-)confirmed since
-   complete: explicitly confirmed via "Save Section" with current data
-   alert:    a real flagged condition exists — overrides all of the above
-   Called from calc() every time totals change (via updateSectionStatus).
+   SECTION STATE — a section is either saved or not.
+   white:    not yet saved
+   complete: "Save Section" has been tapped
 ═══════════════════════════════════════════════════════════ */
 function getSectionState(key) {
-  if (sectionHasAlert(key)) return 'alert';
-  if (_sectionComplete[key]) return 'complete';
-  if (sectionHasData(key))   return 'pending';
-  return 'white';
+  return _sectionComplete[key] ? 'complete' : 'white';
 }
 
-/* Generic "has this section been typed into" heuristic — looks at every
-   editable field in the card and checks it against its untouched default
-   (blank, or the "0" that inputs like Returns/Extra Cash start at, or the
-   placeholder option in a dropdown). This never blocks or requires
-   anything; it only decides which "not yet confirmed" color to show. */
-function sectionHasData(key) {
-  const sec = LEDGER_SECTIONS.find(s => s.key === key);
-  if (!sec) return false;
-  const card = document.getElementById(sec.cardId);
-  if (!card) return false;
-  const fields = card.querySelectorAll('input:not([readonly]), select, textarea');
-  for (const el of fields) {
-    if (el.tagName === 'SELECT') {
-      if (el.selectedIndex > 0) return true;
-      continue;
-    }
-    const v = (el.value || '').toString().trim();
-    if (v === '' || v === '0' || v === '0.00') continue;
-    return true;
-  }
-  return false;
-}
-
-/* Editing a Complete section un-confirms it automatically — the user's
-   own words: "editing IS the un-save." Where it lands next (pending vs
-   white) is recomputed live by getSectionState(), not stored here. */
-function demoteIfEdited(key) {
-  if (_sectionComplete[key]) {
-    _sectionComplete[key] = false;
-    updateSectionStatus();
-  }
-}
-
-/* "Save Section" — the one explicit action that resolves the ambiguity
-   between "blank because nothing happened" and "blank because forgotten." */
+/* "Save Section" — marks the section saved. */
 function saveSectionComplete(key) {
-  if (sectionHasAlert(key)) {
-    if (!confirm('This section has an unconfirmed item. Save anyway?')) return;
-  }
   _sectionComplete[key] = true;
   updateSectionStatus();
   const status = document.getElementById('pdf-status');
@@ -191,12 +137,12 @@ function updateSectionStatus() {
 
     if (state === 'complete') doneCount++;
 
-    card.classList.remove('cs-white', 'cs-pending', 'cs-complete', 'cs-alert');
+    card.classList.remove('cs-white', 'cs-complete');
     card.classList.add('cs-' + state);
 
     if (chip) {
-      chip.classList.remove('lpb-white', 'lpb-pending', 'lpb-done', 'lpb-alert', 'lpb-current');
-      chip.classList.add(state === 'complete' ? 'lpb-done' : 'lpb-' + state);
+      chip.classList.remove('lpb-white', 'lpb-done', 'lpb-current');
+      chip.classList.add(state === 'complete' ? 'lpb-done' : 'lpb-white');
       const isCurrentChip = isOpen;
       chip.classList.toggle('lpb-current', isCurrentChip);
       if (isCurrentChip) {
@@ -215,18 +161,6 @@ function updateSectionStatus() {
   updateFocusButtons();
 }
 
-/* Section-level alert check — currently only Misc unconfirmed items.
-   Extend here if other sections need their own warning condition.   */
-function sectionHasAlert(key) {
-  if (key === 'misc') {
-    const rows = document.querySelectorAll('#ledger-misc select[id^="misc-st-"]');
-    let unconfirmed = 0;
-    rows.forEach(sel => { if (sel.value === 'Active') unconfirmed++; });
-    return unconfirmed > 0;
-  }
-  return false;
-}
-
 /* ═══════════════════════════════════════════════════════════
    FOCUS MODE
 ═══════════════════════════════════════════════════════════ */
@@ -235,29 +169,55 @@ function visibleSectionKeys() {
   return LEDGER_SECTIONS.filter(sec => !sec.finalOnly || isFinal).map(s => s.key);
 }
 
-function applyFocusVisibility() {
+function applyFocusVisibility(direction = 0) {
   const keys = visibleSectionKeys();
+  const targetKey  = keys[_focusIndex];
+  const targetSec  = LEDGER_SECTIONS.find(s => s.key === targetKey);
+  const targetCard = targetSec ? document.getElementById(targetSec.cardId) : null;
+
   LEDGER_SECTIONS.forEach(sec => {
+    if (sec.key === targetKey) return; /* handled separately below */
     const card = document.getElementById(sec.cardId);
     if (!card) return;
-    const isCurrent = keys[_focusIndex] === sec.key;
-    card.classList.toggle('focus-hidden', !isCurrent);
-    /* Only the current section should ever read as "open" — collapse
-       every other section so isOpen (and therefore the nav chip's
-       "current" highlight) reflects exactly one section at a time. */
-    card.classList.toggle('collapsed', !isCurrent);
+    card.classList.add('focus-hidden', 'collapsed');
+    card.style.transform = '';
+    card.style.opacity   = '';
+    card.style.transition = '';
   });
-  const currentCard = document.getElementById(
-    LEDGER_SECTIONS.find(s => s.key === keys[_focusIndex])?.cardId
-  );
-  if (currentCard) currentCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  if (!targetCard) return;
+
+  targetCard.classList.remove('collapsed');
+
+  if (direction !== 0) {
+    /* Slide+fade the incoming section in from the swipe/next-button direction. */
+    targetCard.classList.remove('focus-hidden');
+    targetCard.style.transition = 'none';
+    targetCard.style.transform  = `translateX(${direction * 28}px)`;
+    targetCard.style.opacity    = '0';
+    void targetCard.offsetWidth; /* force reflow so the transition below actually animates */
+    targetCard.style.transition = 'transform .32s cubic-bezier(.22,.68,0,1.01), opacity .24s ease-out';
+    targetCard.style.transform  = 'translateX(0)';
+    targetCard.style.opacity    = '1';
+    const cleanup = () => {
+      targetCard.style.transition = '';
+      targetCard.style.transform  = '';
+      targetCard.style.opacity    = '';
+      targetCard.removeEventListener('transitionend', cleanup);
+    };
+    targetCard.addEventListener('transitionend', cleanup);
+  } else {
+    targetCard.classList.remove('focus-hidden');
+  }
+
+  targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function focusStep(dir) {
   const keys = visibleSectionKeys();
   _touchedSections[keys[_focusIndex]] = true;
   _focusIndex = Math.max(0, Math.min(keys.length - 1, _focusIndex + dir));
-  applyFocusVisibility();
+  applyFocusVisibility(dir);
   updateSectionStatus();
 }
 
@@ -335,16 +295,12 @@ function openSummaryModal() {
 
   /* Section completion breakdown */
   const keys = visibleSectionKeys();
-  const untouched = keys.filter(k => getSectionState(k) === 'white');
-  const pending   = keys.filter(k => getSectionState(k) === 'pending');
-  const completeCount = keys.filter(k => getSectionState(k) === 'complete').length;
+  const notSaved = keys.filter(k => getSectionState(k) === 'white');
+  const completeCount = keys.length - notSaved.length;
   const noteBox = document.getElementById('summary-incomplete-note');
-  if (untouched.length > 0 || pending.length > 0) {
-    const parts = [];
-    if (pending.length)   parts.push(`entered but not saved: ${pending.map(k => LEDGER_SECTIONS.find(s => s.key === k)?.label).join(', ')}`);
-    if (untouched.length) parts.push(`not yet opened: ${untouched.map(k => LEDGER_SECTIONS.find(s => s.key === k)?.label).join(', ')}`);
+  if (notSaved.length > 0) {
     document.getElementById('summary-incomplete-text').textContent =
-      `${parts.join(' · ')}. You can still save, but double-check these first.`;
+      `Not yet saved: ${notSaved.map(k => LEDGER_SECTIONS.find(s => s.key === k)?.label).join(', ')}. You can still save, but double-check these first.`;
     noteBox.classList.remove('hidden');
   } else {
     noteBox.classList.add('hidden');
@@ -353,7 +309,7 @@ function openSummaryModal() {
   const headIcon  = document.getElementById('summary-head-icon');
   const headTitle = document.getElementById('summary-head-title');
   const headSub   = document.getElementById('summary-head-sub');
-  if (untouched.length > 0 || pending.length > 0) {
+  if (notSaved.length > 0) {
     headIcon.textContent = '📋';
     headTitle.textContent = completeCount + ' of ' + keys.length + ' sections confirmed complete';
   } else {
@@ -399,15 +355,13 @@ function openViewAll() {
       const numeric   = rawText ? parseInt(rawText.replace(/[^\d-]/g, ''), 10) : NaN;
 
       let valueText;
-      if (state === 'alert') {
-        valueText = '⚠ Needs attention';
-      } else if (state === 'white') {
+      if (state === 'white') {
         valueText = '—';
       } else if (rawText) {
-        valueText = rawText + (state === 'pending' ? ' (unsaved)' : '');
+        valueText = rawText;
         if (!isNaN(numeric)) { runningTotal += numeric; countedAny = true; }
       } else {
-        valueText = state === 'complete' ? '✓' : '… (unsaved)';
+        valueText = '✓';
       }
 
       return `
@@ -447,10 +401,11 @@ function onCardToggled(cardId) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SWIPE GESTURE NAV (mobile) — swipe left/right on the ledger
-   page moves between sections, same as the Next ›/‹ Back
-   buttons. Bound once at boot; scoped to #page-ledger so it
-   only ever fires while a closing is open.
+   SWIPE GESTURE NAV (mobile) — swipe left/right anywhere on the
+   ledger page moves between sections, same as the Next ›/‹ Back
+   buttons, with the same slide+fade transition. Bound once at
+   boot; scoped to #page-ledger so it only ever fires while a
+   closing is open.
 ═══════════════════════════════════════════════════════════ */
 function initLedgerSwipeNav() {
   const zone = document.getElementById('page-ledger');
@@ -461,12 +416,11 @@ function initLedgerSwipeNav() {
   const SWIPE_MAX_ANGLE  = 0.6;  /* |dy/dx| ceiling — keeps mostly-vertical scrolls from triggering nav */
   let startX = 0, startY = 0, tracking = false;
 
+  /* Works anywhere on the card — including on top of number inputs,
+     labels, badges, whatever — a short horizontal drag is a swipe,
+     a tap is still just a tap (the distance threshold tells them apart). */
   zone.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) { tracking = false; return; }
-    /* Don't hijack drags that start on a text input, select, or button —
-       let native controls behave normally. */
-    const tag = (e.target.tagName || '').toLowerCase();
-    if (['input', 'select', 'textarea', 'button'].includes(tag)) { tracking = false; return; }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;
