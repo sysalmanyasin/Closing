@@ -116,7 +116,7 @@ GitHub Pages on every push to `main` — no build step, no
 `package.json`, just the files as-is. `CNAME` points the Pages site
 at `closing.duapharma.com`.
 
----
+--
 
 ## Local development
 
