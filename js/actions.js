@@ -202,6 +202,10 @@ function setLockedState(locked) {
   if(menuClear) menuClear.classList.toggle('hidden', locked);
   if(menuDel)   menuDel.classList.toggle('hidden', locked);
   if(lockedBar) lockedBar.classList.toggle('hidden', !locked);
+
+  /* keep the focus-mode Next/Review&Save button in sync with lock state
+     (it must never offer "Review & Save" on an already-saved, locked sheet) */
+  if(typeof updateFocusButtons === 'function') updateFocusButtons();
 }
 
 /* ═══════════════════════════════════════════

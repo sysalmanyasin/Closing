@@ -184,10 +184,19 @@ function updateFocusButtons() {
   if (prevBtn) prevBtn.disabled = (_focusIndex <= 0);
   if (nextBtn) {
     const isLast = (_focusIndex >= keys.length - 1);
-    nextBtn.textContent = isLast ? 'Review & Save ✓' : 'Next ›';
-    nextBtn.onclick = isLast
-      ? () => { _touchedSections[currentKey] = true; updateSectionStatus(); openSummaryModal(); }
-      : () => focusStep(1);
+    const locked = (typeof isSheetLocked !== 'undefined') && isSheetLocked;
+    if (isLast && locked) {
+      /* Already saved & locked — nothing left to review/save, so the
+         button simply isn't shown (view via "‹ Back" / nav chips instead). */
+      nextBtn.classList.add('hidden');
+      nextBtn.onclick = null;
+    } else {
+      nextBtn.classList.remove('hidden');
+      nextBtn.textContent = isLast ? 'Review & Save ✓' : 'Next ›';
+      nextBtn.onclick = isLast
+        ? () => { _touchedSections[currentKey] = true; updateSectionStatus(); openSummaryModal(); }
+        : () => focusStep(1);
+    }
   }
 }
 
