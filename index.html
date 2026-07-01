@@ -41,6 +41,7 @@
 <script src="js/actions.js"></script>
 <script src="js/components.js"></script>
 <script src="js/pages.js"></script>
+<script src="js/ledger-nav.js"></script>
 <script src="js/sync.js"></script>
 
 </head>
@@ -252,11 +253,11 @@
             Export a backup file regularly, or restore from one.
           </p>
           <div style="display:flex;gap:8px;padding:12px 16px;">
-            <button class="btn btn-ghost" style="flex:1;" onclick="repoExportJSON()">⬇ Export Backup</button>
+            <button class="btn btn-ghost" style="flex:1;" onclick="exportDataJSON()">⬇ Export Backup</button>
             <button class="btn btn-ghost" style="flex:1;" onclick="document.getElementById('import-json-file').click()">⬆ Import Backup</button>
           </div>
           <input type="file" id="import-json-file" accept="application/json" style="display:none;"
-            onchange="repoImportJSON(event.target.files[0], () => { buildCalendar(); renderManifest(); showToast('Backup restored ✓'); })">
+            onchange="importDataJSON(event)">
         </div>
       </div>
 
@@ -330,12 +331,10 @@
       </div>
       <div class="ledger-toolbar-right">
         <div id="ledger-badge"></div>
-        <button class="ltb-icon-btn" id="btn-save-draft" onclick="saveDraft()" title="Save Draft">💾</button>
         <div class="ltb-more-wrap" id="ltb-more-wrap">
           <button class="ltb-icon-btn" onclick="toggleMoreMenu()" title="More">⋮</button>
           <div class="ltb-more-menu hidden" id="ltb-more-menu">
-            <button onclick="expandAllCards();toggleMoreMenu()">⊞ Expand All</button>
-            <button onclick="collapseAllCards();toggleMoreMenu()">⊟ Collapse All</button>
+            <button onclick="openViewAll();toggleMoreMenu()">⊞ View All Sections</button>
             <button id="menu-edit-pin" class="hidden" onclick="openEditModal(AppState.activeKey);toggleMoreMenu()">✏️ Edit (PIN)</button>
             <button id="menu-clear-fields" onclick="clearAllFields();toggleMoreMenu()">🧹 Clear Fields</button>
             <button id="menu-delete-sheet" onclick="deleteCurrentSheet();toggleMoreMenu()" style="color:var(--red);">🗑 Delete Sheet</button>
@@ -346,10 +345,47 @@
 
     <div id="pdf-status" style="display:none;text-align:center;font-size:0.8rem;color:var(--muted);padding:4px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);"></div>
 
+    <!-- ══ STICKY PROGRESS + JUMP NAV ══ -->
+    <div class="ledger-progress-bar" id="ledger-progress-bar">
+      <div class="lpb-track-row">
+        <span class="lpb-dot"></span>
+        <span class="lpb-text" id="lpb-progress-text">0 of 11 done</span>
+        <div class="lpb-track"><div class="lpb-fill" id="lpb-progress-fill" style="width:0%"></div></div>
+        <button class="lpb-viewall-link" id="lpb-viewall-link" onclick="openViewAll()" title="View all sections (read-only)">
+          <span>⊞</span><span>View all</span>
+        </button>
+      </div>
+      <div class="lpb-nav-row" id="lpb-nav-row"></div>
+    </div>
+
+    <!-- ══ VIEW ALL (read-only overlay, focus mode never turns off) ══ -->
+    <div class="viewall-overlay hidden" id="viewall-overlay" onclick="viewAllOutsideClick(event)">
+      <div class="viewall-panel">
+        <div class="viewall-head">
+          <button class="viewall-close" onclick="closeViewAll()">✕ Close</button>
+          <span class="viewall-title">Viewing all sections</span>
+        </div>
+        <div class="viewall-list" id="viewall-list"></div>
+        <div class="viewall-foot" id="viewall-foot"></div>
+        <div class="summary-banner">
+          <div class="banner-row"><span>Target Net Sales</span><span class="val" id="ban-target">Rs. 0</span></div>
+          <div class="banner-row"><span>Net Cash Available</span><span class="val" id="ban-cash">Rs. 0</span></div>
+          <div class="banner-row"><span id="ban-variance-label">Variance</span><span class="val" id="ban-variance">Rs. 0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FOCUS MODE PREV/NEXT CONTROLS ══ -->
+    <div class="focus-controls" id="focus-controls">
+      <button class="focus-btn" id="focus-btn-prev" onclick="focusStep(-1)">‹ Back</button>
+      <button class="focus-btn focus-btn-save" id="focus-btn-save">✓ Save Section</button>
+      <button class="focus-btn focus-btn-next" id="focus-btn-next" onclick="focusStep(1)">Next ›</button>
+    </div>
+
     <div class="page-body">
 
       <!-- POS Block -->
-      <div class="card" id="card-pos">
+      <div class="card ledger-section" id="card-pos" data-section="pos">
         <div class="card-head" onclick="toggleCard('card-pos')">
           <h3>POS Block</h3>
           <div class="card-head-right">
@@ -374,7 +410,7 @@
       </div>
 
       <!-- Shift Calculations -->
-      <div class="card" id="card-shift">
+      <div class="card ledger-section" id="card-shift" data-section="shift">
         <div class="card-head" onclick="toggleCard('card-shift')">
           <h3>Shift Calculations</h3>
           <div class="card-head-right">
@@ -392,7 +428,7 @@
       </div>
 
       <!-- BLOCK 1: HS Block (A) -->
-      <div class="card" id="card-hs">
+      <div class="card ledger-section" id="card-hs" data-section="hs">
         <div class="card-head" onclick="toggleCard('card-hs')">
           <h3><span class="step">1</span> HS Block (A)</h3>
           <div class="card-head-right">
@@ -406,7 +442,7 @@
       </div>
 
       <!-- BLOCK 2: Inventory Strips (B) -->
-      <div class="card" id="card-strips">
+      <div class="card ledger-section" id="card-strips" data-section="strips">
         <div class="card-head" onclick="toggleCard('card-strips')">
           <h3><span class="step">2</span> Inventory Strips / Block Revenue (B)</h3>
           <div class="card-head-right">
@@ -422,7 +458,7 @@
       </div>
 
       <!-- BLOCK 3: Misc Charges (C) -->
-      <div class="card" id="card-misc">
+      <div class="card ledger-section" id="card-misc" data-section="misc">
         <div class="card-head" onclick="toggleCard('card-misc')">
           <h3><span class="step">3</span> Ongoing / Miscellaneous Charges (C)</h3>
           <div class="card-head-right">
@@ -437,7 +473,7 @@
       </div>
 
       <!-- BLOCK 4: Credit Card Summary (D) -->
-      <div class="card" id="card-cc">
+      <div class="card ledger-section" id="card-cc" data-section="cc">
         <div class="card-head" onclick="toggleCard('card-cc')">
           <h3><span class="step">4</span> Credit Card Summary (D)</h3>
           <div class="card-head-right">
@@ -452,7 +488,7 @@
       </div>
 
       <!-- BLOCK 5: Till Cash (E) -->
-      <div class="card" id="card-till">
+      <div class="card ledger-section" id="card-till" data-section="till">
         <div class="card-head" onclick="toggleCard('card-till')">
           <h3><span class="step">5</span> Till Cash (E)</h3>
           <div class="card-head-right">
@@ -465,7 +501,7 @@
       </div>
 
       <!-- BLOCK 6: Draw Cash (F) -->
-      <div class="card" id="card-vault">
+      <div class="card ledger-section" id="card-vault" data-section="vault">
         <div class="card-head" onclick="toggleCard('card-vault')">
           <h3><span class="step">6</span> Draw Cash (F)</h3>
           <div class="card-head-right">
@@ -478,7 +514,7 @@
       </div>
 
       <!-- BLOCK 7: Credit Detail (G) -->
-      <div class="card" id="card-credit">
+      <div class="card ledger-section" id="card-credit" data-section="credit">
         <div class="card-head" onclick="toggleCard('card-credit')">
           <h3><span class="step">7</span> Credit Detail (G)</h3>
           <div class="card-head-right">
@@ -505,7 +541,7 @@
       </div>
 
       <!-- BLOCK 8: Cash Deposit Details (H) -->
-      <div class="card" id="card-deposits">
+      <div class="card ledger-section" id="card-deposits" data-section="deposits">
         <div class="card-head" onclick="toggleCard('card-deposits')">
           <h3><span class="step">8</span> Cash Deposit Details (H)</h3>
           <div class="card-head-right">
@@ -522,7 +558,7 @@
       </div>
 
       <!-- BLOCK: Final Audit -->
-      <div class="card" id="card-audit">
+      <div class="card ledger-section" id="card-audit" data-section="audit">
         <div class="card-head" onclick="toggleCard('card-audit')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
           <h3 style="color:#fff;">Final Audit</h3>
           <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
@@ -537,15 +573,11 @@
         </div>
       </div>
 
-      <!-- EXECUTIVE SUMMARY BANNER -->
-      <div class="summary-banner">
-        <div class="banner-row"><span>Target Net Sales</span><span class="val" id="ban-target">Rs. 0</span></div>
-        <div class="banner-row"><span>Net Cash Available</span><span class="val" id="ban-cash">Rs. 0</span></div>
-        <div class="banner-row"><span id="ban-variance-label">Variance</span><span class="val" id="ban-variance">Rs. 0</span></div>
-      </div>
+      <!-- Executive summary banner now lives inside the "View all" overlay only —
+           see viewall-panel below — since it duplicated per-tab context otherwise. -->
 
       <!-- FINAL CLOSING AGGREGATION -->
-      <div class="card" id="card-final-agg">
+      <div class="card ledger-section" id="card-final-agg" data-section="final-agg">
         <div class="card-head" onclick="toggleCard('card-final-agg')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
           <h3 style="color:#fff;">🧮 Final Closing — Period Aggregation</h3>
           <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
@@ -580,7 +612,8 @@
       <input type="hidden" id="out-final-prev-sale"    value="0">
 
       <div style="margin-top:20px;">
-        <button class="btn btn-green btn-full" id="btn-save-close" onclick="saveSheet()">💾 Save &amp; Close This Shift</button>
+        <button class="btn btn-ghost btn-full" id="btn-save-draft" onclick="saveDraft()" style="margin-bottom:10px;">💾 Save as Draft</button>
+        <button class="btn btn-green btn-full" id="btn-save-close" onclick="openSummaryModal()">💾 Save &amp; Close This Shift</button>
       </div>
     </div>
   </div>
@@ -694,6 +727,42 @@
 
 <!-- ═══ TOAST ═══ -->
 <div id="app-toast" class="hidden"></div>
+
+<!-- ═══ END-OF-SHIFT SUMMARY MODAL ═══ -->
+<div id="summary-modal-overlay" class="hidden" onclick="if(event.target===this)closeSummaryModal()">
+  <div class="summary-sheet" onclick="event.stopPropagation()">
+    <div class="summary-head">
+      <div class="summary-head-icon" id="summary-head-icon">✅</div>
+      <h3 id="summary-head-title">All sections complete</h3>
+      <p id="summary-head-sub">Review before saving</p>
+    </div>
+    <div id="summary-incomplete-note" class="summary-incomplete-note hidden">
+      <span>⚠️</span>
+      <span id="summary-incomplete-text">Some sections haven't been opened yet. You can still save, but double-check them first.</span>
+    </div>
+    <div class="summary-body">
+      <div class="summary-stat" id="summary-stat-target">
+        <div class="summary-stat-label" id="summary-label-target">Target Net Sales</div>
+        <div class="summary-stat-value" id="summary-value-target">Rs. 0</div>
+      </div>
+      <div class="summary-stat" id="summary-stat-cash">
+        <div class="summary-stat-label" id="summary-label-cash">Net Cash Available</div>
+        <div class="summary-stat-value" id="summary-value-cash">Rs. 0</div>
+      </div>
+      <div class="summary-stat" id="summary-stat-variance">
+        <div class="summary-warn-row" id="summary-variance-warn" style="display:none;">
+          <span>⚠️</span><span>Variance — please double-check</span>
+        </div>
+        <div class="summary-stat-label" id="summary-label-variance">Variance</div>
+        <div class="summary-stat-value" id="summary-value-variance">Rs. 0</div>
+      </div>
+    </div>
+    <div class="summary-footer">
+      <button class="btn btn-green btn-full" onclick="confirmSummaryAndSave()" id="summary-confirm-btn">✅ Confirm &amp; Save Shift</button>
+      <button class="summary-back-btn" onclick="closeSummaryModal()">← Go back and recheck</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ EDIT CLOSING MODAL ═══ -->
 <div id="edit-modal-overlay" class="hidden" onclick="editModalOutsideClick(event)">

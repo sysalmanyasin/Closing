@@ -19,6 +19,7 @@ const APP_SHELL = [
   './js/actions.js',
   './js/components.js',
   './js/pages.js',
+  './js/ledger-nav.js',
   './js/sync.js',
   /* ── Icons ── */
   './icons/icon.svg',
