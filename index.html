@@ -1,76 +1,811 @@
-/* ═══════════════════════════════════════════════════════════════
-   FLOOR 2 — STATE STORE
-   One protected source of truth. Never mutate from Pages/Components
-   directly — go through Actions (Floor 3).
-═══════════════════════════════════════════════════════════════ */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fazal Din's Pharma Plus — Shift Register</title>
 
-/* ═══════════════════════════════════════════
-   CONSTANTS & STATE
-═══════════════════════════════════════════ */
-const PIN    = "1218";
-const SHIFTS = ["Night","Morning","Evening"];
-const SHIFT_SR = {Morning:1, Evening:2, Night:3};
-function srLabel(shift) { return `Closing ${SHIFT_SR[shift]||'?'} — ${shift}`; }
-const DENOMS = [
-  {label:"Rs. 5,000 notes", mult:5000},
-  {label:"Rs. 1,000 notes", mult:1000},
-  {label:"Rs. 500 notes",   mult:500},
-  {label:"Rs. 100 notes",   mult:100},
-  {label:"Rs. 50 notes",    mult:50},
-  {label:"Rs. 20 notes",    mult:20},
-  {label:"Rs. 10 notes",    mult:10},
-  {label:"Coins / loose change", mult:1}
-];
+<!-- ── PWA ── -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d9488">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
-let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
-  settings: {
-    namedCredits: [
-      {label:"Corporate Account"},
-      {label:"Wholesale Ledger"},
-      {label:"Third Party Tab"}
-    ],
-    subTiers: [
-      {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
-      {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
-      {type:"Branch Tabs",    names:["Johar Town","DHA Branch","Bahria Pool"]}
-    ],
-    strips: [
-      {name:"Water 1.5L",        price:17},
-      {name:"Water 500ml",       price:28},
-      {name:"Water 330ml",       price:0},
-      {name:"Regular Strips",    price:10},
-      {name:"Pura Water 1L",     price:16},
-      {name:"Pura Water 0.5L",   price:28},
-      {name:"Juice Pack 60x",    price:0},
-      {name:"Juice Pack 80x",    price:60},
-      {name:"Juice Pack 140x",   price:5},
-      {name:"Juice Pack 150x",   price:4},
-      {name:"Juice Pack 250x",   price:6}
-    ]
-  },
-  sheets: {}
-};
+<!-- ── Fonts ── -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet">
 
-/* migrate legacy data */
-if(!db.settings.namedCredits && db.settings.creditLabels) {
-  db.settings.namedCredits = db.settings.creditLabels.map(l=>({label:l}));
-}
+<!-- ── Styles ── -->
+<link rel="stylesheet" href="css/main.css">
 
-let activeKey      = null;
-let activeMode     = "shift";
-let overrides      = {};
-let isSavedSheet   = false;
-let calViewDate    = new Date();
-let summaryDateStr = "";
-let isSheetLocked  = false; /* true = view-only snapshot, false = editable */
+<!-- ── External Libraries ── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.11.0/Dropbox-sdk.min.js"></script>
 
-/* dynamic row counters */
-let auxCreditCount = 0;
-let depositCount   = 0;
-let miscCount      = 0;
-let hsRowCount     = 0;
-let auxStripCount  = 0;
+<!--
+  ╔══════════════════════════════════════════════════════╗
+  ║  LOAD ORDER — must match the 5-floor architecture   ║
+  ║                                                      ║
+  ║  Floor 2 — State    (AppState, constants)            ║
+  ║  Floor 1 — Repo     (localStorage read/write)        ║
+  ║  Floor 3 — Actions  (business logic, EventBus)       ║
+  ║  Floor 4 — Components (UI builders, numpad, PDF)     ║
+  ║  Floor 5 — Pages    (renders, nav)                   ║
+  ║  Sync     — Dropbox (cloud sync, isolated module)    ║
+  ╚══════════════════════════════════════════════════════╝
+-->
+<script src="js/state.js"></script>
+<script src="js/repository.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/components.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/ledger-nav.js"></script>
+<script src="js/sync.js"></script>
 
-/* ═══════════════════════════════════════════
-   NUMPAD ENGINE
-═══════════════════════════════════════════ */
+</head>
+
+<body>
+
+<!-- ══ SYNC MINI TOP STATUS BAR ══ -->
+<div id="sync-topbar" onclick="syncPullFromCloud(true)" title="Tap to sync now">
+  <span id="sync-tb-icon">☁</span>
+  <span id="sync-tb-text">Checking…</span>
+</div>
+
+<div class="shell">
+
+  <!-- ══ HEADER BAR ══ -->
+  <div class="app-bar">
+    <div class="app-bar-icon">💊</div>
+    <div class="app-bar-text">
+      <h1>Fazal Din's Pharma Plus</h1>
+      <p>Shift Register &amp; Daily Closing System</p>
+    </div>
+  </div>
+
+  <!-- ══ PAGE 1 — CALENDAR DASHBOARD ══ -->
+  <div id="page-dashboard" class="view-pane">
+    <div class="page-body">
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
+        <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
+      </div>
+
+      <!-- ── CLOUD SYNC CARD ── -->
+      <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0f2744 0%,#0d3d2e 100%);border-radius:var(--radius-lg);overflow:hidden;">
+        <div class="card-head" onclick="toggleCard('card-cloud-sync')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="sync-card-icon" style="font-size:1.3rem;">☁️</div>
+            <div>
+              <h3 style="color:#e2e8f0;margin:0;font-size:0.95rem;">Cloud Synchronization</h3>
+              <p style="color:#64748b;margin:0;font-size:0.72rem;">Dropbox · Secure · Real-time</p>
+            </div>
+          </div>
+          <span class="collapse-icon" style="color:#64748b;">▶</span>
+        </div>
+        <div class="card-body collapsed" id="card-cloud-sync-body" style="display:none;">
+        <div class="sync-card-body">
+
+          <!-- STATE A: Not linked -->
+          <div id="sync-state-unlinked">
+            <div id="sync-setup-step" class="hidden">
+              <p class="sync-unlinked-text" style="margin-bottom:10px;">
+                <strong>One-time setup:</strong> You need a free Dropbox App Key to enable sync.
+              </p>
+              <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+                <p style="font-size:0.73rem;color:#94a3b8;line-height:1.7;margin:0;">
+                  <strong style="color:#e2e8f0;">How to get your App Key (3 min):</strong><br>
+                  1. Open <strong style="color:#60a5fa;">apps.dropbox.com</strong> on a computer<br>
+                  2. Click <strong style="color:#e2e8f0;">Create app</strong><br>
+                  3. Choose <strong style="color:#e2e8f0;">Scoped access → App folder</strong><br>
+                  4. Give it any name (e.g. PharmaSync)<br>
+                  5. Click the <strong style="color:#fbbf24;">Permissions</strong> tab → enable:<br>
+                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">account_info.read</strong><br>
+                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">files.content.read</strong><br>
+                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">files.content.write</strong><br>
+                  &nbsp;&nbsp;→ Click <strong style="color:#e2e8f0;">Submit</strong> to save<br>
+                  6. Go to <strong style="color:#e2e8f0;">Settings</strong> tab → under <strong style="color:#e2e8f0;">OAuth 2 → Redirect URIs</strong>, add:<br>
+                  <span style="color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:0.68rem;word-break:break-all;" id="dbx-redirect-hint"></span><br>
+                  7. Copy the <strong style="color:#e2e8f0;">App Key</strong> and paste below
+                </p>
+              </div>
+              <input type="text" id="dbx-app-key-input" placeholder="Paste App Key here (e.g. abc123xyz789)"
+                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
+                oninput="dbxShowKeyError('')">
+              <div id="dbx-key-error" style="display:none;color:#f87171;font-size:0.75rem;margin-bottom:8px;"></div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-dropbox" style="flex:1;" onclick="dbxSaveAppKey()">✓ Save & Connect Dropbox</button>
+                <button onclick="dbxShowConnectStep()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#94a3b8;border-radius:8px;padding:10px 14px;font-size:0.8rem;cursor:pointer;font-family:'Inter',sans-serif;">Cancel</button>
+              </div>
+            </div>
+
+            <div id="sync-connect-step">
+              <p class="sync-unlinked-text">
+                Link your <strong>Dropbox account</strong> to automatically back up every closing to the cloud.
+                Your data stays safe across devices — one tap to restore anywhere.
+              </p>
+              <button class="btn-dropbox" onclick="dbxAuthStart()">
+                <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><path d="M8 2L16 7.5L8 13L0 7.5L8 2Z" fill="#fff"/><path d="M24 2L32 7.5L24 13L16 7.5L24 2Z" fill="#fff"/><path d="M0 18.5L8 13L16 18.5L8 24L0 18.5Z" fill="#fff"/><path d="M16 18.5L24 13L32 18.5L24 24L16 18.5Z" fill="#fff"/><path d="M8 25.5L16 20L24 25.5L16 31L8 25.5Z" fill="#fff"/></svg>
+                Link Dropbox Account
+              </button>
+              <div style="margin-top:8px;text-align:center;">
+                <button onclick="document.getElementById('sync-setup-step').classList.remove('hidden');document.getElementById('sync-connect-step').classList.add('hidden');document.getElementById('dbx-redirect-hint').textContent=window.location.href.split('#')[0].split('?')[0];"
+                  style="background:none;border:none;color:#64748b;font-size:0.72rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
+                  ⚙ Change App Key
+                </button>
+              </div>
+              <div style="margin-top:12px;border-top:1px solid #1e293b;padding-top:12px;">
+                <p class="sync-unlinked-text" style="margin-bottom:8px;font-size:0.75rem;">Already connected on another device? Paste your exported token instead:</p>
+                <textarea id="sync-import-input-unlinked" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
+                <button class="btn-dropbox" style="margin-top:6px;background:#0d9488;" onclick="dbxImportConnectionUnlinked()">📥 Connect via Imported Token</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STATE B: Linked -->
+          <div id="sync-state-linked" class="hidden sync-linked-state">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <div class="sync-connected-badge">
+                <span class="sync-dot"></span>
+                Connected securely
+              </div>
+              <span id="sync-account-name" style="font-size:0.72rem;color:#64748b;font-family:'JetBrains Mono',monospace;"></span>
+            </div>
+            <div class="sync-status-line status-ok" id="sync-status-line">
+              <span id="sync-status-icon">✓</span>
+              <span id="sync-status-text">Awaiting sync…</span>
+            </div>
+            <div class="sync-btn-row">
+              <button class="btn-sync-action" id="btn-pull" onclick="syncPullFromCloud(true)">⬇ Pull From Cloud</button>
+              <button class="btn-sync-action" id="btn-push" onclick="syncPushToCloud(true)">⬆ Push To Cloud</button>
+            </div>
+            <button class="btn-sync-disconnect" onclick="dbxDisconnect()">Disconnect Account</button>
+            <div class="sync-btn-row" style="margin-top:6px;">
+              <button class="btn-sync-action" onclick="dbxExportConnection()" title="Copy connection token to use on another device">📤 Export Connection</button>
+              <button class="btn-sync-action" onclick="dbxShowImport()" title="Paste connection token from another device">📥 Import Connection</button>
+            </div>
+            <div id="sync-import-box" style="display:none;margin-top:8px;">
+              <textarea id="sync-import-input" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
+              <div style="display:flex;gap:8px;margin-top:6px;">
+                <button class="btn-sync-action" style="flex:1;" onclick="dbxImportConnection()">✓ Apply Token</button>
+                <button class="btn-sync-disconnect" style="flex:1;" onclick="document.getElementById('sync-import-box').style.display='none'">Cancel</button>
+              </div>
+            </div>
+            <div style="text-align:center;margin-top:4px;">
+              <button onclick="dbxClearAppKey()" style="background:none;border:none;color:#475569;font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
+                ⚙ Change App Key
+              </button>
+            </div>
+          </div>
+
+        </div>
+        </div>
+      </div>
+      <!-- /CLOUD SYNC CARD -->
+
+      <!-- ── CALENDAR ── -->
+      <div class="card">
+        <div class="card-head" style="cursor:default;">
+          <h3>📅 Pick a Date</h3>
+        </div>
+        <div class="cal-nav">
+          <button class="btn btn-ghost btn-sm" onclick="shiftMonth(-1)">◀ Prev</button>
+          <h4 id="cal-title">June 2026</h4>
+          <button class="btn btn-ghost btn-sm" onclick="shiftMonth(1)">Next ▶</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+
+      <!-- ── DATE / SHIFT PICKER ── -->
+      <div id="shift-picker" class="date-picker-panel hidden">
+        <h4 id="lbl-picker-date">Open shift for: —</h4>
+        <div id="shift-picker-body"></div>
+        <div class="btn-row" id="shift-picker-btns" style="margin-top:12px;">
+          <button class="btn btn-green" onclick="openSheetFromPicker()">🔓 Open Sheet</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('shift-picker').classList.add('hidden')">Cancel</button>
+        </div>
+      </div>
+
+      <!-- ── SAVED RECORDS ── -->
+      <div class="card">
+        <div class="card-head" onclick="toggleManifestFilter()" style="cursor:pointer;">
+          <h3>🗄️ Saved Records</h3>
+          <div class="card-head-right">
+            <span id="manifest-filter-badge" style="font-size:0.72rem;font-weight:700;color:var(--teal-dark);background:var(--teal-light);padding:2px 8px;border-radius:20px;display:none;"></span>
+            <span id="manifest-filter-icon" class="collapse-icon" style="transform:rotate(-90deg);">▼</span>
+          </div>
+        </div>
+        <div id="manifest-filter-panel" style="display:none;padding:12px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:110px;">
+              <label style="font-size:0.75rem;font-weight:600;color:var(--slate);display:block;margin-bottom:4px;">From Date</label>
+              <input type="date" id="filter-date-from" oninput="renderManifest()" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.82rem;font-family:'Inter',sans-serif;">
+            </div>
+            <div style="flex:1;min-width:110px;">
+              <label style="font-size:0.75rem;font-weight:600;color:var(--slate);display:block;margin-bottom:4px;">To Date</label>
+              <input type="date" id="filter-date-to" oninput="renderManifest()" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.82rem;font-family:'Inter',sans-serif;">
+            </div>
+            <button onclick="clearManifestFilter()" class="btn btn-ghost btn-sm" style="flex-shrink:0;">✕ Clear</button>
+          </div>
+        </div>
+        <div id="manifest-list"></div>
+      </div>
+
+    </div>
+  </div>
+  <!-- /PAGE 1 -->
+
+  <!-- ══ PAGE 2 — SETTINGS ══ -->
+  <div id="page-settings" class="view-pane hidden">
+    <div class="page-body">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">⬅ Back</button>
+        <span class="text-muted text-sm">System Settings</span>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Data Backup</h3></div>
+        <div class="card-body">
+          <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+            All closings, settings and overrides are stored as JSON in this device's local storage.
+            Export a backup file regularly, or restore from one.
+          </p>
+          <div style="display:flex;gap:8px;padding:12px 16px;">
+            <button class="btn btn-ghost" style="flex:1;" onclick="exportDataJSON()">⬇ Export Backup</button>
+            <button class="btn btn-ghost" style="flex:1;" onclick="document.getElementById('import-json-file').click()">⬆ Import Backup</button>
+          </div>
+          <input type="file" id="import-json-file" accept="application/json" style="display:none;"
+            onchange="importDataJSON(event)">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Auto Final Closing</h3></div>
+        <div class="card-body">
+          <div class="row">
+            <label>Remind for Final Closing after how many shift closings?</label>
+            <input type="number" id="set-final-every-n" style="width:70px;" value="3">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;">
+          <h3>Named Credit Accounts</h3>
+          <button class="btn btn-teal btn-sm" onclick="addNamedCreditSetting()">+ Add Account</button>
+        </div>
+        <div id="settings-named-credits"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Staff Credit Tiers (dropdown groups)</h3></div>
+        <div class="page-body" style="padding: 16px;">
+          <p class="text-muted text-sm" style="margin-bottom:12px;">Each tier is a dropdown group in the ledger — name the group and list its members separated by commas.</p>
+          <div id="subtier-fields"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;">
+          <h3>Default Inventory Items</h3>
+          <button class="btn btn-teal btn-sm" onclick="addStripRow()">+ Add Item</button>
+        </div>
+        <div class="strips-header">
+          <span>Item Name</span><span>Unit Price</span><span style="width:60px;"></span>
+        </div>
+        <div id="settings-strips" style="max-height:280px;overflow-y:auto;"></div>
+      </div>
+
+      <button class="btn btn-green btn-full" onclick="saveSettings()">💾 Save Settings</button>
+    </div>
+  </div>
+  <!-- /PAGE 2 -->
+
+  <!-- ══ PAGE 3 — SHIFT LEDGER ══ -->
+  <div id="page-ledger" class="view-pane hidden">
+
+    <div class="pager">
+      <button class="btn btn-nav" onclick="moveLedgerShift(-1)">◀ Prev Shift</button>
+      <span class="pager-label" id="lbl-ledger-pager">—</span>
+      <button class="btn btn-nav" onclick="moveLedgerShift(1)">Next Shift ▶</button>
+    </div>
+
+    <div id="final-mode-bar" class="final-mode-bar hidden">
+      ✏️ <strong>Final Closing Mode</strong> — All carried values are editable. Fill fresh.
+    </div>
+
+    <div id="locked-mode-bar" class="final-mode-bar hidden" style="background:linear-gradient(90deg, #475569 0%, #64748b 100%);">
+      🔒 <strong>View Only</strong> — This closing has been saved.
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);" onclick="openEditModal(AppState.activeKey)">✏️ Edit (PIN)</button>
+    </div>
+
+    <div class="ledger-toolbar">
+      <div class="ledger-toolbar-left">
+        <button class="ltb-back" onclick="goToDashboard()" title="Close">←</button>
+        <div>
+          <div class="ltb-title" id="lbl-ledger-title">Shift Register</div>
+          <div class="ltb-meta" id="lbl-ledger-meta"></div>
+        </div>
+      </div>
+      <div class="ledger-toolbar-right">
+        <div id="ledger-badge"></div>
+        <div class="ltb-more-wrap" id="ltb-more-wrap">
+          <button class="ltb-icon-btn" onclick="toggleMoreMenu()" title="More">⋮</button>
+          <div class="ltb-more-menu hidden" id="ltb-more-menu">
+            <button onclick="openViewAll();toggleMoreMenu()">⊞ View All Sections</button>
+            <button id="menu-edit-pin" class="hidden" onclick="openEditModal(AppState.activeKey);toggleMoreMenu()">✏️ Edit (PIN)</button>
+            <button id="menu-clear-fields" onclick="clearAllFields();toggleMoreMenu()">🧹 Clear Fields</button>
+            <button id="menu-delete-sheet" onclick="deleteCurrentSheet();toggleMoreMenu()" style="color:var(--red);">🗑 Delete Sheet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pdf-status" style="display:none;text-align:center;font-size:0.8rem;color:var(--muted);padding:4px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);"></div>
+
+    <!-- ══ STICKY PROGRESS + JUMP NAV ══ -->
+    <div class="ledger-progress-bar" id="ledger-progress-bar">
+      <div class="lpb-track-row">
+        <span class="lpb-dot"></span>
+        <span class="lpb-text" id="lpb-progress-text">0 of 11 done</span>
+        <div class="lpb-track"><div class="lpb-fill" id="lpb-progress-fill" style="width:0%"></div></div>
+        <button class="lpb-viewall-link" id="lpb-viewall-link" onclick="openViewAll()" title="View all sections (read-only)">
+          <span>⊞</span><span>View all</span>
+        </button>
+      </div>
+      <div class="lpb-nav-row" id="lpb-nav-row"></div>
+    </div>
+
+    <!-- ══ VIEW ALL (read-only overlay, focus mode never turns off) ══ -->
+    <div class="viewall-overlay hidden" id="viewall-overlay" onclick="viewAllOutsideClick(event)">
+      <div class="viewall-panel">
+        <div class="viewall-head">
+          <button class="viewall-close" onclick="closeViewAll()">✕ Close</button>
+          <span class="viewall-title">Viewing all sections</span>
+        </div>
+        <div class="viewall-list" id="viewall-list"></div>
+        <div class="viewall-foot" id="viewall-foot"></div>
+        <div class="summary-banner">
+          <div class="banner-row"><span>Target Net Sales</span><span class="val" id="ban-target">Rs. 0</span></div>
+          <div class="banner-row"><span>Net Cash Available</span><span class="val" id="ban-cash">Rs. 0</span></div>
+          <div class="banner-row"><span id="ban-variance-label">Variance</span><span class="val" id="ban-variance">Rs. 0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FOCUS MODE PREV/NEXT CONTROLS ══ -->
+    <div class="focus-controls" id="focus-controls">
+      <button class="focus-btn" id="focus-btn-prev" onclick="focusStep(-1)">‹ Back</button>
+      <button class="focus-btn focus-btn-save" id="focus-btn-save">✓ Save Section</button>
+      <button class="focus-btn focus-btn-next" id="focus-btn-next" onclick="focusStep(1)">Next ›</button>
+    </div>
+
+    <div class="page-body">
+
+      <!-- POS Block -->
+      <div class="card ledger-section" id="card-pos" data-section="pos">
+        <div class="card-head" onclick="toggleCard('card-pos')">
+          <h3>POS Block</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-pos">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row"><label>System Cash Sales Total:</label><input type="number" id="in-sys-cash" oninput="calc()"></div>
+          <div class="row"><label>Last Bill Amount:</label><input type="number" id="in-last-bill-amt" oninput="calc()"></div>
+          <div class="row"><label>Last Bill Number:</label><input type="number" id="in-last-bill-num" oninput="calc()"></div>
+          <div class="row"><label>Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
+          <div class="row"><label>Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
+          <div class="row"><label>Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
+          <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Returns / Refunds</div>
+          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
+          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
+        </div>
+      </div>
+
+      <!-- Shift Calculations -->
+      <div class="card ledger-section" id="card-shift" data-section="shift">
+        <div class="card-head" onclick="toggleCard('card-shift')">
+          <h3>Shift Calculations</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-shift">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row computed" id="box-out-shift-sale"><label>This Shift's Sales (delta):</label><input type="number" id="out-shift-sale" oninput="setOverride('out-shift-sale')"></div>
+          <div class="row"><label>Book Bill 1:</label><input type="number" id="in-book-1" oninput="calc()"></div>
+          <div class="row"><label>Book Bill 2:</label><input type="number" id="in-book-2" oninput="calc()"></div>
+          <div class="row computed" id="box-out-cust"><label>Customers This Shift (delta):</label><input type="number" id="out-cust" oninput="setOverride('out-cust')"></div>
+          <div class="row highlight-blue"><label>Net Sale (this shift):</label><input type="number" id="out-net-sale" readonly value="0"></div>
+        </div>
+      </div>
+
+      <!-- BLOCK 1: HS Block (A) -->
+      <div class="card ledger-section" id="card-hs" data-section="hs">
+        <div class="card-head" onclick="toggleCard('card-hs')">
+          <h3><span class="step">1</span> HS Block (A)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-hs">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div id="hs-rows" class="card-body"></div>
+        <div class="row computed"><label>Total HS (A):</label><input type="number" id="out-total-hs" readonly value="0"></div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addHsRow()">＋ Add Row</button></div>
+      </div>
+
+      <!-- BLOCK 2: Inventory Strips (B) -->
+      <div class="card ledger-section" id="card-strips" data-section="strips">
+        <div class="card-head" onclick="toggleCard('card-strips')">
+          <h3><span class="step">2</span> Inventory Strips / Block Revenue (B)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-strips">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="strips-header"><span>Item</span><span>Price</span><span>Qty</span><span>Total</span></div>
+        <div id="ledger-strips" class="card-body"></div>
+        <div class="divider"></div>
+        <div class="row computed"><label>Total Inventory Revenue (B):</label><input type="number" id="out-total-a" readonly value="0"></div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addAuxStripRow()">＋ Add Row</button></div>
+      </div>
+
+      <!-- BLOCK 3: Misc Charges (C) -->
+      <div class="card ledger-section" id="card-misc" data-section="misc">
+        <div class="card-head" onclick="toggleCard('card-misc')">
+          <h3><span class="step">3</span> Ongoing / Miscellaneous Charges (C)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-misc">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="notice" style="margin:12px 16px 0;border-radius:var(--radius-md);">Mark items as <b>Confirmed</b> or <b>Cleared</b> to zero them out on the next shift.</div>
+        <div id="ledger-misc" class="card-body" style="margin-top:4px;"></div>
+        <div class="row computed"><label>Total Misc (C):</label><input type="number" id="out-total-g" readonly value="0"></div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMiscRow()">＋ Add Row</button></div>
+      </div>
+
+      <!-- BLOCK 4: Credit Card Summary (D) -->
+      <div class="card ledger-section" id="card-cc" data-section="cc">
+        <div class="card-head" onclick="toggleCard('card-cc')">
+          <h3><span class="step">4</span> Credit Card Summary (D)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-cc">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row computed" id="box-out-prev-cc"><label>Carried CC from Previous:</label><input type="number" id="out-prev-cc" oninput="setOverride('out-prev-cc')"></div>
+          <div class="row computed" id="box-out-curr-cc"><label>Card Sales This Shift (D):</label><input type="number" id="out-curr-cc" oninput="setOverride('out-curr-cc')"></div>
+        </div>
+      </div>
+
+      <!-- BLOCK 5: Till Cash (E) -->
+      <div class="card ledger-section" id="card-till" data-section="till">
+        <div class="card-head" onclick="toggleCard('card-till')">
+          <h3><span class="step">5</span> Till Cash (E)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-till">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div id="denom-till" class="card-body"></div>
+        <div class="row computed"><label>Total Till Cash (E):</label><input type="number" id="out-subtotal-c" readonly value="0"></div>
+      </div>
+
+      <!-- BLOCK 6: Draw Cash (F) -->
+      <div class="card ledger-section" id="card-vault" data-section="vault">
+        <div class="card-head" onclick="toggleCard('card-vault')">
+          <h3><span class="step">6</span> Draw Cash (F)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-vault">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div id="denom-vault" class="card-body"></div>
+        <div class="row computed"><label>Total Draw Cash (F):</label><input type="number" id="out-subtotal-d" readonly value="0"></div>
+      </div>
+
+      <!-- BLOCK 7: Credit Detail (G) -->
+      <div class="card ledger-section" id="card-credit" data-section="credit">
+        <div class="card-head" onclick="toggleCard('card-credit')">
+          <h3><span class="step">7</span> Credit Detail (G)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-credit">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row computed" id="box-out-prev-credit"><label>Carried Debt from Previous Shift:</label><input type="number" id="out-prev-credit" oninput="setOverride('out-prev-credit')"></div>
+          <div class="row"><label>Credit Adjustment (+ / −):</label>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="toggleSign('in-credit-adj')">±</button>
+              <input type="number" id="in-credit-adj" value="0" oninput="calc()" placeholder="e.g. -500" style="flex:1;">
+            </div>
+          </div>
+          <div id="ledger-named-credits"></div>
+          <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Tier / Staff Credit</div>
+          <div id="ledger-tier-credits"></div>
+          <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Aux / Other Credit</div>
+          <div id="ledger-aux-credits"></div>
+          <div class="row computed"><label>Total Credit Detail (G):</label><input type="number" id="out-total-e" readonly value="0"></div>
+        </div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addAuxCreditRow()">＋ Add Aux Row</button></div>
+      </div>
+
+      <!-- BLOCK 8: Cash Deposit Details (H) -->
+      <div class="card ledger-section" id="card-deposits" data-section="deposits">
+        <div class="card-head" onclick="toggleCard('card-deposits')">
+          <h3><span class="step">8</span> Cash Deposit Details (H)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-deposits">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row computed" id="box-out-prev-dep"><label>Carried Deposits from Previous:</label><input type="number" id="out-prev-dep" oninput="setOverride('out-prev-dep')"></div>
+          <div id="ledger-deposits"></div>
+          <div class="row computed"><label>Total Cash Deposits (H):</label><input type="number" id="out-total-f" readonly value="0"></div>
+        </div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addDepositRow()">＋ Add Row</button></div>
+      </div>
+
+      <!-- BLOCK: Final Audit -->
+      <div class="card ledger-section" id="card-audit" data-section="audit">
+        <div class="card-head" onclick="toggleCard('card-audit')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
+          <h3 style="color:#fff;">Final Audit</h3>
+          <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row computed"><label>Grand Total (A+B+C+D+E+F+G+H):</label><input type="number" id="out-grand" readonly value="0"></div>
+          <div class="row"><label>Less: Cash Reserve (held in till):</label><input type="text" readonly value="– Rs. 45,000" style="border:none;font-weight:700;color:var(--red);background:transparent;width:auto;text-align:right;"></div>
+          <div class="row computed"><label>Net Cash Available:</label><input type="number" id="out-liquid" readonly value="0"></div>
+          <div class="row computed" id="box-out-prev-cash"><label>Less: Previous Shift's Cash Position:</label><input type="number" id="out-prev-cash" oninput="setOverride('out-prev-cash')"></div>
+          <div class="row highlight-green"><label>Net Committed Cash (this shift):</label><input type="number" id="out-net-cash" readonly value="0"></div>
+          <div class="row"><label>Extra Cash Added to Pharmacy (− from Net Cash, applied at next Final):</label><input type="number" id="in-extra-cash" value="0" oninput="calc()"></div>
+        </div>
+        <div class="summary-banner" id="audit-summary-banner">
+          <div class="banner-row"><span>Target Net Sales</span><span class="val" id="audit-ban-target">Rs. 0</span></div>
+          <div class="banner-row"><span>Net Cash Available</span><span class="val" id="audit-ban-cash">Rs. 0</span></div>
+          <div class="banner-row"><span id="audit-ban-variance-label">Variance</span><span class="val" id="audit-ban-variance">Rs. 0</span></div>
+        </div>
+      </div>
+
+      <!-- FINAL CLOSING AGGREGATION -->
+      <div class="card ledger-section" id="card-final-agg" data-section="final-agg">
+        <div class="card-head" onclick="toggleCard('card-final-agg')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
+          <h3 style="color:#fff;">🧮 Final Closing — Period Aggregation</h3>
+          <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row computed"><label>Shifts since last Final:</label><input type="text" id="out-final-shifts" readonly value="—"></div>
+          <div style="background:#0f172a;padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
+          <div class="row computed"><label id="lbl-final-same-sys">＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
+          <div class="row computed"><label id="lbl-final-books">＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
+          <div class="row computed"><label id="lbl-final-same-cust">＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-man-ret">－ Manual Returns — all periods ＋ prev. final:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-same-sysret">－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
+          <div class="row highlight-red"><label>－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
+          <div class="row highlight-green"><label><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
+          <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
+          <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-pre-sys">－ Pre-date POS Sales:</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-pre-cust">－ Pre-date Customers:</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-pre-sysret">－ Less Pre-date System Return:</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
+          <div class="row computed highlight-red"><label id="lbl-final-extra-cash">－ Extra Cash Added to Pharmacy:</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
+          <div class="row computed highlight-red"><label>－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
+          <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
+          <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
+          <div class="row computed"><label>Pre-date Total:</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
+        </div>
+      </div>
+
+      <!-- hidden compat fields -->
+      <input type="hidden" id="out-final-net-sale-adj" value="0">
+      <input type="hidden" id="out-final-net-cash-adj" value="0">
+      <input type="hidden" id="out-final-prev-sale"    value="0">
+
+      <div style="margin-top:20px;">
+        <button class="btn btn-ghost btn-full" id="btn-save-draft" onclick="saveDraft()" style="margin-bottom:10px;">💾 Save as Draft</button>
+        <button class="btn btn-green btn-full" id="btn-save-close" onclick="openSummaryModal()">💾 Save &amp; Close This Shift</button>
+      </div>
+    </div>
+  </div>
+  <!-- /PAGE 3 -->
+
+  <!-- ══ PAGE 4 — CREDIT LEDGER ══ -->
+  <div id="page-credit-ledger" class="view-pane hidden">
+    <div class="page-body">
+      <div class="btn-row" style="margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
+      </div>
+      <div class="cl-toolbar">
+        <div>
+          <div class="cl-toolbar-title">📒 Credit Ledger</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Snapshot history of every shift's credit</div>
+        </div>
+        <div class="cl-toolbar-btns">
+          <button class="btn btn-ghost btn-sm" id="cl-btn-expand-all" onclick="clToggleAll(true)">Expand All</button>
+          <button class="btn btn-ghost btn-sm" onclick="clToggleAll(false)">Collapse All</button>
+          <button class="btn btn-teal btn-sm" onclick="clToggleExport()">⬇ Export</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Filter account:</label>
+        <select id="cl-filter-select" onchange="renderCreditLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
+          <option value="">All Accounts</option>
+        </select>
+        <span id="cl-count-badge" style="font-size:0.72rem;color:var(--muted);white-space:nowrap;"></span>
+      </div>
+      <div class="cl-export-panel" id="cl-export-panel">
+        <h4>📤 Export Credit History as .txt</h4>
+        <div class="cl-export-row">
+          <label>From</label>
+          <input type="date" id="cl-exp-from-date">
+          <select id="cl-exp-from-shift"><option value="">Any shift</option><option>Night</option><option>Morning</option><option>Evening</option></select>
+        </div>
+        <div class="cl-export-row">
+          <label>To</label>
+          <input type="date" id="cl-exp-to-date">
+          <select id="cl-exp-to-shift"><option value="">Any shift</option><option>Night</option><option>Morning</option><option>Evening</option></select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-teal btn-sm" onclick="clExportTxt()">⬇ Download .txt</button>
+          <button class="btn btn-ghost btn-sm" onclick="clToggleExport()">Cancel</button>
+        </div>
+      </div>
+      <div id="cl-cards-container"></div>
+      <button class="cl-show-more hidden" id="cl-show-more-btn" onclick="clShowMore()">Show more dates ▼</button>
+    </div>
+  </div>
+  <!-- /PAGE 4 -->
+
+</div><!-- /shell -->
+
+<!-- ═══ NUMPAD OVERLAY ═══ -->
+<div id="numpad-overlay" class="hidden" style="display:none!important;" onclick="numpadOutsideClick(event)">
+  <div class="numpad-sheet" onclick="event.stopPropagation()">
+    <div class="numpad-header">
+      <span class="numpad-label" id="numpad-label">Enter value</span>
+      <button class="numpad-close-btn" onclick="closeNumpad()">✕</button>
+    </div>
+    <div class="numpad-display" id="numpad-display">0</div>
+    <div class="numpad-grid">
+      <button class="np-btn" onclick="npKey('7')">7</button><button class="np-btn" onclick="npKey('8')">8</button><button class="np-btn" onclick="npKey('9')">9</button>
+      <button class="np-btn" onclick="npKey('4')">4</button><button class="np-btn" onclick="npKey('5')">5</button><button class="np-btn" onclick="npKey('6')">6</button>
+      <button class="np-btn" onclick="npKey('1')">1</button><button class="np-btn" onclick="npKey('2')">2</button><button class="np-btn" onclick="npKey('3')">3</button>
+      <button class="np-btn np-zero" onclick="npKey('0')">0</button>
+      <button class="np-btn" onclick="npKey('.')">·</button>
+      <button class="np-btn np-back" onclick="npKey('back')">⌫</button>
+      <button class="np-btn np-clear" onclick="npKey('clear')">CLEAR</button>
+      <button class="np-btn np-confirm" onclick="npConfirm()">✓ Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL PICKER OVERLAY ═══ -->
+<div id="modal-picker-overlay" class="hidden" onclick="closeModalPicker()">
+  <div class="modal-picker-sheet" onclick="event.stopPropagation()">
+    <div class="modal-picker-title">
+      <span id="modal-picker-title">Select</span>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;" onclick="closeModalPicker()">✕</button>
+    </div>
+    <div class="modal-picker-list" id="modal-picker-list"></div>
+  </div>
+</div>
+
+<!-- ═══ PDF / PRINT MODAL ═══ -->
+<div id="pdf-modal-overlay" class="hidden" onclick="if(event.target===this)closePdfModal()">
+  <div class="pdf-modal-sheet">
+    <div class="pdf-modal-head">
+      <h3>📄 Export Closing</h3>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closePdfModal()">✕</button>
+    </div>
+    <div class="pdf-modal-body">
+      <div id="pdf-modal-status"></div>
+      <button class="btn btn-green" onclick="pdfModalAction('whatsapp')">📤 Send to WhatsApp</button>
+      <button class="btn btn-ghost" onclick="pdfModalAction('print')">🖨 Print / Save PDF</button>
+      <button class="btn btn-ghost" style="color:var(--muted);font-size:0.8rem;padding:8px;" onclick="closePdfModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SAVE ACTION SHEET ═══ -->
+<div id="save-action-overlay" class="hidden">
+  <div class="save-action-sheet">
+    <div class="save-action-title" id="save-action-title">✅ Closing Saved</div>
+    <div class="save-action-sub"  id="save-action-sub"></div>
+    <div class="save-action-btns" id="save-action-btns"></div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="app-toast" class="hidden"></div>
+
+<!-- ═══ END-OF-SHIFT SUMMARY MODAL ═══ -->
+<div id="summary-modal-overlay" class="hidden" onclick="if(event.target===this)closeSummaryModal()">
+  <div class="summary-sheet" onclick="event.stopPropagation()">
+    <div class="summary-head">
+      <div class="summary-head-icon" id="summary-head-icon">✅</div>
+      <h3 id="summary-head-title">All sections complete</h3>
+      <p id="summary-head-sub">Review before saving</p>
+    </div>
+    <div id="summary-incomplete-note" class="summary-incomplete-note hidden">
+      <span>⚠️</span>
+      <span id="summary-incomplete-text">Some sections haven't been opened yet. You can still save, but double-check them first.</span>
+    </div>
+    <div class="summary-body">
+      <div class="summary-stat" id="summary-stat-target">
+        <div class="summary-stat-label" id="summary-label-target">Target Net Sales</div>
+        <div class="summary-stat-value" id="summary-value-target">Rs. 0</div>
+      </div>
+      <div class="summary-stat" id="summary-stat-cash">
+        <div class="summary-stat-label" id="summary-label-cash">Net Cash Available</div>
+        <div class="summary-stat-value" id="summary-value-cash">Rs. 0</div>
+      </div>
+      <div class="summary-stat" id="summary-stat-variance">
+        <div class="summary-warn-row" id="summary-variance-warn" style="display:none;">
+          <span>⚠️</span><span>Variance — please double-check</span>
+        </div>
+        <div class="summary-stat-label" id="summary-label-variance">Variance</div>
+        <div class="summary-stat-value" id="summary-value-variance">Rs. 0</div>
+      </div>
+    </div>
+    <div class="summary-footer">
+      <button class="btn btn-green btn-full" onclick="confirmSummaryAndSave()" id="summary-confirm-btn">✅ Confirm &amp; Save Shift</button>
+      <button class="summary-back-btn" onclick="closeSummaryModal()">← Go back and recheck</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EDIT CLOSING MODAL ═══ -->
+<div id="edit-modal-overlay" class="hidden" onclick="editModalOutsideClick(event)">
+  <div class="edit-modal-sheet" onclick="event.stopPropagation()">
+    <div class="edit-modal-head">
+      <h3>✏️ Edit Closing</h3>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="edit-modal-body">
+      <div>
+        <div class="edit-modal-label">Closing Type</div>
+        <div class="edit-mode-toggle">
+          <button id="em-btn-shift" class="edit-mode-btn active-shift" onclick="editModalSelectMode('shift')">🔵 Shift</button>
+          <button id="em-btn-final" class="edit-mode-btn" onclick="editModalSelectMode('final')">🔴 Final</button>
+        </div>
+      </div>
+      <div>
+        <div class="edit-modal-label">PIN</div>
+        <input type="password" inputmode="numeric" id="edit-modal-pin" class="edit-modal-pin" placeholder="••••" maxlength="8" onkeydown="if(event.key==='Enter')confirmEditModal()">
+      </div>
+      <div class="edit-modal-err" id="edit-modal-err"></div>
+    </div>
+    <div class="edit-modal-footer">
+      <button class="btn btn-ghost" style="flex:1;" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-teal" style="flex:1;" onclick="confirmEditModal()">Open &amp; Edit</button>
+    </div>
+  </div>
+</div>
+
+<div id="print-sheet"></div>
+
+<!-- ── Service Worker Registration ── -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[SW] Registered, scope:', reg.scope))
+        .catch(err => console.warn('[SW] Registration failed:', err));
+    });
+  }
+</script>
+
+</body>
+</html>

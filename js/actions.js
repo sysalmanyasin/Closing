@@ -619,23 +619,33 @@ function calc() {
   }
 
   const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) */
-  document.getElementById('ban-target').textContent   = "Rs. " + bannerTarget.toLocaleString('en-PK');
-  document.getElementById('ban-cash').textContent     = "Rs. " + bannerCash.toLocaleString('en-PK');
-  const banEl = document.getElementById('ban-variance');
-  const banLbl = document.getElementById('ban-variance-label');
-  if(diff === 0) {
-    if(banLbl) banLbl.textContent = 'Variance';
-    banEl.textContent = "Rs. 0";
-    banEl.className = 'val pos';
-  } else if(diff > 0) {
-    if(banLbl) banLbl.textContent = 'Plus';
-    banEl.textContent = "Rs. " + diff.toLocaleString('en-PK');
-    banEl.className = 'val pos';
-  } else {
-    if(banLbl) banLbl.textContent = 'Less';
-    banEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
-    banEl.className = 'val neg';
+  /* Updates both the "View all" popup banner (ban-*) and the identical
+     strip embedded directly in the Audit tab (audit-ban-*), so the two
+     always stay in sync from a single source of truth. */
+  function paintBanner(idPrefix) {
+    const targetEl = document.getElementById(idPrefix + 'target');
+    const cashEl   = document.getElementById(idPrefix + 'cash');
+    const varEl    = document.getElementById(idPrefix + 'variance');
+    const varLbl   = document.getElementById(idPrefix + 'variance-label');
+    if(!targetEl || !cashEl || !varEl) return;
+    targetEl.textContent = "Rs. " + bannerTarget.toLocaleString('en-PK');
+    cashEl.textContent   = "Rs. " + bannerCash.toLocaleString('en-PK');
+    if(diff === 0) {
+      if(varLbl) varLbl.textContent = 'Variance';
+      varEl.textContent = "Rs. 0";
+      varEl.className = 'val pos';
+    } else if(diff > 0) {
+      if(varLbl) varLbl.textContent = 'Plus';
+      varEl.textContent = "Rs. " + diff.toLocaleString('en-PK');
+      varEl.className = 'val pos';
+    } else {
+      if(varLbl) varLbl.textContent = 'Less';
+      varEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
+      varEl.className = 'val neg';
+    }
   }
+  paintBanner('ban-');
+  paintBanner('audit-ban-');
   /* ── real-time auto-draft ── */
   scheduleAutoSave();
   if (typeof updateSectionStatus === 'function') updateSectionStatus();

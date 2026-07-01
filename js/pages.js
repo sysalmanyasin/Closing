@@ -528,12 +528,24 @@ function openDatePicker(ds) {
     return;
   }
 
+  /* ── Auto-suggest Final mode ───────────────────────────────
+     A new (not-yet-saved) closing should default to "Final" once
+     `finalEveryN` shifts have passed since the last saved Final
+     closing. This decides whether a fresh closing gets the FINAL
+     badge/card by default — the cashier can still flip it manually
+     with the Shift/Final toggle. */
+  const existingRec = db.sheets[`${ds}_${suggestedShift}`];
+  const isDraft = existingRec && existingRec.draft === true;
+  if(existingRec && !isDraft) {
+    /* Reopening an already-saved closing — respect its saved mode */
+    suggestedMode = existingRec.profileMode || 'shift';
+  } else {
+    suggestedMode = computeAutoClosingMode();
+  }
+
   document.getElementById('shift-picker-btns').style.display = '';
   panel.dataset.shift = suggestedShift;
   panel.dataset.mode  = suggestedMode;
-
-  const existingRec = db.sheets[`${ds}_${suggestedShift}`];
-  const isDraft = existingRec && existingRec.draft === true;
 
   body.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 0;">
@@ -556,6 +568,34 @@ function openDatePicker(ds) {
       </div>
     </div>
     ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
+
+  /* Reflect the auto-suggested mode in the toggle buttons' visuals
+     (the innerHTML above always paints "Shift" active by default). */
+  setPickerMode(suggestedMode);
+}
+
+/* Count saved (non-draft) shift-mode closings since the last saved
+   Final closing, walking backwards in chronological order. */
+function shiftsSinceLastFinal() {
+  const allSavedKeys = Object.keys(db.sheets)
+    .filter(k => db.sheets[k] && db.sheets[k].draft !== true)
+    .sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+  let count = 0;
+  for(let i = allSavedKeys.length - 1; i >= 0; i--) {
+    const rec = db.sheets[allSavedKeys[i]];
+    if(rec.profileMode === 'final') break;
+    count++;
+  }
+  return count;
+}
+
+/* Should the NEXT (not-yet-saved) closing default to Final mode? */
+function computeAutoClosingMode() {
+  const everyN = parseInt(db.settings?.finalEveryN, 10) || 3;
+  if(everyN <= 0) return 'shift';
+  const sinceLastFinal = shiftsSinceLastFinal();
+  /* +1 because we're deciding for the closing about to be opened */
+  return (sinceLastFinal + 1) >= everyN ? 'final' : 'shift';
 }
 
 function setPickerMode(mode) {
@@ -800,8 +840,10 @@ function renderSummaryPage() {
 }
 
 function quickInitShift(shift) {
-  activeKey = `${summaryDateStr}_${shift}`; activeMode = "shift"; overrides = {};
-  initLedger(summaryDateStr, shift, "shift");
+  activeKey  = `${summaryDateStr}_${shift}`;
+  activeMode = computeAutoClosingMode();
+  overrides  = {};
+  initLedger(summaryDateStr, shift, activeMode);
 }
 
 /* ═══════════════════════════════════════════

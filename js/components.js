@@ -141,6 +141,7 @@ window.onload = () => {
   buildCalendar();
   renderManifest();
   dbxInit(); /* ── Cloud sync: parse token & init on load ── */
+  if (typeof initLedgerSwipeNav === 'function') initLedgerSwipeNav(); /* mobile swipe-to-navigate */
 };
 
 /* ═══════════════════════════════════════════

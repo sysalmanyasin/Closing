@@ -118,11 +118,20 @@
   /* ── ROWS ── */
   .row {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 16px; border-bottom: 1px solid #f1f5f9;
-    font-size: 0.85rem; transition: background .12s;
+    padding: 9px 16px;
+    border: 1px solid var(--border); border-bottom: none;
+    font-size: 0.85rem; transition: background .12s, box-shadow .12s;
   }
-  .row:last-child { border-bottom: none; }
+  .row:last-child { border-bottom: 1px solid var(--border); }
   .row:hover { background: var(--teal-pale); }
+  /* Highlight the row that currently has keyboard/tap focus inside it */
+  .row:focus-within {
+    background: var(--teal-pale);
+    border-color: var(--teal);
+    box-shadow: inset 3px 0 0 0 var(--teal-dark);
+    position: relative;
+    z-index: 1;
+  }
   .row label, .row .row-lbl {
     font-weight: 500; color: var(--slate); flex: 1; padding-right: 10px;
     font-size: 0.85rem;

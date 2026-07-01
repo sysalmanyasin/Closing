@@ -445,3 +445,50 @@ function onCardToggled(cardId) {
     updateSectionStatus();
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   SWIPE GESTURE NAV (mobile) — swipe left/right on the ledger
+   page moves between sections, same as the Next ›/‹ Back
+   buttons. Bound once at boot; scoped to #page-ledger so it
+   only ever fires while a closing is open.
+═══════════════════════════════════════════════════════════ */
+function initLedgerSwipeNav() {
+  const zone = document.getElementById('page-ledger');
+  if (!zone || zone.dataset.swipeBound) return;
+  zone.dataset.swipeBound = '1';
+
+  const SWIPE_MIN_DIST   = 55;   /* px — minimum horizontal travel to count as a swipe */
+  const SWIPE_MAX_ANGLE  = 0.6;  /* |dy/dx| ceiling — keeps mostly-vertical scrolls from triggering nav */
+  let startX = 0, startY = 0, tracking = false;
+
+  zone.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { tracking = false; return; }
+    /* Don't hijack drags that start on a text input, select, or button —
+       let native controls behave normally. */
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['input', 'select', 'textarea', 'button'].includes(tag)) { tracking = false; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+  }, { passive: true });
+
+  zone.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    if (Math.abs(dx) < SWIPE_MIN_DIST) return;
+    if (Math.abs(dy) > Math.abs(dx) * SWIPE_MAX_ANGLE) return; /* too vertical — probably a scroll */
+
+    if (dx < 0) {
+      /* swipe left → Next */
+      const nextBtn = document.getElementById('focus-btn-next');
+      if (nextBtn && !nextBtn.disabled) nextBtn.onclick && nextBtn.onclick();
+    } else {
+      /* swipe right → Back */
+      const prevBtn = document.getElementById('focus-btn-prev');
+      if (prevBtn && !prevBtn.disabled) focusStep(-1);
+    }
+  }, { passive: true });
+}
