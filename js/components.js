@@ -120,8 +120,16 @@ function toggleCard(id) {
     const hidden = body.style.display === 'none';
     body.style.display = hidden ? 'block' : 'none';
     if(icon) icon.textContent = hidden ? '▼' : '▶';
+  } else if (card.classList.contains('ledger-section')) {
+    /* Ledger section cards are driven entirely by focus mode now —
+       there's no Browse state to toggle into, so header taps are a no-op.
+       Use the nav chips, Back/Next, or "View all" to navigate instead. */
+    return;
   } else {
     card.classList.toggle('collapsed');
+    /* notify the ledger-nav layer so the jump-nav/progress bar stays in sync;
+       safe no-op if ledger-nav.js hasn't loaded (e.g. on non-ledger pages) */
+    if (typeof onCardToggled === 'function') onCardToggled(id);
   }
 }
 
@@ -191,18 +199,47 @@ function addAuxStripRow(lbl='', price='', qty='') {
   calc();
 }
 
-function addNamedCreditRow(lbl, idSuffix) {
+/* per-account entry-row counters, keyed by account index, so ids stay unique
+   across add/remove/hydrate cycles within a single ledger session */
+let namedEntrySeq = {};
+
+function addNamedAccountBlock(accountIdx, lbl) {
   const container = document.getElementById('ledger-named-credits');
+  const block = document.createElement('div');
+  block.className = "named-account-block";
+  block.id = `named-account-${accountIdx}`;
+  block.dataset.accountIdx = accountIdx;
+  block.innerHTML = `
+    <div class="named-account-head">${lbl}</div>
+    <div class="named-account-rows"></div>
+    <div class="named-account-add-wrap">
+      <button type="button" class="add-row-btn add-row-btn-sm" onclick="addNamedCreditEntryRow(${accountIdx})">＋ Add entry</button>
+    </div>`;
+  container.appendChild(block);
+  namedEntrySeq[accountIdx] = 0;
+}
+
+function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
+  const block = document.getElementById(`named-account-${accountIdx}`);
+  if(!block) return;
+  const rowsBox = block.querySelector('.named-account-rows');
+  namedEntrySeq[accountIdx] = (namedEntrySeq[accountIdx]||0) + 1;
+  const seq   = namedEntrySeq[accountIdx];
+  const rowId = `named-entry-row-${accountIdx}-${seq}`;
+  const valId = `named-entry-val-${accountIdx}-${seq}`;
   const row = document.createElement('div');
-  const rowId = `named-cred-row-${idSuffix}`;
-  row.className = "row"; row.id = rowId;
-  row.dataset.creditIdx = idSuffix;
+  row.className = "row named-entry-row"; row.id = rowId;
+  row.dataset.accountIdx = accountIdx;
   row.innerHTML = `
-    <span class="row-lbl named-cred-lbl">${lbl}</span>
-    <input type="number" class="named-cred-val" id="in-named-cred-${idSuffix}" value="0" oninput="calc()">`;
-  container.appendChild(row);
-  const inp = row.querySelector('input');
-  attachNumpad(inp, lbl);
+    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" value="${desc||''}">
+    <div style="display:flex;gap:4px;align-items:center;">
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')">±</button>
+      <input type="number" class="named-entry-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
+    </div>
+    <button class="del-row-btn" onclick="delRow('${rowId}',true)">✕</button>`;
+  rowsBox.appendChild(row);
+  attachNumpad(row.querySelector('.named-entry-val'));
+  calc();
 }
 
 function addTierCreditRow(num) {
@@ -212,7 +249,10 @@ function addTierCreditRow(num) {
   row.innerHTML = `
     <select id="sel-tier-${num}" onchange="openTierPicker(${num})"></select>
     <select id="sel-name-${num}" onchange="calc()"></select>
-    <input type="number" id="in-nested-${num}" oninput="calc()" placeholder="Amount" style="width:100px;">`;
+    <div style="display:flex;gap:4px;align-items:center;">
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('in-nested-${num}')">±</button>
+      <input type="number" id="in-nested-${num}" oninput="calc()" placeholder="Amount" style="width:90px;">
+    </div>`;
   container.appendChild(row);
 
   /* replace selects with tap-friendly modal triggers */
@@ -256,11 +296,15 @@ function addTierCreditRow(num) {
 function addAuxCreditRow(lbl='', val='') {
   auxCreditCount++;
   const id = `aux-cred-row-${auxCreditCount}`;
+  const valId = `aux-cred-val-${auxCreditCount}`;
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.innerHTML = `
     <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" value="${lbl}">
-    <input type="number" class="aux-cred-val" value="${val||0}" oninput="calc()">
+    <div style="display:flex;gap:4px;align-items:center;">
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')">±</button>
+      <input type="number" class="aux-cred-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
+    </div>
     <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
   document.getElementById('ledger-aux-credits').appendChild(row);
   attachNumpad(row.querySelector('.aux-cred-val'));
@@ -476,9 +520,16 @@ function buildPrintSheet() {
   let credRows = '';
   credRows += psRow('Carried from Previous', num('out-prev-credit'));
   if(numRaw('in-credit-adj') !== 0) credRows += psRow('Credit Adjustment', num('in-credit-adj'));
-  document.querySelectorAll('.named-cred-lbl').forEach((lblEl, i) => {
-    const valEl = document.querySelectorAll('.named-cred-val')[i];
-    if((parseFloat(valEl?.value)||0) !== 0) credRows += psRow(lblEl.textContent, (parseFloat(valEl.value)||0).toLocaleString('en-PK'));
+  document.querySelectorAll('.named-account-block').forEach(block => {
+    const acctLbl = block.querySelector('.named-account-head')?.textContent || '';
+    block.querySelectorAll('.named-entry-row').forEach(row => {
+      const valEl  = row.querySelector('.named-entry-val');
+      const v      = parseFloat(valEl?.value)||0;
+      if(v === 0) return;
+      const desc   = row.querySelector('.named-entry-desc')?.value?.trim();
+      const rowLbl = desc ? `${acctLbl} — ${desc}` : acctLbl;
+      credRows += psRow(rowLbl, v.toLocaleString('en-PK'));
+    });
   });
   for(let i=1;i<=3;i++) {
     const grp = g(`sel-tier-${i}`), name = g(`sel-name-${i}`), amt = g(`in-nested-${i}`);
@@ -885,16 +936,6 @@ document.addEventListener('click', function(e) {
     if(m) m.classList.add('hidden');
   }
 });
-
-/* ═══════════════════════════════════════════
-   COLLAPSE / EXPAND ALL
-═══════════════════════════════════════════ */
-function collapseAllCards() {
-  document.querySelectorAll('#page-ledger .card').forEach(c => c.classList.add('collapsed'));
-}
-function expandAllCards() {
-  document.querySelectorAll('#page-ledger .card').forEach(c => c.classList.remove('collapsed'));
-}
 
 /* ═══════════════════════════════════════════
    CLEAR ALL FIELDS

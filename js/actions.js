@@ -63,7 +63,10 @@ function initLedger(ds, shift, mode) {
   });
 
   /* build named credit rows from settings */
-  db.settings.namedCredits.forEach((nc, i) => addNamedCreditRow(nc.label, i+1));
+  db.settings.namedCredits.forEach((nc, i) => {
+    addNamedAccountBlock(i, nc.label);
+    addNamedCreditEntryRow(i, '', 0);
+  });
 
   /* build 3 tier credit rows */
   for(let i=1;i<=3;i++) addTierCreditRow(i);
@@ -121,14 +124,21 @@ function initLedger(ds, shift, mode) {
 
   /* apply view-only / editable state based on the saved record */
   setLockedState(!!db.sheets[activeKey]?.locked);
+
+  /* sticky jump-nav + progress bar + focus mode reset for this sheet */
+  if (typeof initLedgerNav === 'function') initLedgerNav();
 }
 
 /* ═══════════════════════════════════════════
    ZERO CREDIT ENTRIES (Shift & Final open)
 ═══════════════════════════════════════════ */
 function zeroCreditEntries() {
-  /* named credits */
-  document.querySelectorAll('.named-cred-val').forEach(el => el.value = 0);
+  /* named credits — collapse each account back to a single blank entry */
+  document.querySelectorAll('.named-account-block').forEach(block => {
+    const idx = parseInt(block.dataset.accountIdx);
+    block.querySelectorAll('.named-entry-row').forEach(r => r.remove());
+    addNamedCreditEntryRow(idx, '', 0);
+  });
   /* tier amounts */
   for(let i=1;i<=3;i++) { const el = g(`in-nested-${i}`); if(el) el.value = 0; }
   /* aux credits */
@@ -470,7 +480,7 @@ function calc() {
   /* Debt (E) */
   const carriedCredit = val('out-prev-credit');
   let namedDebt = 0;
-  document.querySelectorAll('.named-cred-val').forEach(el => namedDebt += parseFloat(el.value)||0);
+  document.querySelectorAll('.named-entry-val').forEach(el => namedDebt += parseFloat(el.value)||0);
   let tierDebt = 0;
   for(let i=1;i<=3;i++) tierDebt += val(`in-nested-${i}`);
   let auxDebt = 0;
@@ -628,6 +638,7 @@ function calc() {
   }
   /* ── real-time auto-draft ── */
   scheduleAutoSave();
+  if (typeof updateSectionStatus === 'function') updateSectionStatus();
 }
 
 /* ═══════════════════════════════════════════
@@ -735,6 +746,7 @@ function buildSheetRecord() {
   return {
     profileMode: activeMode,
     overrides:   overrides,
+    sectionComplete: (typeof _sectionComplete !== 'undefined') ? { ..._sectionComplete } : {},
     inSysCash:    val('in-sys-cash'),
     inLastBillAmt:val('in-last-bill-amt'),
     inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
@@ -782,10 +794,16 @@ function buildSheetRecord() {
     })),
     tillValues:  Array.from(document.querySelectorAll('.till-cell')).map(e=>parseFloat(e.value)||0),
     vaultValues: Array.from(document.querySelectorAll('.vault-cell')).map(e=>parseFloat(e.value)||0),
-    namedCredits: Array.from(document.querySelectorAll('.named-cred-val')).map((el,i)=>({
-      lbl: db.settings.namedCredits[i]?.label||'',
-      val: parseFloat(el.value)||0
-    })),
+    namedCredits: Array.from(document.querySelectorAll('.named-account-block')).flatMap(block => {
+      const idx = parseInt(block.dataset.accountIdx);
+      const lbl = db.settings.namedCredits[idx]?.label || '';
+      return Array.from(block.querySelectorAll('.named-entry-row')).map(row => ({
+        idx,
+        lbl,
+        desc: row.querySelector('.named-entry-desc')?.value || '',
+        val:  parseFloat(row.querySelector('.named-entry-val')?.value) || 0
+      }));
+    }),
     tierCredits: [1,2,3].map(i=>({
       tIdx:  g(`sel-tier-${i}`)?.value,
       name:  g(`sel-name-${i}`)?.value,
@@ -876,12 +894,28 @@ function hydrate(s) {
   if(s.tillValues)  document.querySelectorAll('.till-cell').forEach((el,i) => el.value=s.tillValues[i]||0);
   if(s.vaultValues) document.querySelectorAll('.vault-cell').forEach((el,i) => el.value=s.vaultValues[i]||0);
 
-  /* named credits */
-  const ncVals = document.querySelectorAll('.named-cred-val');
-  if(s.namedCredits) {
-    s.namedCredits.forEach((o,i) => { if(ncVals[i]) ncVals[i].value = o.val||0; });
-  } else if(s.auxCredits) { /* legacy */
-    s.auxCredits.forEach((o,i) => { if(ncVals[i]) ncVals[i].value = o.val||0; });
+  /* named credits — rebuild entry rows per account */
+  document.querySelectorAll('.named-account-block').forEach(block => {
+    block.querySelectorAll('.named-entry-row').forEach(r => r.remove());
+  });
+  if(s.namedCredits && s.namedCredits.length) {
+    const hasIdx = s.namedCredits.some(o => o.idx !== undefined);
+    if(hasIdx) {
+      db.settings.namedCredits.forEach((nc, idx) => {
+        const entries = s.namedCredits.filter(o => o.idx === idx);
+        if(entries.length) entries.forEach(o => addNamedCreditEntryRow(idx, o.desc||'', o.val||0));
+        else addNamedCreditEntryRow(idx, '', 0);
+      });
+    } else {
+      /* legacy: one entry per account, positional, no description */
+      db.settings.namedCredits.forEach((nc, idx) => {
+        addNamedCreditEntryRow(idx, '', s.namedCredits[idx]?.val || 0);
+      });
+    }
+  } else if(s.auxCredits) { /* very old legacy */
+    db.settings.namedCredits.forEach((nc, idx) => addNamedCreditEntryRow(idx, '', s.auxCredits[idx]?.val || 0));
+  } else {
+    db.settings.namedCredits.forEach((nc, idx) => addNamedCreditEntryRow(idx, '', 0));
   }
 
   /* tier credits */

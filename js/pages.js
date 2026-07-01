@@ -55,7 +55,7 @@ function clBuildSnapshot(key, rec) {
   if(rec.namedCredits && rec.namedCredits.length) {
     rec.namedCredits.forEach(o => {
       const v = parseFloat(o.val) || 0;
-      if(v !== 0) lines.push({ category: 'named', lbl: o.lbl || 'Named Account', val: v });
+      if(v !== 0) lines.push({ category: 'named', lbl: o.lbl || 'Named Account', desc: o.desc || '', val: v });
     });
   }
 
@@ -261,7 +261,7 @@ function clBuildShiftBlock(snap, activeFilter) {
     let h = `<div class="cl-cat-label">${label}</div>`;
     items.forEach(l => {
       h += `<div class="cl-line">
-        <span class="cl-lbl">${l.lbl}</span>
+        <span class="cl-lbl">${l.lbl}${l.desc ? ` <span class="cl-lbl-desc">(${l.desc})</span>` : ''}</span>
         <span class="cl-val">${clFmt(l.val)}</span>
       </div>`;
     });
@@ -386,7 +386,7 @@ function clExportTxt() {
     const tier  = snap.lines.filter(l => l.category === 'tier');
     const aux   = snap.lines.filter(l => l.category === 'aux');
 
-    if(named.length) { txt += 'Named Accounts:\n'; named.forEach(l => { txt += `  ${l.lbl.padEnd(30)} ${clFmt(l.val)}\n`; }); }
+    if(named.length) { txt += 'Named Accounts:\n'; named.forEach(l => { const lbl = l.desc ? `${l.lbl} (${l.desc})` : l.lbl; txt += `  ${lbl.padEnd(30)} ${clFmt(l.val)}\n`; }); }
     if(tier.length)  { txt += 'Staff / Tier Credits:\n'; tier.forEach(l => { txt += `  ${l.lbl.padEnd(30)} ${clFmt(l.val)}\n`; }); }
     if(aux.length)   { txt += 'Free Entries:\n'; aux.forEach(l => { txt += `  ${l.lbl.padEnd(30)} ${clFmt(l.val)}\n`; }); }
     if(snap.creditAdj !== 0) txt += `  Adjustment:${' '.repeat(19)} ${clFmtSigned(snap.creditAdj)}\n`;
