@@ -4,7 +4,7 @@
    Dropbox API calls always go to network (never cached).
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v1.1';
+const CACHE_NAME = 'pharmpos-closing-v1.2';
 
 /* ── App Shell — all files that make the app work offline ── */
 const APP_SHELL = [
