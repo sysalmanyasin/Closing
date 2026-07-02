@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v2.5
+   Pharma Plus Closing App — Service Worker  v1.2
    Strategy: Cache-first for app shell.
    Dropbox API calls always go to network (never cached).
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v2.5';
+const CACHE_NAME = 'pharmpos-closing-v1.2';
 
 /* ── App Shell — all files that make the app work offline ── */
 const APP_SHELL = [
@@ -13,6 +13,7 @@ const APP_SHELL = [
   './manifest.json',
   /* ── CSS ── */
   './css/main.css',
+  './css/closing-book.css',
   /* ── JS — load order matters (matches index.html) ── */
   './js/state.js',
   './js/repository.js',
@@ -20,126 +21,38 @@ const APP_SHELL = [
   './js/components.js',
   './js/pages.js',
   './js/ledger-nav.js',
+  './js/closing-book.js',
   './js/sync.js',
-  /* ── Icons ── */
-  './icons/icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/favicon-32.png',
 ];
 
-/* ── CDN libraries — cached on first use ── */
-const CDN_ORIGINS = [
-  'https://cdnjs.cloudflare.com',
-  'https://fonts.googleapis.com',
-  'https://fonts.gstatic.com',
-];
-
-/* ── Dropbox API — always network, never cache ── */
-const NETWORK_ONLY_ORIGINS = [
-  'https://api.dropboxapi.com',
-  'https://content.dropboxapi.com',
-  'https://www.dropbox.com',
-  'https://notify.dropboxapi.com',
-];
-
-/* ────────────────────────────────────────────────
-   INSTALL — pre-cache the entire app shell
-   ──────────────────────────────────────────────── */
+/* ── Skip waiting, activate immediately ── */
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return Promise.allSettled(
-        APP_SHELL.map(url =>
-          cache.add(url).catch(err => {
-            console.warn('[SW] Failed to cache:', url, err.message);
-          })
-        )
+        APP_SHELL.map(url => cache.add(url).catch(e => console.warn('[SW] Failed to cache:', url, e)))
       );
     }).then(() => self.skipWaiting())
   );
 });
 
-/* ────────────────────────────────────────────────
-   ACTIVATE — delete old caches
-   ──────────────────────────────────────────────── */
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      ))
-      .then(() => self.clients.claim())
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
-/* ────────────────────────────────────────────────
-   FETCH — routing strategy
-   ──────────────────────────────────────────────── */
 self.addEventListener('fetch', event => {
-  const { request } = event;
-
-  if (request.method !== 'GET') return;
-
-  /* Dropbox — always network */
-  if (NETWORK_ONLY_ORIGINS.some(o => request.url.startsWith(o))) return;
-
-  /* CDN fonts/libraries — stale while revalidate */
-  if (CDN_ORIGINS.some(o => request.url.startsWith(o))) {
-    event.respondWith(staleWhileRevalidate(request));
+  const url = event.request.url;
+  /* Always go to network for Dropbox API */
+  if (url.includes('api.dropboxapi.com') || url.includes('content.dropboxapi.com') || url.includes('api.dropbox.com')) {
+    event.respondWith(fetch(event.request));
     return;
   }
-
-  /* App shell — network first (gets update), falls back to cache offline */
-  event.respondWith(networkFirst(request));
-});
-
-/* ── Strategy helpers ── */
-const TIMEOUT_MS = 5000;
-
-function fetchWithTimeout(request, timeoutMs = TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(request, { signal: controller.signal })
-    .finally(() => clearTimeout(timer));
-}
-
-async function networkFirst(request) {
-  try {
-    const response = await fetchWithTimeout(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    return cached || new Response('Offline — open the app while connected first.', {
-      status: 503, statusText: 'Service Unavailable'
-    });
-  }
-}
-
-async function staleWhileRevalidate(request) {
-  const cache  = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  const fetchPromise = fetchWithTimeout(request).then(response => {
-    if (response.ok) cache.put(request, response.clone());
-    return response;
-  }).catch(() => cached);
-  return cached || fetchPromise;
-}
-
-/* ────────────────────────────────────────────────
-   MESSAGE — commands from the app
-   ──────────────────────────────────────────────── */
-self.addEventListener('message', event => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
-
-  if (event.data === 'CACHE_CLEAR') {
-    caches.keys()
-      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
-      .then(() => event.source.postMessage('CACHE_CLEARED'));
-  }
+  /* Cache-first for everything else */
+  event.respondWith(
+    caches.match(event.request).then(cached => cached || fetch(event.request))
+  );
 });

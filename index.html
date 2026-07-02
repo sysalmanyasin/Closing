@@ -18,6 +18,7 @@
 
 <!-- ── Styles ── -->
 <link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/closing-book.css">
 
 <!-- ── External Libraries ── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -33,6 +34,7 @@
   ║  Floor 3 — Actions  (business logic, EventBus)       ║
   ║  Floor 4 — Components (UI builders, numpad, PDF)     ║
   ║  Floor 5 — Pages    (renders, nav)                   ║
+  ║  Floor 5.5 — Closing Book (book reader)              ║
   ║  Sync     — Dropbox (cloud sync, isolated module)    ║
   ╚══════════════════════════════════════════════════════╝
 -->
@@ -42,6 +44,7 @@
 <script src="js/components.js"></script>
 <script src="js/pages.js"></script>
 <script src="js/ledger-nav.js"></script>
+<script src="js/closing-book.js"></script>
 <script src="js/sync.js"></script>
 
 </head>
@@ -71,6 +74,7 @@
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
+        <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#7c3aed;">📖 Closing Book</button>
       </div>
 
       <!-- ── CLOUD SYNC CARD ── -->
@@ -613,11 +617,6 @@
       <input type="hidden" id="out-final-net-cash-adj" value="0">
       <input type="hidden" id="out-final-prev-sale"    value="0">
 
-      <!-- ══ SECTION FOOTER — Back/Next, Save as Draft, previous-shift
-           snapshot. Because every ledger-section above is hidden (zero
-           height) except the one currently in focus, this single footer
-           visually sits at the bottom of whichever section is showing,
-           without needing to be duplicated into every card. ══ -->
       <div class="focus-controls" id="focus-controls" style="margin-top:20px;">
         <button class="focus-btn" id="focus-btn-prev" onclick="focusStep(-1)">‹ Back</button>
         <button class="focus-btn focus-btn-next" id="focus-btn-next" onclick="focusStep(1)">Next ›</button>
@@ -629,8 +628,6 @@
 
       <div class="prev-shift-snapshot" id="prev-shift-snapshot"></div>
 
-      <!-- Save & Close only ever shows once you're on the last section
-           (Review Closing Summary), not on every section along the way. -->
       <button class="btn btn-green btn-full hidden" id="btn-save-close" onclick="openSummaryModal()" style="margin-top:12px;">💾 Save &amp; Close This Shift</button>
     </div>
   </div>
@@ -682,6 +679,63 @@
     </div>
   </div>
   <!-- /PAGE 4 -->
+
+  <!-- ══ PAGE 5 — CLOSING BOOK ══ -->
+  <div id="page-closing-book" class="view-pane hidden">
+
+    <!-- Launcher Panel -->
+    <div id="book-launcher" class="cb-launcher">
+      <!-- Rendered by cbRenderLauncher() -->
+    </div>
+
+    <!-- Book Reader — full-screen within the page -->
+    <div id="book-reader" class="cb-reader hidden">
+
+      <!-- Top Bar -->
+      <div class="cb-reader-topbar">
+        <button class="cb-topbar-back" onclick="cbCloseReader()" title="Back to picker">← Back</button>
+
+        <div class="cb-topbar-center">
+          <div class="cb-page-label" id="cb-page-label"></div>
+          <div class="cb-page-counter" id="cb-page-counter">1 / 1</div>
+        </div>
+
+        <div class="cb-topbar-right">
+          <!-- Jump to date -->
+          <select id="cb-jump-select" class="cb-jump-select" onchange="cbJumpToPage(this.value)" title="Jump to page"></select>
+
+          <!-- Zoom controls -->
+          <div class="cb-zoom-row">
+            <button class="cb-zoom-btn cb-zoom-active" data-zoom="1"  onclick="cbSetZoom(1)">1×</button>
+            <button class="cb-zoom-btn"                data-zoom="2"  onclick="cbSetZoom(2)">2×</button>
+            <button class="cb-zoom-btn"                data-zoom="4"  onclick="cbSetZoom(4)">4×</button>
+            <button class="cb-zoom-btn"                data-zoom="8"  onclick="cbSetZoom(8)">8×</button>
+          </div>
+
+          <!-- Export -->
+          <button class="cb-topbar-action" onclick="cbExportPDF()" title="Export PDF">⬇ PDF</button>
+          <button class="cb-topbar-action" onclick="cbPrint()" title="Print">🖨</button>
+        </div>
+      </div>
+
+      <!-- Export status -->
+      <div id="cb-export-status" class="cb-export-status" style="display:none;"></div>
+
+      <!-- Pages viewport -->
+      <div class="cb-pages-viewport" id="cb-pages-viewport">
+        <div class="cb-pages-track" id="cb-pages-track">
+          <!-- Pages inserted by JS -->
+        </div>
+      </div>
+
+      <!-- Prev / Next navigation arrows -->
+      <button class="cb-nav-arrow cb-nav-prev" id="cb-btn-prev" onclick="cbNavigate(-1)" title="Previous page">‹</button>
+      <button class="cb-nav-arrow cb-nav-next" id="cb-btn-next" onclick="cbNavigate(1)"  title="Next page">›</button>
+
+    </div>
+    <!-- /book-reader -->
+  </div>
+  <!-- /PAGE 5 -->
 
 </div><!-- /shell -->
 
@@ -741,8 +795,6 @@
     <div class="save-action-btns" id="save-action-btns"></div>
   </div>
 </div>
-
-<!-- ═══ TOAST ═══ -->
 
 <!-- ═══ END-OF-SHIFT SUMMARY MODAL ═══ -->
 <div id="summary-modal-overlay" class="hidden" onclick="if(event.target===this)closeSummaryModal()">
