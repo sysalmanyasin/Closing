@@ -4,7 +4,7 @@
    save/delete sheets, auto-save scheduling.
 ═══════════════════════════════════════════════════════════════ */
 
-function initLedger(ds, shift, mode) {
+function initLedger(ds, shift, mode, opts = {}) {
   showPage('page-ledger');
 
   document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
@@ -125,6 +125,20 @@ function initLedger(ds, shift, mode) {
        documented in saveDraft(). */
     isSavedSheet = (db.sheets[activeKey].draft !== true);
     hydrate(db.sheets[activeKey]);
+    /* Re-sync the "carried forward" fields (CC, Credit, Deposits, Cash
+       Position) from whatever the previous shift's record looks like
+       RIGHT NOW — not the snapshot frozen into this sheet the last time
+       it was saved. This way, editing shift A and re-saving it correctly
+       flows forward into shift B the next time B is opened for editing,
+       without clobbering any of those 4 fields the user has manually
+       corrected in B itself (tracked via `overrides`).
+       Only runs when B is actually editable right now — a draft, or
+       explicitly reopened via Edit (PIN) — never for a locked sheet
+       being opened in plain View-Only, which should keep showing
+       exactly what was recorded at the time it was saved. */
+    if(!isSavedSheet || opts.forEdit) {
+      refreshCarryForwardFromPrevious(ds, shift, mode);
+    }
   } else {
     isSavedSheet = false;
     flushInputs();
@@ -290,6 +304,46 @@ function pullPreviousShift(ds, shift, mode) {
     document.getElementById('ledger-misc').innerHTML = "";
     miscCount = 0;
     hs.miscRows.forEach(m => addMiscRow(m.label || "", m.val || 0));
+  }
+}
+
+/* Re-sync ONLY the 4 "carried forward" fields (CC, Credit, Deposits,
+   Cash Position) from the previous shift's CURRENT saved state, for a
+   sheet that already exists (draft, or a saved sheet reopened via
+   Edit-PIN). This intentionally does NOT touch misc rows or anything
+   else pullPreviousShift() seeds — those are one-time defaults for a
+   brand-new sheet, not something to silently re-apply over a sheet
+   the user has already been working on. Any of the 4 fields the user
+   has manually corrected in THIS sheet (tracked in `overrides`) is
+   left exactly as they set it. */
+function refreshCarryForwardFromPrevious(ds, shift, mode) {
+  const prev = timelineStep(ds, shift, -1);
+  const hs   = getRealSheet(prev.key);
+  if(!hs) return;
+
+  const setIfNotOverridden = (id, v) => {
+    if(overrides[id] !== undefined) return;
+    set(id, v);
+  };
+
+  /* CC — same day-cycle rule as pullPreviousShift() above */
+  let carriedCC = 0;
+  if(shift === 'Night') {
+    carriedCC = (parseFloat(hs.outPrevCC) || 0) + (parseFloat(hs.outCurrCC) || 0);
+  } else {
+    const nightSheet = getRealSheet(ds + '_Night');
+    carriedCC = nightSheet ? (parseFloat(nightSheet.outPrevCC) || 0) : (parseFloat(hs.outPrevCC) || 0);
+  }
+  setIfNotOverridden('out-prev-cc', carriedCC);
+
+  setIfNotOverridden('out-prev-credit', parseFloat(hs.outTotalE) || 0);
+
+  if(mode === 'final') {
+    setIfNotOverridden('out-prev-dep',  0);
+    setIfNotOverridden('out-prev-cash', 0);
+  } else {
+    setIfNotOverridden('out-prev-dep',  parseFloat(hs.outTotalF) || 0);
+    setIfNotOverridden('out-prev-cash', parseFloat(hs.outTotalCash) || 0);
   }
 }
 

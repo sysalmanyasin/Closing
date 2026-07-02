@@ -229,29 +229,123 @@ function getPrevRealSheetForSnapshot() {
   return rec ? { rec, date: prevNode.date, shift: prevNode.shift } : null;
 }
 
-/* label + a single representative total per section, pulled straight
-   from the fields already persisted by buildSheetRecord()/saveSheet(). */
+/* label + a FULL breakdown per section — mirrors the live section's own
+   rows (not just a collapsed total), pulled straight from the fields
+   already persisted by buildSheetRecord()/saveSheet(). */
 function snapshotRowsForSection(key, rec) {
   const money = n => 'Rs. ' + (parseFloat(n) || 0).toLocaleString('en-PK');
-  const sum   = arr => (arr || []).reduce((a, o) => a + (parseFloat(o.val ?? o) || 0), 0);
+  const plain = n => (parseFloat(n) || 0).toLocaleString('en-PK');
+
   switch (key) {
-    case 'pos':      return [['System Cash Sales', money(rec.inSysCash)]];
-    case 'shift':    return [['Net Sale (that shift)', money(rec.outNetSale)]];
-    case 'hs':       return [['Total HS (A)', money(sum(rec.hsRows))]];
-    case 'strips': {
-      const stripsTotal = (rec.stripPrices || []).reduce((a, p, i) => a + (parseFloat(p) || 0) * (parseFloat(rec.stripQtys?.[i]) || 0), 0)
-        + (rec.auxStrips || []).reduce((a, o) => a + (parseFloat(o.p) || 0) * (parseFloat(o.q) || 0), 0);
-      return [['Total Inventory Revenue (B)', money(stripsTotal)]];
+    case 'pos': {
+      const totalReturns = (parseFloat(rec.posRet1)||0) + (parseFloat(rec.posRet2)||0) + (parseFloat(rec.posRet3)||0) + (parseFloat(rec.posRetSys)||0);
+      return [
+        ['System Cash Sales Total', money(rec.inSysCash)],
+        ['Last Bill Amount', money(rec.inLastBillAmt)],
+        ['Last Bill Number', plain(rec.inLastBillNum)],
+        ['Computer Card Sale', money(rec.inCompSale)],
+        ['Bank Alfalah Card Machine', money(rec.inAlfalah)],
+        ['Keenu Card Machine', money(rec.inKeenu)],
+        ['Return 1', money(rec.posRet1)],
+        ['Return 2', money(rec.posRet2)],
+        ['Return 3', money(rec.posRet3)],
+        ['System Return', money(rec.posRetSys)],
+        ['Total Returns', money(totalReturns)]
+      ];
     }
-    case 'misc':     return [['Total Misc (C)', money(sum(rec.miscRows))]];
-    case 'cc':       return [['Card Sales', money(rec.outCurrCC)], ['Carried CC', money(rec.outPrevCC)]];
-    case 'till':     return [['Total Till Cash (E)', money(sum(rec.tillValues))]];
-    case 'vault':    return [['Total Draw Cash (F)', money(sum(rec.vaultValues))]];
-    case 'credit':   return [['Total Credit Detail (G)', money(rec.outTotalE)], ['Carried debt then', money(rec.outPrevCredit)]];
-    case 'deposits': return [['Total Cash Deposits (H)', money(rec.outTotalF)]];
-    case 'audit':    return [['Net Cash Available', money(rec.outTotalCash)], ['Net Committed Cash', money(rec.outNetCash)]];
-    case 'final-agg':return rec.profileMode === 'final' ? [['Net Final Cash Available', money(rec.finalNetCash)]] : [];
-    default:         return [];
+    case 'shift':
+      return [
+        ["This Shift's Sales (delta)", money(rec.outShiftSale)],
+        ['Book Bill 1', money(rec.inBook1)],
+        ['Book Bill 2', money(rec.inBook2)],
+        ['Customers This Shift (delta)', plain(rec.outCust)],
+        ['Net Sale (this shift)', money(rec.outNetSale)]
+      ];
+    case 'hs': {
+      const rows = (rec.hsRows || []).filter(r => (parseFloat(r.val)||0) !== 0 || (r.lbl||'').trim())
+        .map((r, i) => [r.lbl?.trim() || `Row ${i+1}`, money(r.val)]);
+      const total = (rec.hsRows || []).reduce((a,r)=>a+(parseFloat(r.val)||0),0);
+      return rows.concat([['Total HS (A)', money(total)]]);
+    }
+    case 'strips': {
+      const rows = [];
+      (rec.stripPrices || []).forEach((p, i) => {
+        const q = parseFloat(rec.stripQtys?.[i]) || 0;
+        const price = parseFloat(p) || 0;
+        if (q === 0) return; // keep the snapshot to what actually moved that shift
+        const name = db.settings.strips[i]?.name || `Item ${i+1}`;
+        rows.push([name, `${q} × ${money(price)} = ${money(q*price)}`]);
+      });
+      (rec.auxStrips || []).forEach(o => {
+        const q = parseFloat(o.q)||0, p = parseFloat(o.p)||0;
+        if (q === 0 && p === 0) return;
+        rows.push([o.label?.trim() || 'Extra item', `${q} × ${money(p)} = ${money(q*p)}`]);
+      });
+      const total = (rec.stripPrices||[]).reduce((a,p,i)=>a+(parseFloat(p)||0)*(parseFloat(rec.stripQtys?.[i])||0),0)
+        + (rec.auxStrips||[]).reduce((a,o)=>a+(parseFloat(o.p)||0)*(parseFloat(o.q)||0),0);
+      if (!rows.length) rows.push(['No items sold that shift', '']);
+      return rows.concat([['Total Inventory Revenue (B)', money(total)]]);
+    }
+    case 'misc': {
+      const rows = (rec.miscRows||[]).filter(r=>(parseFloat(r.val)||0)!==0 || (r.label||'').trim())
+        .map(r => [r.label?.trim() || 'Item', money(r.val)]);
+      const total = (rec.miscRows||[]).reduce((a,r)=>a+(parseFloat(r.val)||0),0);
+      return rows.concat([['Total Misc (C)', money(total)]]);
+    }
+    case 'cc':
+      return [
+        ['Carried CC from Previous', money(rec.outPrevCC)],
+        ['Card Sales This Shift (D)', money(rec.outCurrCC)]
+      ];
+    case 'till': case 'vault': {
+      const vals = key === 'till' ? rec.tillValues : rec.vaultValues;
+      const rows = DENOMS.map((d, i) => {
+        const qty = parseFloat(vals?.[i]) || 0;
+        return qty !== 0 ? [d.label, `${qty} × ${money(d.mult)} = ${money(qty*d.mult)}`] : null;
+      }).filter(Boolean);
+      const total = DENOMS.reduce((a,d,i)=>a+(parseFloat(vals?.[i])||0)*d.mult, 0);
+      if (!rows.length) rows.push(['No cash counted that shift', '']);
+      return rows.concat([[key==='till' ? 'Total Till Cash (E)' : 'Total Draw Cash (F)', money(total)]]);
+    }
+    case 'credit': {
+      const rows = [
+        ['Carried Debt from Previous Shift', money(rec.outPrevCredit)],
+        ['Credit Adjustment', money(rec.creditAdj)]
+      ];
+      (rec.namedCredits||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
+        rows.push([o.lbl + (o.desc ? ` — ${o.desc}` : ''), money(o.val)]);
+      });
+      (rec.tierCredits||[]).filter(o=>(parseFloat(o.val)||0)!==0 && o.name).forEach(o => {
+        rows.push([o.name, money(o.val)]);
+      });
+      (rec.auxCredits||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
+        rows.push([o.lbl?.trim() || 'Aux entry', money(o.val)]);
+      });
+      rows.push(['Total Credit Detail (G)', money(rec.outTotalE)]);
+      return rows;
+    }
+    case 'deposits': {
+      const rows = [['Carried Deposits from Previous', money(rec.outPrevDep)]];
+      (rec.deposits||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
+        rows.push([o.lbl?.trim() || 'Deposit', money(o.val)]);
+      });
+      rows.push(['Total Cash Deposits (H)', money(rec.outTotalF)]);
+      return rows;
+    }
+    case 'audit':
+      return [
+        ['Net Cash Available', money(rec.outTotalCash)],
+        ["Less: Previous Shift's Cash Position", money(rec.outPrevCash)],
+        ['Net Committed Cash (this shift)', money(rec.outNetCash)],
+        ['Extra Cash Added to Pharmacy', money(rec.extraCash)]
+      ];
+    case 'final-agg':
+      return rec.profileMode === 'final' ? [
+        ['Net Final Sale', money(rec.finalNetSale)],
+        ['Net Final Cash Available', money(rec.finalNetCash)],
+        [rec.finalDiffLabel || 'Variance', money(rec.finalDiff)]
+      ] : [];
+    default: return [];
   }
 }
 
@@ -277,7 +371,7 @@ function renderPrevShiftSnapshot() {
 
   box.innerHTML = `
     <div class="pss-head">📋 Previous shift — ${prev.date} · ${shiftLabel}</div>
-    ${rowsHtml}`;
+    <div class="pss-body">${rowsHtml}</div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════

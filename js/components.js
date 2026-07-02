@@ -849,7 +849,7 @@ function confirmEditModal() {
   activeMode = newMode;
   overrides  = db.sheets[key]?.overrides || {};
   const p    = key.split('_');
-  initLedger(p[0], p[1], activeMode);
+  initLedger(p[0], p[1], activeMode, { forEdit: true });
   setLockedState(false);
 }
 

@@ -1055,12 +1055,13 @@
     text-transform: uppercase; letter-spacing: .3px; background: #eef2f7;
     border-bottom: 1px solid var(--border);
   }
+  .pss-body { max-height: 260px; overflow-y: auto; }
   .pss-row {
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
     padding: 7px 12px; font-size: 0.82rem; color: var(--slate); border-bottom: 1px solid var(--border);
   }
-  .pss-row:last-child { border-bottom: none; }
-  .pss-row span:last-child { font-weight: 700; color: var(--navy); }
+  .pss-row span:first-child { flex-shrink: 0; }
+  .pss-row span:last-child { font-weight: 700; color: var(--navy); text-align: right; }
   .pss-empty, .pss-empty-row {
     padding: 12px; font-size: 0.8rem; color: var(--muted); text-align: center;
   }
