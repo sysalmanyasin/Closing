@@ -289,11 +289,22 @@
 
       <div class="card">
         <div class="card-head" style="cursor:default;">
+          <h3>Item Groups</h3>
+          <button class="btn btn-teal btn-sm" onclick="addStripGroup()">+ Add Group</button>
+        </div>
+        <div class="page-body" style="padding: 16px;">
+          <p class="text-muted text-sm" style="margin-bottom:12px;">Group inventory items (e.g. Water, Nestlé Juice, Nescafé, 1L Juice, Milo, Mask, Bags) so the Strips section is readable in portrait mode — items are shown under their group header with just Price / Qty / Total per row.</p>
+          <div id="settings-strip-groups"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;">
           <h3>Default Inventory Items</h3>
           <button class="btn btn-teal btn-sm" onclick="addStripRow()">+ Add Item</button>
         </div>
         <div class="strips-header">
-          <span>Item Name</span><span>Unit Price</span><span style="width:60px;"></span>
+          <span>Item Name</span><span>Group</span><span>Unit Price</span><span style="width:60px;"></span>
         </div>
         <div id="settings-strips" style="max-height:280px;overflow-y:auto;"></div>
       </div>
@@ -370,12 +381,6 @@
           <div class="banner-row"><span id="ban-variance-label">Variance</span><span class="val" id="ban-variance">Rs. 0</span></div>
         </div>
       </div>
-    </div>
-
-    <!-- ══ FOCUS MODE PREV/NEXT CONTROLS ══ -->
-    <div class="focus-controls" id="focus-controls">
-      <button class="focus-btn" id="focus-btn-prev" onclick="focusStep(-1)">‹ Back</button>
-      <button class="focus-btn focus-btn-next" id="focus-btn-next" onclick="focusStep(1)">Next ›</button>
     </div>
 
     <div class="page-body">
@@ -519,7 +524,7 @@
         </div>
         <div class="card-body">
           <div class="row computed" id="box-out-prev-credit"><label>Carried Debt from Previous Shift:</label><input type="number" id="out-prev-credit" oninput="setOverride('out-prev-credit')"></div>
-          <div class="row"><label>Credit Adjustment (+ / −):</label>
+          <div class="row"><label>Credit Adjustment:</label>
             <div style="display:flex;gap:4px;align-items:center;">
               <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="toggleSign('in-credit-adj')">±</button>
               <input type="number" id="in-credit-adj" value="0" oninput="calc()" placeholder="e.g. -500" style="flex:1;">
@@ -608,10 +613,25 @@
       <input type="hidden" id="out-final-net-cash-adj" value="0">
       <input type="hidden" id="out-final-prev-sale"    value="0">
 
-      <div style="margin-top:20px;">
-        <button class="btn btn-ghost btn-full" id="btn-save-draft" onclick="saveDraft()" style="margin-bottom:10px;">💾 Save as Draft</button>
-        <button class="btn btn-green btn-full" id="btn-save-close" onclick="openSummaryModal()">💾 Save &amp; Close This Shift</button>
+      <!-- ══ SECTION FOOTER — Back/Next, Save as Draft, previous-shift
+           snapshot. Because every ledger-section above is hidden (zero
+           height) except the one currently in focus, this single footer
+           visually sits at the bottom of whichever section is showing,
+           without needing to be duplicated into every card. ══ -->
+      <div class="focus-controls" id="focus-controls" style="margin-top:20px;">
+        <button class="focus-btn" id="focus-btn-prev" onclick="focusStep(-1)">‹ Back</button>
+        <button class="focus-btn focus-btn-next" id="focus-btn-next" onclick="focusStep(1)">Next ›</button>
       </div>
+
+      <div style="margin-top:10px;">
+        <button class="btn btn-ghost btn-full" id="btn-save-draft" onclick="saveDraft()">💾 Save as Draft</button>
+      </div>
+
+      <div class="prev-shift-snapshot" id="prev-shift-snapshot"></div>
+
+      <!-- Save & Close only ever shows once you're on the last section
+           (Review Closing Summary), not on every section along the way. -->
+      <button class="btn btn-green btn-full hidden" id="btn-save-close" onclick="openSummaryModal()" style="margin-top:12px;">💾 Save &amp; Close This Shift</button>
     </div>
   </div>
   <!-- /PAGE 3 -->

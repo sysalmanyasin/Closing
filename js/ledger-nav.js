@@ -106,14 +106,22 @@ function updateSectionStatus() {
     const isOpen = !card.classList.contains('collapsed');
 
     if (chip) {
+      /* Only auto-scroll the chip bar when this chip is NEWLY becoming
+         current (i.e. the section actually changed). updateSectionStatus()
+         is also called from calc() on every keystroke, so re-running
+         scrollIntoView unconditionally here was yanking the whole
+         sticky-header page back to this chip on every character typed.
+         Guarding on the previous state makes it fire only on real navigation. */
+      const wasCurrent = chip.classList.contains('lpb-current');
       chip.classList.toggle('lpb-current', isOpen);
-      if (isOpen) {
+      if (isOpen && !wasCurrent) {
         chip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }
   });
 
   updateFocusButtons();
+  renderPrevShiftSnapshot();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -178,26 +186,98 @@ function focusStep(dir) {
 
 function updateFocusButtons() {
   const keys = visibleSectionKeys();
-  const currentKey = keys[_focusIndex];
   const prevBtn = document.getElementById('focus-btn-prev');
   const nextBtn = document.getElementById('focus-btn-next');
+  const saveCloseBtn = document.getElementById('btn-save-close');
+  const isLast  = (_focusIndex >= keys.length - 1);
+  const locked  = (typeof isSheetLocked !== 'undefined') && isSheetLocked;
+
   if (prevBtn) prevBtn.disabled = (_focusIndex <= 0);
+
   if (nextBtn) {
-    const isLast = (_focusIndex >= keys.length - 1);
-    const locked = (typeof isSheetLocked !== 'undefined') && isSheetLocked;
-    if (isLast && locked) {
-      /* Already saved & locked — nothing left to review/save, so the
-         button simply isn't shown (view via "‹ Back" / nav chips instead). */
+    if (isLast) {
+      /* Nothing further to step to — the dedicated "Save & Close" button
+         below takes over as the way to finish, so Next just steps aside. */
       nextBtn.classList.add('hidden');
       nextBtn.onclick = null;
     } else {
       nextBtn.classList.remove('hidden');
-      nextBtn.textContent = isLast ? 'Review & Save ✓' : 'Next ›';
-      nextBtn.onclick = isLast
-        ? () => { _touchedSections[currentKey] = true; updateSectionStatus(); openSummaryModal(); }
-        : () => focusStep(1);
+      nextBtn.textContent = 'Next ›';
+      nextBtn.onclick = () => focusStep(1);
     }
   }
+
+  /* "Save & Close This Shift" only ever appears once you've reached the
+     last section (i.e. the Review Closing Summary step) — never earlier,
+     and not once the sheet is already saved & locked. */
+  if (saveCloseBtn) {
+    saveCloseBtn.classList.toggle('hidden', !isLast || locked);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PREVIOUS-SHIFT SNAPSHOT — a read-only, always-visible card
+   showing what the previous (real, saved) shift looked like for
+   whichever section is currently in focus. Lives in the section
+   footer, below "Save as Draft". Never editable, never collapsed.
+═══════════════════════════════════════════════════════════ */
+function getPrevRealSheetForSnapshot() {
+  if (!activeKey || typeof timelineStep !== 'function' || typeof getRealSheet !== 'function') return null;
+  const parts = activeKey.split('_');
+  const prevNode = timelineStep(parts[0], parts[1], -1);
+  const rec = getRealSheet(prevNode.key);
+  return rec ? { rec, date: prevNode.date, shift: prevNode.shift } : null;
+}
+
+/* label + a single representative total per section, pulled straight
+   from the fields already persisted by buildSheetRecord()/saveSheet(). */
+function snapshotRowsForSection(key, rec) {
+  const money = n => 'Rs. ' + (parseFloat(n) || 0).toLocaleString('en-PK');
+  const sum   = arr => (arr || []).reduce((a, o) => a + (parseFloat(o.val ?? o) || 0), 0);
+  switch (key) {
+    case 'pos':      return [['System Cash Sales', money(rec.inSysCash)]];
+    case 'shift':    return [['Net Sale (that shift)', money(rec.outNetSale)]];
+    case 'hs':       return [['Total HS (A)', money(sum(rec.hsRows))]];
+    case 'strips': {
+      const stripsTotal = (rec.stripPrices || []).reduce((a, p, i) => a + (parseFloat(p) || 0) * (parseFloat(rec.stripQtys?.[i]) || 0), 0)
+        + (rec.auxStrips || []).reduce((a, o) => a + (parseFloat(o.p) || 0) * (parseFloat(o.q) || 0), 0);
+      return [['Total Inventory Revenue (B)', money(stripsTotal)]];
+    }
+    case 'misc':     return [['Total Misc (C)', money(sum(rec.miscRows))]];
+    case 'cc':       return [['Card Sales', money(rec.outCurrCC)], ['Carried CC', money(rec.outPrevCC)]];
+    case 'till':     return [['Total Till Cash (E)', money(sum(rec.tillValues))]];
+    case 'vault':    return [['Total Draw Cash (F)', money(sum(rec.vaultValues))]];
+    case 'credit':   return [['Total Credit Detail (G)', money(rec.outTotalE)], ['Carried debt then', money(rec.outPrevCredit)]];
+    case 'deposits': return [['Total Cash Deposits (H)', money(rec.outTotalF)]];
+    case 'audit':    return [['Net Cash Available', money(rec.outTotalCash)], ['Net Committed Cash', money(rec.outNetCash)]];
+    case 'final-agg':return rec.profileMode === 'final' ? [['Net Final Cash Available', money(rec.finalNetCash)]] : [];
+    default:         return [];
+  }
+}
+
+function renderPrevShiftSnapshot() {
+  const box = document.getElementById('prev-shift-snapshot');
+  if (!box) return;
+
+  const keys = visibleSectionKeys();
+  const currentKey = keys[_focusIndex];
+  const sec = LEDGER_SECTIONS.find(s => s.key === currentKey);
+  const prev = getPrevRealSheetForSnapshot();
+
+  if (!prev) {
+    box.innerHTML = `<div class="pss-empty">No previous shift on record yet.</div>`;
+    return;
+  }
+
+  const rows = snapshotRowsForSection(currentKey, prev.rec);
+  const shiftLabel = typeof srLabel === 'function' ? srLabel(prev.shift) : prev.shift;
+  const rowsHtml = rows.length
+    ? rows.map(([label, value]) => `<div class="pss-row"><span>${label}</span><span>${value}</span></div>`).join('')
+    : `<div class="pss-row pss-empty-row"><span>No data entered for ${sec ? sec.label : 'this section'} that shift</span></div>`;
+
+  box.innerHTML = `
+    <div class="pss-head">📋 Previous shift — ${prev.date} · ${shiftLabel}</div>
+    ${rowsHtml}`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -359,6 +439,14 @@ function initLedgerSwipeNav() {
      a tap is still just a tap (the distance threshold tells them apart). */
   zone.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) { tracking = false; return; }
+    /* The chip bar (.ledger-progress-bar) has its own native horizontal
+       scroll. A drag that starts on it is the user scrolling the chips,
+       not swiping between sections — let it scroll natively and don't
+       let this listener steal it and jump to another section. */
+    if (e.target.closest && e.target.closest('.ledger-progress-bar')) {
+      tracking = false;
+      return;
+    }
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     tracking = true;

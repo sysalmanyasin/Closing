@@ -803,6 +803,7 @@ function buildSettingsUI() {
       <div class="form-field"><label>Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${t?.names?.join(', ')||''}"></div>`;
     sf.appendChild(div);
   }
+  renderSettingsStripGroups();
   renderSettingsStrips();
 }
 
@@ -832,19 +833,58 @@ function removeNamedCredit(i) {
 function renderSettingsStrips() {
   const box = document.getElementById('settings-strips');
   box.innerHTML = "";
+  const groupOptions = (selected) => `<option value="">— Ungrouped —</option>` +
+    db.settings.stripGroups.map(g => `<option value="${g}" ${g===selected?'selected':''}>${g}</option>`).join('');
   db.settings.strips.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
       <input type="text" value="${item.name}" onchange="db.settings.strips[${idx}].name=this.value">
+      <select onchange="db.settings.strips[${idx}].group=this.value">${groupOptions(item.group||'')}</select>
       <input type="number" value="${item.price}" onchange="db.settings.strips[${idx}].price=parseFloat(this.value)||0">
       <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})">✕</button>`;
     box.appendChild(div);
   });
 }
 
-function addStripRow()  { db.settings.strips.push({name:"New Item",price:0}); renderSettingsStrips(); }
+function addStripRow()  { db.settings.strips.push({name:"New Item",price:0,group:""}); renderSettingsStrips(); }
 function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); }
+
+/* ── Item Groups (Settings) ───────────────────────────────── */
+function renderSettingsStripGroups() {
+  const box = document.getElementById('settings-strip-groups');
+  if (!box) return;
+  if (!db.settings.stripGroups) db.settings.stripGroups = [];
+  box.innerHTML = "";
+  db.settings.stripGroups.forEach((name, idx) => {
+    const div = document.createElement('div');
+    div.className = "settings-item";
+    div.innerHTML = `
+      <input type="text" value="${name}" onchange="renameStripGroup(${idx}, this.value)">
+      <button class="btn btn-red btn-sm" onclick="removeStripGroup(${idx})">✕</button>`;
+    box.appendChild(div);
+  });
+}
+function addStripGroup() {
+  db.settings.stripGroups.push("New Group");
+  renderSettingsStripGroups();
+  renderSettingsStrips();
+}
+function renameStripGroup(idx, newName) {
+  const oldName = db.settings.stripGroups[idx];
+  db.settings.stripGroups[idx] = newName;
+  /* keep items pointed at the renamed group */
+  db.settings.strips.forEach(item => { if (item.group === oldName) item.group = newName; });
+  renderSettingsStrips();
+}
+function removeStripGroup(idx) {
+  const name = db.settings.stripGroups[idx];
+  db.settings.stripGroups.splice(idx, 1);
+  /* items in the removed group fall back to Ungrouped, not deleted */
+  db.settings.strips.forEach(item => { if (item.group === name) item.group = ""; });
+  renderSettingsStripGroups();
+  renderSettingsStrips();
+}
 
 function saveSettings() {
   db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;

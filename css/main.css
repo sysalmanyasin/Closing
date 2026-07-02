@@ -192,6 +192,25 @@
   .strips-header span:first-child { flex: 1; }
   .strips-header span { width: 80px; text-align: right; }
   .row.strip-row { gap: 6px; }
+
+  .strip-group-header {
+    padding: 8px 16px 4px; margin-top: 6px;
+    font-size: 0.72rem; font-weight: 800; color: var(--teal-dark);
+    text-transform: uppercase; letter-spacing: .4px;
+    background: var(--teal-pale); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .strip-group-header:first-child { margin-top: 0; }
+
+  /* Portrait / narrow phones: the item name column was getting crushed
+     to the point of being unreadable. Grouped items rely on the group
+     header above instead, freeing the row for Price / Qty / Total only. */
+  @media (orientation: portrait), (max-width: 480px) {
+    .strip-row.grouped .strip-name { display: none; }
+    .strip-row.grouped { justify-content: flex-end; }
+    .strip-row.grouped .strip-price,
+    .strip-row.grouped .strip-qty,
+    .strip-row.grouped .strip-line { flex: 1; width: auto; min-width: 0; }
+  }
   .row.strip-row .strip-name { flex:1; font-weight:500; color:var(--slate); font-size:.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .row.strip-row input { width: 80px; margin: 0; }
 
@@ -359,9 +378,10 @@
 
   /* ── SETTINGS LIST ── */
   .settings-item { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; }
-  .settings-item input { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+  .settings-item input, .settings-item select { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
   .settings-item input:first-child { flex: 2; }
-  .settings-item input:nth-child(2) { width: 90px; text-align: right; font-family: 'JetBrains Mono', monospace; }
+  .settings-item select { flex: 1.2; min-width: 90px; }
+  .settings-item input[type="number"] { width: 90px; text-align: right; font-family: 'JetBrains Mono', monospace; }
 
   /* ── MANIFEST LIST ── */
   .manifest-item {
@@ -1021,6 +1041,30 @@
   }
   .focus-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .focus-btn.focus-btn-next { background: var(--teal); border-color: var(--teal); color: #fff; }
+
+  /* ═══════════════════════════════════════════════════════════
+     PREVIOUS-SHIFT SNAPSHOT  (read-only, always visible, sits
+     below "Save as Draft" in each section's footer)
+  ═══════════════════════════════════════════════════════════ */
+  .prev-shift-snapshot {
+    margin-top: 14px; border: 1px dashed var(--border); border-radius: var(--radius-md);
+    background: #f8fafc; overflow: hidden;
+  }
+  .pss-head {
+    padding: 8px 12px; font-size: 0.72rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .3px; background: #eef2f7;
+    border-bottom: 1px solid var(--border);
+  }
+  .pss-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 12px; font-size: 0.82rem; color: var(--slate); border-bottom: 1px solid var(--border);
+  }
+  .pss-row:last-child { border-bottom: none; }
+  .pss-row span:last-child { font-weight: 700; color: var(--navy); }
+  .pss-empty, .pss-empty-row {
+    padding: 12px; font-size: 0.8rem; color: var(--muted); text-align: center;
+  }
+  .pss-empty-row span:last-child { font-weight: 400; color: var(--muted); }
 
   /* ═══════════════════════════════════════════════════════════
      VIEW ALL  (read-only glance overlay — never editable, never

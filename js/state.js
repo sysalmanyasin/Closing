@@ -35,18 +35,19 @@ let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
       {type:"Branch Tabs",    names:["Johar Town","DHA Branch","Bahria Pool"]}
     ],
     strips: [
-      {name:"Water 1.5L",        price:17},
-      {name:"Water 500ml",       price:28},
-      {name:"Water 330ml",       price:0},
-      {name:"Regular Strips",    price:10},
-      {name:"Pura Water 1L",     price:16},
-      {name:"Pura Water 0.5L",   price:28},
-      {name:"Juice Pack 60x",    price:0},
-      {name:"Juice Pack 80x",    price:60},
-      {name:"Juice Pack 140x",   price:5},
-      {name:"Juice Pack 150x",   price:4},
-      {name:"Juice Pack 250x",   price:6}
-    ]
+      {name:"Water 1.5L",        price:17,  group:"Water"},
+      {name:"Water 500ml",       price:28,  group:"Water"},
+      {name:"Water 330ml",       price:0,   group:"Water"},
+      {name:"Regular Strips",    price:10,  group:""},
+      {name:"Pura Water 1L",     price:16,  group:"Water"},
+      {name:"Pura Water 0.5L",   price:28,  group:"Water"},
+      {name:"Juice Pack 60x",    price:0,   group:"Nestlé Juice"},
+      {name:"Juice Pack 80x",    price:60,  group:"Nestlé Juice"},
+      {name:"Juice Pack 140x",   price:5,   group:"Nestlé Juice"},
+      {name:"Juice Pack 150x",   price:4,   group:"Nestlé Juice"},
+      {name:"Juice Pack 250x",   price:6,   group:"Nestlé Juice"}
+    ],
+    stripGroups: ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"]
   },
   sheets: {}
 };
@@ -55,6 +56,9 @@ let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
 if(!db.settings.namedCredits && db.settings.creditLabels) {
   db.settings.namedCredits = db.settings.creditLabels.map(l=>({label:l}));
 }
+/* migrate: item groups feature — older saved settings won't have these yet */
+if(!db.settings.stripGroups) db.settings.stripGroups = ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"];
+if(db.settings.strips) db.settings.strips.forEach(item => { if(item.group === undefined) item.group = ""; });
 
 let activeKey      = null;
 let activeMode     = "shift";

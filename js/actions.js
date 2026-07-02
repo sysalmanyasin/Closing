@@ -62,20 +62,34 @@ function initLedger(ds, shift, mode) {
     const el = document.getElementById(id); if(el) el.innerHTML = "";
   });
 
-  /* build named credit rows from settings */
+  /* build named credit rows from settings — start empty; a row only
+     appears once the user taps "+ Add entry" (or one is restored below) */
   db.settings.namedCredits.forEach((nc, i) => {
     addNamedAccountBlock(i, nc.label);
-    addNamedCreditEntryRow(i, '', 0);
   });
 
   /* build 3 tier credit rows */
   for(let i=1;i<=3;i++) addTierCreditRow(i);
 
-  /* build strips from settings */
+  /* build strips from settings, grouped by db.settings.strips[i].group.
+     Row order stays exactly the array order (positional index integrity
+     matters — calc()/buildSheetRecord()/hydrate() all read strip inputs
+     by DOM position), a group header is just inserted wherever the group
+     changes. In portrait, CSS hides the per-row item name in favour of
+     the group header, so only Price / Qty / Total need to fit. */
   const sc = document.getElementById('ledger-strips');
+  let lastGroup = null;
   db.settings.strips.forEach((st, idx) => {
+    const grp = st.group || '';
+    if (grp !== lastGroup) {
+      const header = document.createElement('div');
+      header.className = "strip-group-header";
+      header.textContent = grp || 'Other Items';
+      sc.appendChild(header);
+      lastGroup = grp;
+    }
     const row = document.createElement('div');
-    row.className = "row strip-row";
+    row.className = "row strip-row" + (grp ? " grouped" : "");
     row.innerHTML = `
       <span class="strip-name">${st.name}</span>
       <input type="number" class="strip-price" data-idx="${idx}" value="${st.price}" readonly style="width:80px;background:#f1f5f9;color:var(--muted);">
@@ -133,11 +147,9 @@ function initLedger(ds, shift, mode) {
    ZERO CREDIT ENTRIES (Shift & Final open)
 ═══════════════════════════════════════════ */
 function zeroCreditEntries() {
-  /* named credits — collapse each account back to a single blank entry */
+  /* named credits — clear each account back to no entries (empty state) */
   document.querySelectorAll('.named-account-block').forEach(block => {
-    const idx = parseInt(block.dataset.accountIdx);
     block.querySelectorAll('.named-entry-row').forEach(r => r.remove());
-    addNamedCreditEntryRow(idx, '', 0);
   });
   /* tier amounts */
   for(let i=1;i<=3;i++) { const el = g(`in-nested-${i}`); if(el) el.value = 0; }
@@ -190,21 +202,21 @@ function setLockedState(locked) {
 
   /* toolbar / action buttons */
   const btnDraft  = document.getElementById('btn-save-draft');
-  const btnClose  = document.getElementById('btn-save-close');
   const menuEdit  = document.getElementById('menu-edit-pin');
   const menuClear = document.getElementById('menu-clear-fields');
   const menuDel   = document.getElementById('menu-delete-sheet');
   const lockedBar = document.getElementById('locked-mode-bar');
 
   if(btnDraft)  btnDraft.classList.toggle('hidden', locked);
-  if(btnClose)  btnClose.classList.toggle('hidden', locked);
   if(menuEdit)  menuEdit.classList.toggle('hidden', !locked);
   if(menuClear) menuClear.classList.toggle('hidden', locked);
   if(menuDel)   menuDel.classList.toggle('hidden', locked);
   if(lockedBar) lockedBar.classList.toggle('hidden', !locked);
 
-  /* keep the focus-mode Next/Review&Save button in sync with lock state
-     (it must never offer "Review & Save" on an already-saved, locked sheet) */
+  /* keep the focus-mode Back/Next buttons AND the "Save & Close" button
+     in sync with lock state — updateFocusButtons() is the single source
+     of truth for btn-save-close's visibility (only shown on the last
+     section, and never while locked), so it isn't toggled here directly. */
   if(typeof updateFocusButtons === 'function') updateFocusButtons();
 }
 
@@ -632,6 +644,18 @@ function calc() {
   /* ── real-time auto-draft ── */
   scheduleAutoSave();
   if (typeof updateSectionStatus === 'function') updateSectionStatus();
+  skipReadonlyInTabOrder();
+}
+
+/* Tab / mobile "Next" should only step across editable Qty/value cells,
+   never land on computed read-only fields (line totals, locked prices,
+   carried-over values, etc). Readonly inputs are pulled out of the tab
+   order entirely; new rows added dynamically (strips, credit entries)
+   are covered because calc() re-runs this after every change. */
+function skipReadonlyInTabOrder() {
+  document.querySelectorAll('input[readonly]').forEach(el => {
+    el.tabIndex = -1;
+  });
 }
 
 /* ═══════════════════════════════════════════
@@ -886,24 +910,30 @@ function hydrate(s) {
   document.querySelectorAll('.named-account-block').forEach(block => {
     block.querySelectorAll('.named-entry-row').forEach(r => r.remove());
   });
+  /* Only restore rows that actually carry data (a description or a
+     non-zero amount). Empty/zero placeholder rows are never persisted
+     back into the UI — the account block simply starts empty and the
+     user adds a row via "+ Add entry" when they need one. */
+  const hasContent = o => (o && ((o.desc && o.desc.trim()) || (parseFloat(o.val) || 0) !== 0));
   if(s.namedCredits && s.namedCredits.length) {
     const hasIdx = s.namedCredits.some(o => o.idx !== undefined);
     if(hasIdx) {
       db.settings.namedCredits.forEach((nc, idx) => {
-        const entries = s.namedCredits.filter(o => o.idx === idx);
-        if(entries.length) entries.forEach(o => addNamedCreditEntryRow(idx, o.desc||'', o.val||0));
-        else addNamedCreditEntryRow(idx, '', 0);
+        s.namedCredits.filter(o => o.idx === idx && hasContent(o))
+          .forEach(o => addNamedCreditEntryRow(idx, o.desc||'', o.val||0));
       });
     } else {
       /* legacy: one entry per account, positional, no description */
       db.settings.namedCredits.forEach((nc, idx) => {
-        addNamedCreditEntryRow(idx, '', s.namedCredits[idx]?.val || 0);
+        const o = s.namedCredits[idx];
+        if(hasContent(o)) addNamedCreditEntryRow(idx, '', o.val || 0);
       });
     }
   } else if(s.auxCredits) { /* very old legacy */
-    db.settings.namedCredits.forEach((nc, idx) => addNamedCreditEntryRow(idx, '', s.auxCredits[idx]?.val || 0));
-  } else {
-    db.settings.namedCredits.forEach((nc, idx) => addNamedCreditEntryRow(idx, '', 0));
+    db.settings.namedCredits.forEach((nc, idx) => {
+      const o = s.auxCredits[idx];
+      if(hasContent(o)) addNamedCreditEntryRow(idx, '', o.val || 0);
+    });
   }
 
   /* tier credits */
