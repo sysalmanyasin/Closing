@@ -839,18 +839,22 @@ function renderSettingsStrips() {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${item.name}" onchange="db.settings.strips[${idx}].name=this.value">
-      <select onchange="db.settings.strips[${idx}].group=this.value">${groupOptions(item.group||'')}</select>
-      <input type="number" value="${item.price}" onchange="db.settings.strips[${idx}].price=parseFloat(this.value)||0">
+      <input type="text" value="${item.name}" onchange="db.settings.strips[${idx}].name=this.value;persist()">
+      <select onchange="db.settings.strips[${idx}].group=this.value;persist()">${groupOptions(item.group||'')}</select>
+      <input type="number" value="${item.price}" onchange="db.settings.strips[${idx}].price=parseFloat(this.value)||0;persist()">
       <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})">✕</button>`;
     box.appendChild(div);
   });
 }
 
-function addStripRow()  { db.settings.strips.push({name:"New Item",price:0,group:""}); renderSettingsStrips(); }
-function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); }
+function addStripRow()  { db.settings.strips.push({name:"New Item",price:0,group:""}); renderSettingsStrips(); persist(); }
+function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); persist(); }
 
-/* ── Item Groups (Settings) ───────────────────────────────── */
+/* ── Item Groups (Settings) ─────────────────────────────────
+   Every add/rename/remove persists (and therefore syncs to
+   Dropbox, same as everything else) immediately — it doesn't
+   wait for the page-wide "Save Settings" click, so a group
+   isn't silently lost if someone navigates away first. ───── */
 function renderSettingsStripGroups() {
   const box = document.getElementById('settings-strip-groups');
   if (!box) return;
@@ -869,6 +873,7 @@ function addStripGroup() {
   db.settings.stripGroups.push("New Group");
   renderSettingsStripGroups();
   renderSettingsStrips();
+  persist();
 }
 function renameStripGroup(idx, newName) {
   const oldName = db.settings.stripGroups[idx];
@@ -876,6 +881,7 @@ function renameStripGroup(idx, newName) {
   /* keep items pointed at the renamed group */
   db.settings.strips.forEach(item => { if (item.group === oldName) item.group = newName; });
   renderSettingsStrips();
+  persist();
 }
 function removeStripGroup(idx) {
   const name = db.settings.stripGroups[idx];
@@ -884,6 +890,7 @@ function removeStripGroup(idx) {
   db.settings.strips.forEach(item => { if (item.group === name) item.group = ""; });
   renderSettingsStripGroups();
   renderSettingsStrips();
+  persist();
 }
 
 function saveSettings() {
