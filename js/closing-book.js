@@ -413,6 +413,19 @@ function closingBookZoom(z) {
   window.addEventListener('resize', () => { if(_cbCurrentCacheKey) _cbApplyZoomOnly(); });
 })();
 
+/* ── Desktop input: no touch/swipe on a mouse, so give the reader
+   keyboard equivalents. Scoped to only fire while the reader is open,
+   so arrow keys don't hijack typing elsewhere in the app. Panning a
+   zoomed page and mouse-wheel scrolling already work for free — the
+   viewport is a plain overflow:auto box with visible scrollbars. ── */
+document.addEventListener('keydown', (e) => {
+  const reader = document.getElementById('cb-reader');
+  if(!reader || reader.classList.contains('hidden')) return;
+  if(e.key === 'ArrowRight')      { e.preventDefault(); closingBookNext(); }
+  else if(e.key === 'ArrowLeft')  { e.preventDefault(); closingBookPrev(); }
+  else if(e.key === 'Escape')     { e.preventDefault(); closeClosingBookReader(); }
+});
+
 /* ── Export as one multi-page PDF ────────────────────────────
    "{Brand} Closing {FromShift} {FromDate} to {ToShift} {ToDate}" */
 async function exportClosingBookPdf() {
