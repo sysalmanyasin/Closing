@@ -51,6 +51,33 @@ function setClosingBookShortcut(days) {
   document.getElementById('cb-to-shift').value   = 'Evening';
 }
 
+/* "Last N Closings" — counts back N individual shifts (not calendar
+   days), anchored on the LAST SAVED shift (not just "today's Evening",
+   since today may not have a full day of closings yet). Falls back to
+   today's Evening only if nothing has ever been saved. Uses the same
+   Night→Morning→Evening step function (timelineStep) the rest of the
+   app uses for chronology. */
+function setClosingBookShortcutClosings(n) {
+  const savedKeys = Object.keys(db.sheets).filter(k => db.sheets[k] && db.sheets[k].draft !== true);
+
+  let toDs, toShift;
+  if(savedKeys.length) {
+    savedKeys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
+    const lastParts = savedKeys[savedKeys.length - 1].split('_');
+    toDs    = lastParts[0];
+    toShift = lastParts[1];
+  } else {
+    toDs    = _cbLocalDateStr(new Date());
+    toShift = 'Evening';
+  }
+
+  const start = timelineStep(toDs, toShift, -(n - 1));
+  document.getElementById('cb-from-date').value  = start.date;
+  document.getElementById('cb-from-shift').value = start.shift;
+  document.getElementById('cb-to-date').value    = toDs;
+  document.getElementById('cb-to-shift').value   = toShift;
+}
+
 /* ── Range enumeration: Night → Morning → Evening per calendar
    day (Night = start of day), inclusive of both endpoints ─────── */
 function enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift) {
@@ -196,7 +223,7 @@ async function generateClosingBook() {
         activeKey  = e.key;
         activeMode = rec.profileMode || 'shift';
         overrides  = rec.overrides || {};
-        initLedger(e.date, e.shift, activeMode);
+        initLedger(e.date, e.shift, activeMode, { silent: true });
         buildPrintSheet();
 
         const sheetEl   = document.getElementById('print-sheet');
@@ -233,7 +260,7 @@ async function generateClosingBook() {
       activeMode = savedActiveMode;
       overrides  = savedOverrides;
       const p = savedActiveKey.split('_');
-      initLedger(p[0], p[1], savedActiveMode, { forEdit: savedWasUnlockedForEdit });
+      initLedger(p[0], p[1], savedActiveMode, { forEdit: savedWasUnlockedForEdit, silent: true });
       if(savedWasUnlockedForEdit) setLockedState(false);
     }
   }
@@ -252,8 +279,14 @@ function openClosingBookReader(cacheKey) {
   _cbCurrentPage = (!isNaN(lastPage) && lastPage >= 0 && lastPage < pages.length) ? lastPage : 0;
   _cbZoom = 1;
   renderClosingBookPage();
+}
 
-  document.getElementById('cb-reader').scrollIntoView({ behavior: 'smooth', block: 'start' });
+/* Exits the fullscreen reader back to the Closing Book tab. The
+   assembled book stays cached (_cbCache), so re-opening it — either
+   via the range picker's Generate button or by navigating back here —
+   shows the same book instantly instead of rebuilding it. */
+function closeClosingBookReader() {
+  document.getElementById('cb-reader').classList.add('hidden');
 }
 
 function populateClosingBookJumpSelect() {

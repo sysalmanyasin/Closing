@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 function initLedger(ds, shift, mode, opts = {}) {
-  showPage('page-ledger');
+  if(!opts.silent) showPage('page-ledger');
 
   document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
   document.getElementById('lbl-ledger-title').textContent = `${srLabel(shift)} Register`;
