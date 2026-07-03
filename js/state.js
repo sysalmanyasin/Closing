@@ -9,7 +9,7 @@
 ═══════════════════════════════════════════ */
 const PIN    = "1218";
 const SHIFTS = ["Night","Morning","Evening"];
-const SHIFT_SR = {Morning:1, Evening:2, Night:3};
+const SHIFT_SR = {Night:1, Morning:2, Evening:3};
 function srLabel(shift) { return `Closing ${SHIFT_SR[shift]||'?'} — ${shift}`; }
 const DENOMS = [
   {label:"Rs. 5,000 notes", mult:5000},
@@ -24,6 +24,7 @@ const DENOMS = [
 
 let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
   settings: {
+    bookBrandCode: "FDPP BT",
     namedCredits: [
       {label:"Corporate Account"},
       {label:"Wholesale Ledger"},
@@ -59,6 +60,7 @@ if(!db.settings.namedCredits && db.settings.creditLabels) {
 /* migrate: item groups feature — older saved settings won't have these yet */
 if(!db.settings.stripGroups) db.settings.stripGroups = ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"];
 if(db.settings.strips) db.settings.strips.forEach(item => { if(item.group === undefined) item.group = ""; });
+if(!db.settings.bookBrandCode) db.settings.bookBrandCode = "FDPP BT";
 
 let activeKey      = null;
 let activeMode     = "shift";

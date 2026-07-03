@@ -16,6 +16,10 @@ function goToDashboard() {
   buildCalendar();
   renderManifest();
 }
+function goToClosingBook() {
+  showPage('page-closing-book');
+  if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
+}
 function goToSettings()  {
   let pin = prompt("Enter settings PIN:");
   if(pin !== PIN) { alert("Incorrect PIN."); return; }
@@ -790,6 +794,11 @@ function renderManifest() {
 
 function buildSettingsUI() {
   document.getElementById('set-final-every-n').value = db.settings.finalEveryN || 3;
+  const brandCodeEl = document.getElementById('cfg-book-brand-code');
+  if(brandCodeEl) {
+    brandCodeEl.value = db.settings.bookBrandCode || 'FDPP BT';
+    document.getElementById('cfg-book-brand-example').textContent = (db.settings.bookBrandCode || 'FDPP BT') + ' Closing Night 1 July 2026 to Evening 3 July 2026.pdf';
+  }
   renderSettingsNamedCredits();
   const sf = document.getElementById('subtier-fields');
   sf.innerHTML = "";

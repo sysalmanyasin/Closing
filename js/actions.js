@@ -1084,6 +1084,7 @@ let _draftReady  = false; /* gates auto-save: true only after ledger fully inits
 
 function scheduleAutoSave() {
   if(!activeKey || !_draftReady || isSheetLocked) return;
+  if(typeof _cbAssemblyMode !== 'undefined' && _cbAssemblyMode) return; /* Closing Book is assembling — don't autosave every sheet it loads */
   clearTimeout(_draftTimer);
   _draftTimer = setTimeout(() => {
     try {
