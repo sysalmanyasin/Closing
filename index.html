@@ -42,6 +42,7 @@
 <script src="js/components.js"></script>
 <script src="js/pages.js"></script>
 <script src="js/ledger-nav.js"></script>
+<script src="js/closing-book.js"></script>
 <script src="js/sync.js"></script>
 
 </head>
@@ -71,6 +72,7 @@
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
+        <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
       </div>
 
       <!-- ── CLOUD SYNC CARD ── -->
@@ -243,6 +245,18 @@
       <div class="flex-between" style="margin-bottom:16px;">
         <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">⬅ Back</button>
         <span class="text-muted text-sm">System Settings</span>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Closing Book — Branding</h3></div>
+        <div style="padding:14px 16px;">
+          <div class="form-field">
+            <label>Brand Code (used in exported PDF filenames)</label>
+            <input type="text" id="cfg-book-brand-code"
+              onchange="db.settings.bookBrandCode=this.value.trim()||'FDPP BT';persist();document.getElementById('cfg-book-brand-example').textContent=db.settings.bookBrandCode+' Closing Night 1 July 2026 to Evening 3 July 2026.pdf'">
+          </div>
+          <p class="text-muted text-sm" style="margin-top:6px;">Example: "<span id="cfg-book-brand-example"></span>"</p>
+        </div>
       </div>
 
       <div class="card">
@@ -683,6 +697,88 @@
   </div>
   <!-- /PAGE 4 -->
 
+  <!-- ══ PAGE 5 — CLOSING BOOK ══ -->
+  <div id="page-closing-book" class="view-pane hidden">
+    <div class="page-body">
+      <div class="btn-row" style="margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
+      </div>
+      <div class="cl-toolbar">
+        <div>
+          <div class="cl-toolbar-title">📖 Closing Book</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Every closing, laid out like a printed register</div>
+        </div>
+      </div>
+
+      <!-- ── RANGE PICKER ── -->
+      <div class="card" id="cb-range-card">
+        <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
+        <div style="padding:14px 16px;">
+          <div class="cb-range-row">
+            <div class="cb-range-field">
+              <label>From date</label>
+              <input type="date" id="cb-from-date">
+            </div>
+            <div class="cb-range-field">
+              <label>Shift</label>
+              <select id="cb-from-shift">
+                <option value="Night">Night</option>
+                <option value="Morning">Morning</option>
+                <option value="Evening">Evening</option>
+              </select>
+            </div>
+          </div>
+          <div class="cb-range-row">
+            <div class="cb-range-field">
+              <label>To date</label>
+              <input type="date" id="cb-to-date">
+            </div>
+            <div class="cb-range-field">
+              <label>Shift</label>
+              <select id="cb-to-shift">
+                <option value="Night">Night</option>
+                <option value="Morning">Morning</option>
+                <option value="Evening" selected>Evening</option>
+              </select>
+            </div>
+          </div>
+          <div class="cb-shortcut-row">
+            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(3)">Last 3 Days</button>
+            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(7)">Last 7 Days</button>
+            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(30)">Last 1 Month</button>
+          </div>
+          <button class="btn btn-green btn-full" id="cb-generate-btn" style="margin-top:14px;" onclick="generateClosingBook()">📖 Generate Book</button>
+          <div id="cb-generate-status" class="cb-generate-status hidden"></div>
+        </div>
+      </div>
+
+      <!-- ── READER ── -->
+      <div id="cb-reader" class="cb-reader hidden">
+        <div class="cb-reader-toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="closingBookPrev()" id="cb-btn-prev">‹ Prev</button>
+          <div class="cb-page-counter" id="cb-page-counter">1 / 1</div>
+          <button class="btn btn-ghost btn-sm" onclick="closingBookNext()" id="cb-btn-next">Next ›</button>
+        </div>
+        <div class="cb-reader-toolbar cb-reader-toolbar2">
+          <select id="cb-jump-select" onchange="closingBookJump(this.value)" style="flex:1;min-width:0;"></select>
+          <div class="cb-zoom-group">
+            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(1)">1x</button>
+            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(2)">2x</button>
+            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(4)">4x</button>
+            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(8)">8x</button>
+          </div>
+        </div>
+        <div class="cb-viewport" id="cb-viewport">
+          <div class="cb-page-sizer" id="cb-page-sizer">
+            <div class="cb-page-stage ps-sheet-scope" id="cb-page-stage"></div>
+          </div>
+        </div>
+        <button class="btn btn-teal btn-full" style="margin-top:12px;" onclick="exportClosingBookPdf()" id="cb-btn-export">⬇ Export Book as PDF</button>
+      </div>
+    </div>
+  </div>
+  <!-- /PAGE 5 -->
+
 </div><!-- /shell -->
 
 <!-- ═══ NUMPAD OVERLAY ═══ -->
@@ -808,7 +904,7 @@
   </div>
 </div>
 
-<div id="print-sheet"></div>
+<div id="print-sheet" class="ps-sheet-scope"></div>
 
 <!-- ── Service Worker Registration ── -->
 <script>
