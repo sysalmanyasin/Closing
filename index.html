@@ -743,6 +743,7 @@
             </div>
           </div>
           <div class="cb-shortcut-row">
+            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcutClosings(10)">Last 10 Closings</button>
             <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(3)">Last 3 Days</button>
             <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(7)">Last 7 Days</button>
             <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(30)">Last 1 Month</button>
@@ -755,12 +756,15 @@
       <!-- ── READER ── -->
       <div id="cb-reader" class="cb-reader hidden">
         <div class="cb-reader-toolbar">
-          <button class="btn btn-ghost btn-sm" onclick="closingBookPrev()" id="cb-btn-prev">‹ Prev</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeClosingBookReader()">← Back</button>
           <div class="cb-page-counter" id="cb-page-counter">1 / 1</div>
-          <button class="btn btn-ghost btn-sm" onclick="closingBookNext()" id="cb-btn-next">Next ›</button>
         </div>
         <div class="cb-reader-toolbar cb-reader-toolbar2">
+          <button class="btn btn-ghost btn-sm" onclick="closingBookPrev()" id="cb-btn-prev">‹ Prev</button>
           <select id="cb-jump-select" onchange="closingBookJump(this.value)" style="flex:1;min-width:0;"></select>
+          <button class="btn btn-ghost btn-sm" onclick="closingBookNext()" id="cb-btn-next">Next ›</button>
+        </div>
+        <div class="cb-reader-toolbar cb-reader-toolbar2" style="justify-content:center;">
           <div class="cb-zoom-group">
             <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(1)">1x</button>
             <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(2)">2x</button>
