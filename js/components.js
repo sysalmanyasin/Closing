@@ -4,14 +4,24 @@
    toast, print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
-let numpadTarget    = null;
-let numpadRawStr    = "";
-let numpadCallback  = null;
+/* Floor 4's own transient UI state — file-local, never read by
+   another floor. One object instead of scattered globals. */
+const compState = {
+  numpadTarget:   null,
+  numpadRawStr:   "",
+  numpadCallback: null,
+  pickerTarget:   null,
+  pickerCallback: null,
+  namedEntrySeq:  {},
+  pdfModalKey:    null,
+  editModalKey:   null
+};
+
 
 function openNumpad(inputEl, label, onConfirm) {
-  numpadTarget   = inputEl;
-  numpadCallback = onConfirm || null;
-  numpadRawStr   = (inputEl.value && inputEl.value !== "0") ? String(inputEl.value) : "";
+  compState.numpadTarget   = inputEl;
+  compState.numpadCallback = onConfirm || null;
+  compState.numpadRawStr   = (inputEl.value && inputEl.value !== "0") ? String(inputEl.value) : "";
   document.getElementById('numpad-label').textContent = label || inputEl.closest('.row')?.querySelector('label,span.row-lbl')?.textContent?.trim() || "Enter value";
   renderNumpadDisplay();
   document.getElementById('numpad-overlay').classList.remove('hidden');
@@ -19,34 +29,34 @@ function openNumpad(inputEl, label, onConfirm) {
 
 function renderNumpadDisplay() {
   const el = document.getElementById('numpad-display');
-  el.textContent = numpadRawStr || "0";
-  el.className = 'numpad-display ' + (numpadRawStr ? 'has-val' : 'empty-val');
+  el.textContent = compState.numpadRawStr || "0";
+  el.className = 'numpad-display ' + (compState.numpadRawStr ? 'has-val' : 'empty-val');
 }
 
 function npKey(k) {
-  if(k === 'back')  { numpadRawStr = numpadRawStr.slice(0,-1); }
-  else if(k === 'clear') { numpadRawStr = ""; }
+  if(k === 'back')  { compState.numpadRawStr = compState.numpadRawStr.slice(0,-1); }
+  else if(k === 'clear') { compState.numpadRawStr = ""; }
   else if(k === '.') {
-    if(!numpadRawStr.includes('.')) numpadRawStr += (numpadRawStr ? '.' : '0.');
+    if(!compState.numpadRawStr.includes('.')) compState.numpadRawStr += (compState.numpadRawStr ? '.' : '0.');
   }
   else {
-    if(numpadRawStr.length < 12) numpadRawStr += k;
+    if(compState.numpadRawStr.length < 12) compState.numpadRawStr += k;
   }
   renderNumpadDisplay();
 }
 
 function npConfirm() {
-  if(numpadTarget) {
-    numpadTarget.value = numpadRawStr || "0";
-    numpadTarget.dispatchEvent(new Event('input', {bubbles:true}));
+  if(compState.numpadTarget) {
+    compState.numpadTarget.value = compState.numpadRawStr || "0";
+    compState.numpadTarget.dispatchEvent(new Event('input', {bubbles:true}));
   }
-  if(numpadCallback) numpadCallback(numpadRawStr || "0");
+  if(compState.numpadCallback) compState.numpadCallback(compState.numpadRawStr || "0");
   closeNumpad();
 }
 
 function closeNumpad() {
   document.getElementById('numpad-overlay').classList.add('hidden');
-  numpadTarget = null; numpadRawStr = ""; numpadCallback = null;
+  compState.numpadTarget = null; compState.numpadRawStr = ""; compState.numpadCallback = null;
 }
 
 function numpadOutsideClick(e) {
@@ -84,11 +94,9 @@ document.addEventListener('blur', function(e) {
 /* ═══════════════════════════════════════════
    MODAL PICKER ENGINE (replaces <select>)
 ═══════════════════════════════════════════ */
-let modalPickerTarget   = null;
-let modalPickerCallback = null;
 
 function openModalPicker(title, options, currentVal, onPick) {
-  modalPickerCallback = onPick;
+  compState.pickerCallback = onPick;
   document.getElementById('modal-picker-title').textContent = title;
   const list = document.getElementById('modal-picker-list');
   list.innerHTML = "";
@@ -104,7 +112,7 @@ function openModalPicker(title, options, currentVal, onPick) {
 
 function closeModalPicker() {
   document.getElementById('modal-picker-overlay').classList.add('hidden');
-  modalPickerTarget = null; modalPickerCallback = null;
+  compState.pickerTarget = null; compState.pickerCallback = null;
 }
 
 /* ═══════════════════════════════════════════
@@ -202,7 +210,6 @@ function addAuxStripRow(lbl='', price='', qty='') {
 
 /* per-account entry-row counters, keyed by account index, so ids stay unique
    across add/remove/hydrate cycles within a single ledger session */
-let namedEntrySeq = {};
 
 function addNamedAccountBlock(accountIdx, lbl) {
   const container = document.getElementById('ledger-named-credits');
@@ -217,15 +224,15 @@ function addNamedAccountBlock(accountIdx, lbl) {
       <button type="button" class="add-row-btn add-row-btn-sm" onclick="addNamedCreditEntryRow(${accountIdx})">＋ Add entry</button>
     </div>`;
   container.appendChild(block);
-  namedEntrySeq[accountIdx] = 0;
+  compState.namedEntrySeq[accountIdx] = 0;
 }
 
 function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
   const block = document.getElementById(`named-account-${accountIdx}`);
   if(!block) return;
   const rowsBox = block.querySelector('.named-account-rows');
-  namedEntrySeq[accountIdx] = (namedEntrySeq[accountIdx]||0) + 1;
-  const seq   = namedEntrySeq[accountIdx];
+  compState.namedEntrySeq[accountIdx] = (compState.namedEntrySeq[accountIdx]||0) + 1;
+  const seq   = compState.namedEntrySeq[accountIdx];
   const rowId = `named-entry-row-${accountIdx}-${seq}`;
   const valId = `named-entry-val-${accountIdx}-${seq}`;
   const row = document.createElement('div');
@@ -733,21 +740,20 @@ async function renderPDF() {
 
 
 /* ── PDF MODAL (from Saved Records) ─────────────────────── */
-let _pdfModalKey = null;
 
 function openPdfModal(key) {
-  _pdfModalKey = key;
+  compState.pdfModalKey = key;
   document.getElementById('pdf-modal-status').textContent = '';
   document.getElementById('pdf-modal-overlay').classList.remove('hidden');
 }
 
 function closePdfModal() {
   document.getElementById('pdf-modal-overlay').classList.add('hidden');
-  _pdfModalKey = null;
+  compState.pdfModalKey = null;
 }
 
 async function pdfModalAction(type) {
-  const key = _pdfModalKey;
+  const key = compState.pdfModalKey;
   if(!key) return;
   const statusEl = document.getElementById('pdf-modal-status');
   statusEl.textContent = type === 'whatsapp' ? 'Preparing PDF…' : 'Generating PDF…';
@@ -795,10 +801,9 @@ async function pdfModalAction(type) {
   else goToDashboard();
 }
 
-let _editModalKey = null;
 
 function openEditModal(key) {
-  _editModalKey = key;
+  compState.editModalKey = key;
   const currentMode = db.sheets[key]?.profileMode || 'shift';
   editModalSelectMode(currentMode);
   document.getElementById('edit-modal-pin').value = '';
@@ -809,7 +814,7 @@ function openEditModal(key) {
 
 function closeEditModal() {
   document.getElementById('edit-modal-overlay').classList.add('hidden');
-  _editModalKey = null;
+  compState.editModalKey = null;
 }
 
 function editModalOutsideClick(e) {
@@ -837,14 +842,11 @@ function confirmEditModal() {
     document.getElementById('edit-modal-pin').focus();
     return;
   }
-  const key     = _editModalKey;
+  const key     = compState.editModalKey;
   const newMode = getEditModalMode();
   closeEditModal();
   /* Apply mode change to saved record before opening */
-  if(db.sheets[key] && db.sheets[key].profileMode !== newMode) {
-    db.sheets[key].profileMode = newMode;
-    persist();
-  }
+  setSheetProfileMode(key, newMode);
   activeKey  = key;
   activeMode = newMode;
   overrides  = db.sheets[key]?.overrides || {};

@@ -10,8 +10,7 @@ function showPage(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 function goToDashboard() {
-  _draftReady = false;          /* stop auto-draft when leaving ledger */
-  clearTimeout(_draftTimer);
+  stopAutoDraft();          /* stop auto-draft when leaving ledger */
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
@@ -29,110 +28,26 @@ function goToSettings()  {
 function goToCreditLedger() {
   showPage('page-credit-ledger');
   clBackfillSnapshots();
-  renderCreditLedger();
+  clSwitchMode('credit');
 }
 
 /* ═══════════════════════════════════════════
    CREDIT LEDGER — SNAPSHOT ENGINE
 ═══════════════════════════════════════════ */
 
-/* Ensure db.creditLedger exists */
+/* Credit/Misc Ledger data engine (clEnsureArray, clBuildSnapshot,
+   clSaveSnapshot, clBackfillSnapshots, clAllLabels, clGroupByDate,
+   mlAllSnapshots) now lives in ledger-engine.js — Floor 3 extension.
+   Everything below here is rendering only (Floor 5's job): it reads
+   what the engine computed and builds DOM, it never mutates db. */
 
-function clEnsureArray() {
-  if(!Array.isArray(db.creditLedger)) db.creditLedger = [];
-}
-
-/* Build a credit snapshot from a saved sheet record + its key */
-function clBuildSnapshot(key, rec) {
-  const parts = key.split('_');
-  const date  = parts[0] || '';
-  const shift = parts[1] || '';
-
-  const lines = [];
-
-  /* Named credits (non-zero only) */
-  if(rec.namedCredits && rec.namedCredits.length) {
-    rec.namedCredits.forEach(o => {
-      const v = parseFloat(o.val) || 0;
-      if(v !== 0) lines.push({ category: 'named', lbl: o.lbl || 'Named Account', desc: o.desc || '', val: v });
-    });
-  }
-
-  /* Tier / staff credits (non-zero only) */
-  if(rec.tierCredits && rec.tierCredits.length) {
-    rec.tierCredits.forEach(o => {
-      const v = parseFloat(o.val) || 0;
-      if(v !== 0 && o.name) lines.push({ category: 'tier', lbl: o.name, val: v });
-    });
-  }
-
-  /* Aux / free-label credits (non-zero only) */
-  if(rec.auxCredits && rec.auxCredits.length) {
-    rec.auxCredits.forEach(o => {
-      const v = parseFloat(o.val) || 0;
-      if(v !== 0) lines.push({ category: 'aux', lbl: o.lbl || 'Credit Entry', val: v });
-    });
-  }
-
-  return {
-    key,
-    date,
-    shift,
-    mode:          rec.profileMode || 'shift',
-    savedAt:       rec.savedAt || Date.now(),
-    openingCredit: parseFloat(rec.outPrevCredit) || 0,
-    creditAdj:     parseFloat(rec.creditAdj) || 0,
-    totalCredit:   parseFloat(rec.outTotalE) || 0,
-    lines
-  };
-}
-
-/* Write a snapshot when a shift is explicitly saved */
-function clSaveSnapshot(key, rec) {
-  clEnsureArray();
-  /* Remove any existing snapshot for this key first */
-  db.creditLedger = db.creditLedger.filter(s => s.key !== key);
-  const snap = clBuildSnapshot(key, rec);
-  db.creditLedger.push(snap);
-}
-
-/* Backfill: scan all saved (non-draft) sheets not yet in creditLedger */
-function clBackfillSnapshots() {
-  clEnsureArray();
-  const existingKeys = new Set(db.creditLedger.map(s => s.key));
-  let changed = false;
-  Object.entries(db.sheets || {}).forEach(([key, rec]) => {
-    if(rec.draft) return;           /* skip drafts */
-    if(existingKeys.has(key)) return; /* already snapshotted */
-    db.creditLedger.push(clBuildSnapshot(key, rec));
-    changed = true;
-  });
-  if(changed) persist();
-}
-
-/* Collect all unique account labels across all snapshots */
-function clAllLabels() {
-  clEnsureArray();
-  const seen = new Set();
-  db.creditLedger.forEach(s => s.lines.forEach(l => seen.add(l.lbl)));
-  return Array.from(seen).sort();
-}
-
-/* Sort snapshots newest-first, group by date */
-function clGroupByDate(snapshots) {
-  const order = { Night: 0, Morning: 1, Evening: 2 };
-  const sorted = [...snapshots].sort((a, b) => {
-    if(b.date !== a.date) return b.date.localeCompare(a.date);
-    return (order[b.shift] ?? 99) - (order[a.shift] ?? 99);
-  });
-  const groups = [];
-  const seen   = {};
-  sorted.forEach(s => {
-    if(!seen[s.date]) { seen[s.date] = { date: s.date, snaps: [] }; groups.push(seen[s.date]); }
-    seen[s.date].snaps.push(s);
-  });
-  return groups;
-}
+/* This page's own UI state — which mode is showing, how many
+   date-groups are expanded. File-local, never read by other floors. */
+const clPageState = {
+  visibleCount:   3,       /* how many date-groups shown (Credit mode) */
+  mlVisibleCount: 3,       /* how many date-groups shown (Misc mode) */
+  activeMode:     'credit' /* 'credit' | 'misc' */
+};
 
 /* ── FORMAT HELPERS ── */
 function clFmt(v) { return 'Rs. ' + Math.abs(v).toLocaleString(); }
@@ -144,13 +59,34 @@ function clFmtDate(ds) {
   } catch(e) { return ds; }
 }
 
-/* ── STATE ── */
-let clVisibleCount = 3; /* how many date-groups currently shown */
+/* Switch between Credit and Misc/Ongoing views on the same tab */
+function clSwitchMode(mode) {
+  clPageState.activeMode = mode;
+  document.getElementById('cl-mode-tab-credit')?.classList.toggle('active', mode === 'credit');
+  document.getElementById('cl-mode-tab-misc')?.classList.toggle('active', mode === 'misc');
+  document.getElementById('cl-filter-row').style.display   = mode === 'credit' ? 'flex' : 'none';
+  document.getElementById('cl-count-row-misc').classList.toggle('hidden', mode !== 'misc');
+
+  const title = document.getElementById('cl-toolbar-title');
+  const sub   = document.getElementById('cl-toolbar-sub');
+  const expT  = document.getElementById('cl-export-title');
+  if(mode === 'credit') {
+    if(title) title.textContent = '📒 Credit Ledger';
+    if(sub)   sub.textContent   = "Snapshot history of every shift's credit";
+    if(expT)  expT.textContent  = '📤 Export Credit History as .txt';
+  } else {
+    if(title) title.textContent = '🧮 Misc / Ongoing Ledger';
+    if(sub)   sub.textContent   = "Snapshot history of every shift's miscellaneous / ongoing charges";
+    if(expT)  expT.textContent  = '📤 Export Misc History as .txt';
+  }
+  renderCreditLedger();
+}
 
 /* ═══════════════════════════════════════════
    CREDIT LEDGER — RENDER
 ═══════════════════════════════════════════ */
 function renderCreditLedger() {
+  if(clPageState.activeMode === 'misc') { renderMiscLedgerInternal(); return; }
   clEnsureArray();
   const filterLbl = document.getElementById('cl-filter-select')?.value || '';
 
@@ -189,8 +125,8 @@ function renderCreditLedger() {
   }
 
   container.innerHTML = '';
-  const toShow = groups.slice(0, clVisibleCount);
-  const hidden = groups.slice(clVisibleCount);
+  const toShow = groups.slice(0, clPageState.visibleCount);
+  const hidden = groups.slice(clPageState.visibleCount);
 
   toShow.forEach(group => container.appendChild(clBuildDateCard(group, activeFilter)));
 
@@ -290,6 +226,7 @@ function clBuildShiftBlock(snap, activeFilter) {
         ${badge}
         <span class="cl-shift-name">${snap.shift} Closing</span>
         <span class="cl-shift-total">${clFmt(snap.totalCredit)}</span>
+        <button class="cl-print-btn" onclick="printThermalSnapshot('credit','${snap.key}')">🖨 Print</button>
         <button class="cl-open-btn" onclick="clOpenShift('${snap.key}')">Open →</button>
       </div>
       <div class="cl-lines">
@@ -313,7 +250,8 @@ function clToggleAll(open) {
 
 /* Show more date groups */
 function clShowMore() {
-  clVisibleCount += 10;
+  if(clPageState.activeMode === 'misc') clPageState.mlVisibleCount += 10;
+  else clPageState.visibleCount += 10;
   renderCreditLedger();
 }
 
@@ -321,8 +259,7 @@ function clShowMore() {
 function clOpenShift(key) {
   const parts = key.split('_');
   if(parts.length < 2) return;
-  _draftReady = false;
-  clearTimeout(_draftTimer);
+  stopAutoDraft();
   initLedger(parts[0], parts[1], db.sheets[key]?.profileMode || 'shift');
 }
 
@@ -333,8 +270,13 @@ function clToggleExport() {
   panel.classList.toggle('open');
   if(panel.classList.contains('open')) {
     /* Set default date range: oldest to newest */
-    clEnsureArray();
-    const dates = db.creditLedger.map(s => s.date).sort();
+    let dates;
+    if(clPageState.activeMode === 'misc') {
+      dates = mlAllSnapshots().map(s => s.date).sort();
+    } else {
+      clEnsureArray();
+      dates = db.creditLedger.map(s => s.date).sort();
+    }
     const fromEl = document.getElementById('cl-exp-from-date');
     const toEl   = document.getElementById('cl-exp-to-date');
     if(fromEl && dates.length) fromEl.value = dates[0];
@@ -344,6 +286,7 @@ function clToggleExport() {
 
 /* Export .txt file for a date+shift range */
 function clExportTxt() {
+  if(clPageState.activeMode === 'misc') { mlExportTxt(); return; }
   clEnsureArray();
   const fromDate  = document.getElementById('cl-exp-from-date')?.value  || '';
   const fromShift = document.getElementById('cl-exp-from-shift')?.value || '';
@@ -405,8 +348,247 @@ function clExportTxt() {
 }
 
 
+/* ═══════════════════════════════════════════
+   MISC / ONGOING LEDGER — computed live from
+   db.sheets (no separate persisted array needed,
+   since miscRows are already saved per shift).
+   Reuses clGroupByDate / clFmt / clFmtDate from
+   the Credit Ledger above — same date/shift shape.
+   mlAllSnapshots() itself now lives in ledger-engine.js.
+═══════════════════════════════════════════ */
+
+function renderMiscLedgerInternal() {
+  const snapshots = mlAllSnapshots();
+  const groups    = clGroupByDate(snapshots);
+  const container = document.getElementById('cl-cards-container');
+  if(!container) return;
+
+  const countBadge = document.getElementById('cl-count-badge-misc');
+  if(countBadge) countBadge.textContent = `${snapshots.length} shift${snapshots.length !== 1 ? 's' : ''} · ${groups.length} date${groups.length !== 1 ? 's' : ''}`;
+
+  if(groups.length === 0) {
+    container.innerHTML = `<div class="cl-empty">📭 No misc/ongoing charge records yet.<br><span style="font-size:0.75rem;">Save a shift with misc entries to see them here.</span></div>`;
+    document.getElementById('cl-show-more-btn').classList.add('hidden');
+    return;
+  }
+
+  container.innerHTML = '';
+  const toShow = groups.slice(0, clPageState.mlVisibleCount);
+  const hidden = groups.slice(clPageState.mlVisibleCount);
+
+  toShow.forEach(group => container.appendChild(mlBuildDateCard(group)));
+
+  const moreBtn = document.getElementById('cl-show-more-btn');
+  if(hidden.length > 0) {
+    moreBtn.textContent = `Show ${hidden.length} more date${hidden.length !== 1 ? 's' : ''} ▼`;
+    moreBtn.classList.remove('hidden');
+  } else {
+    moreBtn.classList.add('hidden');
+  }
+}
+
+function mlBuildDateCard(group) {
+  const card = document.createElement('div');
+  card.className = 'cl-date-card';
+  card.dataset.date = group.date;
+
+  const latestTotal = group.snaps[0]?.total || 0;
+  const shiftLabels = group.snaps.map(s => s.shift).join(' · ');
+
+  card.innerHTML = `
+    <div class="cl-date-head" onclick="clToggleDateCard(this.parentElement)">
+      <span class="cl-date-icon">📅</span>
+      <div style="flex:1;">
+        <div class="cl-date-label">${clFmtDate(group.date)}</div>
+        <div class="cl-date-sub">${shiftLabels}</div>
+      </div>
+      <span class="cl-date-total">${clFmt(latestTotal)}</span>
+      <span class="cl-chevron">▶</span>
+    </div>
+    <div class="cl-date-body">
+      ${group.snaps.map(s => mlBuildShiftBlock(s)).join('')}
+    </div>`;
+  return card;
+}
+
+function mlBuildShiftBlock(snap) {
+  const isFinal   = snap.mode === 'final';
+  const modeClass = isFinal ? 'mode-final' : '';
+  const badge     = isFinal
+    ? `<span class="cl-badge-final">🟡 Final</span>`
+    : `<span class="cl-badge-shift">🔵 Shift</span>`;
+
+  let linesHtml = '';
+  snap.lines.forEach(l => {
+    linesHtml += `<div class="cl-line">
+      <span class="cl-lbl">${l.lbl}</span>
+      <span class="cl-val">${clFmt(l.val)}</span>
+    </div>`;
+  });
+  linesHtml += `<div class="cl-total-row"><span>TOTAL MISC</span><span>${clFmt(snap.total)}</span></div>`;
+
+  return `
+    <div class="cl-shift-block ${modeClass}">
+      <div class="cl-shift-header">
+        ${badge}
+        <span class="cl-shift-name">${snap.shift} Closing</span>
+        <span class="cl-shift-total">${clFmt(snap.total)}</span>
+        <button class="cl-print-btn" onclick="printThermalSnapshot('misc','${snap.key}')">🖨 Print</button>
+        <button class="cl-open-btn" onclick="clOpenShift('${snap.key}')">Open →</button>
+      </div>
+      <div class="cl-lines">
+        ${linesHtml}
+      </div>
+    </div>`;
+}
+
+/* Export Misc history as .txt (mirrors clExportTxt but for miscRows) */
+function mlExportTxt() {
+  const fromDate  = document.getElementById('cl-exp-from-date')?.value  || '';
+  const fromShift = document.getElementById('cl-exp-from-shift')?.value || '';
+  const toDate    = document.getElementById('cl-exp-to-date')?.value    || '';
+  const toShift   = document.getElementById('cl-exp-to-shift')?.value   || '';
+
+  const shiftOrder = { Night: 0, Morning: 1, Evening: 2 };
+  function snapKey(s) { return s.date + '_' + String(shiftOrder[s.shift] ?? 9).padStart(1, '0'); }
+  const fromKey = fromDate + '_' + String(fromShift ? shiftOrder[fromShift] ?? 0 : 0).padStart(1, '0');
+  const toKey   = toDate   + '_' + String(toShift   ? shiftOrder[toShift]   ?? 9 : 9).padStart(1, '0');
+
+  const filtered = mlAllSnapshots()
+    .filter(s => { const k = snapKey(s); return k >= fromKey && k <= toKey; })
+    .sort((a, b) => snapKey(a).localeCompare(snapKey(b)));
+
+  if(!filtered.length) { alert('No records found in that range.'); return; }
+
+  const SEP = '─'.repeat(46);
+  let txt = "FAZAL DIN'S PHARMA PLUS — MISC / ONGOING LEDGER\n";
+  txt += `Generated: ${new Date().toLocaleString('en-PK')}\n`;
+  txt += `Range: ${fromDate || 'start'} ${fromShift||''} → ${toDate || 'end'} ${toShift||''}\n`;
+  txt += '═'.repeat(46) + '\n\n';
+
+  filtered.forEach(snap => {
+    txt += `${clFmtDate(snap.date)} — ${snap.shift} Closing`;
+    txt += snap.mode === 'final' ? ' [FINAL CLOSING]\n' : ' [SHIFT]\n';
+    txt += SEP + '\n';
+    snap.lines.forEach(l => { txt += `  ${l.lbl.padEnd(30)} ${clFmt(l.val)}\n`; });
+    txt += SEP + '\n';
+    txt += `TOTAL MISC:                    ${clFmt(snap.total)}\n\n`;
+  });
+
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `misc-ledger_${fromDate||'start'}_to_${toDate||'end'}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 
 /* ═══════════════════════════════════════════
+   THERMAL RECEIPT PRINTING (3" / 80mm paper)
+   Used by both Credit and Misc snapshot blocks.
+   Prints via a detached iframe so it never
+   collides with the app's own A4 print-sheet CSS.
+═══════════════════════════════════════════ */
+
+function printThermalSnapshot(kind, key) {
+  let snap;
+
+  if(kind === 'credit') {
+    clEnsureArray();
+    snap = db.creditLedger.find(s => s.key === key);
+    if(!snap) { alert('Snapshot not found.'); return; }
+  } else {
+    const rec = db.sheets[key];
+    if(!rec) { alert('Snapshot not found.'); return; }
+    const parts = key.split('_');
+    const rows  = (rec.miscRows || []).filter(r => (parseFloat(r.val) || 0) !== 0 || (r.label || '').trim());
+    snap = {
+      key, date: parts[0] || '', shift: parts[1] || '',
+      mode:  rec.profileMode || 'shift',
+      lines: rows.map(r => ({ lbl: (r.label || '').trim() || 'Untitled', val: parseFloat(r.val) || 0 })),
+      total: rows.reduce((s, r) => s + (parseFloat(r.val) || 0), 0)
+    };
+  }
+
+  const brand   = (db.settings && db.settings.bookBrandCode) || "FAZAL DIN'S PHARMA PLUS";
+  const isFinal = snap.mode === 'final';
+  const title   = kind === 'credit' ? 'CREDIT LEDGER' : 'MISC / ONGOING CHARGES';
+
+  let rowsHtml = '';
+  if(kind === 'credit') {
+    rowsHtml += `<div class="tp-row"><span>Opening Credit</span><span>${clFmt(snap.openingCredit)}</span></div><div class="tp-rule"></div>`;
+    const named = snap.lines.filter(l => l.category === 'named');
+    const tier  = snap.lines.filter(l => l.category === 'tier');
+    const aux   = snap.lines.filter(l => l.category === 'aux');
+    function grp(items, label) {
+      if(!items.length) return '';
+      let h = `<div class="tp-cat">${label}</div>`;
+      items.forEach(l => { h += `<div class="tp-row"><span>${l.lbl}${l.desc ? ` (${l.desc})` : ''}</span><span>${clFmt(l.val)}</span></div>`; });
+      return h;
+    }
+    rowsHtml += grp(named, 'NAMED ACCOUNTS') + grp(tier, 'STAFF / TIER') + grp(aux, 'FREE ENTRIES');
+    if(snap.creditAdj) rowsHtml += `<div class="tp-row"><span>Adjustment</span><span>${clFmtSigned(snap.creditAdj)}</span></div>`;
+    rowsHtml += `<div class="tp-rule"></div><div class="tp-row tp-total"><span>TOTAL CREDIT</span><span>${clFmt(snap.totalCredit)}</span></div>`;
+  } else {
+    if(!snap.lines.length) rowsHtml += `<div class="tp-row"><span>— no items —</span><span></span></div>`;
+    snap.lines.forEach(l => { rowsHtml += `<div class="tp-row"><span>${l.lbl}</span><span>${clFmt(l.val)}</span></div>`; });
+    rowsHtml += `<div class="tp-rule"></div><div class="tp-row tp-total"><span>TOTAL MISC</span><span>${clFmt(snap.total)}</span></div>`;
+  }
+
+  const bodyHtml = `
+    <div class="tp-center tp-brand">${brand}</div>
+    <div class="tp-center tp-sub">${title}</div>
+    <div class="tp-rule"></div>
+    <div class="tp-row"><span>Date</span><span>${clFmtDate(snap.date)}</span></div>
+    <div class="tp-row"><span>Shift</span><span>${snap.shift}${isFinal ? ' (FINAL)' : ''}</span></div>
+    <div class="tp-rule"></div>
+    ${rowsHtml}
+    <div class="tp-center tp-footer">Printed ${new Date().toLocaleString('en-PK')}</div>`;
+
+  _printThermalHtml(bodyHtml);
+}
+
+function _printThermalHtml(bodyHtml) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.width  = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.right  = '0';
+  iframe.style.bottom = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title>
+    <style>
+      @page { size: 80mm auto; margin: 3mm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Courier New', Courier, monospace; width: 74mm; margin: 0; padding: 0; color: #000; font-size: 12px; line-height: 1.4; }
+      .tp-center { text-align: center; }
+      .tp-brand  { font-size: 14px; font-weight: 700; text-transform: uppercase; }
+      .tp-sub    { font-size: 11px; font-weight: 700; letter-spacing: .5px; margin-bottom: 2px; }
+      .tp-footer { font-size: 9px; color: #555; margin-top: 6px; }
+      .tp-rule   { border-top: 1px dashed #000; margin: 4px 0; }
+      .tp-row    { display: flex; justify-content: space-between; gap: 6px; padding: 1px 0; font-size: 11.5px; }
+      .tp-row span:first-child { word-break: break-word; padding-right: 4px; }
+      .tp-row span:last-child  { white-space: nowrap; font-weight: 600; }
+      .tp-cat    { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-top: 4px; }
+      .tp-total  { font-size: 13px; font-weight: 800; }
+    </style></head><body>${bodyHtml}</body></html>`);
+  doc.close();
+
+  setTimeout(() => {
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { /* no-op */ }
+    setTimeout(() => { if(iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 1500);
+  }, 250);
+}
+
+
+/* ═══════════════════════════════════════════
+
    CALENDAR
 ═══════════════════════════════════════════ */
 
@@ -792,6 +974,14 @@ function renderManifest() {
    SETTINGS UI
 ═══════════════════════════════════════════ */
 
+/* Brand-code input handler (index.html onchange) — Actions does the
+   mutation+persist, Pages updates its own example-text preview. */
+function updateBookBrandCode(value) {
+  settingsSetBookBrandCode(value);
+  const exampleEl = document.getElementById('cfg-book-brand-example');
+  if(exampleEl) exampleEl.textContent = db.settings.bookBrandCode + ' Closing Night 1 July 2026 to Evening 3 July 2026.pdf';
+}
+
 function buildSettingsUI() {
   document.getElementById('set-final-every-n').value = db.settings.finalEveryN || 3;
   const brandCodeEl = document.getElementById('cfg-book-brand-code');
@@ -823,19 +1013,19 @@ function renderSettingsNamedCredits() {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${nc.label}" placeholder="Account name" onchange="db.settings.namedCredits[${idx}].label=this.value">
+      <input type="text" value="${nc.label}" placeholder="Account name" onchange="settingsSetNamedCreditLabel(${idx}, this.value)">
       <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})">✕</button>`;
     box.appendChild(div);
   });
 }
 
 function addNamedCreditSetting() {
-  db.settings.namedCredits.push({label:"New Account"});
+  settingsAddNamedCredit();
   renderSettingsNamedCredits();
 }
 
 function removeNamedCredit(i) {
-  db.settings.namedCredits.splice(i,1);
+  settingsRemoveNamedCredit(i);
   renderSettingsNamedCredits();
 }
 
@@ -848,16 +1038,16 @@ function renderSettingsStrips() {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${item.name}" onchange="db.settings.strips[${idx}].name=this.value;persist()">
-      <select onchange="db.settings.strips[${idx}].group=this.value;persist()">${groupOptions(item.group||'')}</select>
-      <input type="number" value="${item.price}" onchange="db.settings.strips[${idx}].price=parseFloat(this.value)||0;persist()">
+      <input type="text" value="${item.name}" onchange="settingsSetStripField(${idx},'name',this.value)">
+      <select onchange="settingsSetStripField(${idx},'group',this.value)">${groupOptions(item.group||'')}</select>
+      <input type="number" value="${item.price}" onchange="settingsSetStripField(${idx},'price',parseFloat(this.value)||0)">
       <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})">✕</button>`;
     box.appendChild(div);
   });
 }
 
-function addStripRow()  { db.settings.strips.push({name:"New Item",price:0,group:""}); renderSettingsStrips(); persist(); }
-function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips(); persist(); }
+function addStripRow()  { settingsAddStrip(); renderSettingsStrips(); }
+function removeStrip(i) { settingsRemoveStrip(i); renderSettingsStrips(); }
 
 /* ── Item Groups (Settings) ─────────────────────────────────
    Every add/rename/remove persists (and therefore syncs to
@@ -867,7 +1057,6 @@ function removeStrip(i) { db.settings.strips.splice(i,1); renderSettingsStrips()
 function renderSettingsStripGroups() {
   const box = document.getElementById('settings-strip-groups');
   if (!box) return;
-  if (!db.settings.stripGroups) db.settings.stripGroups = [];
   box.innerHTML = "";
   db.settings.stripGroups.forEach((name, idx) => {
     const div = document.createElement('div');
@@ -879,46 +1068,45 @@ function renderSettingsStripGroups() {
   });
 }
 function addStripGroup() {
-  db.settings.stripGroups.push("New Group");
+  settingsAddStripGroup();
   renderSettingsStripGroups();
   renderSettingsStrips();
-  persist();
 }
 function renameStripGroup(idx, newName) {
-  const oldName = db.settings.stripGroups[idx];
-  db.settings.stripGroups[idx] = newName;
-  /* keep items pointed at the renamed group */
-  db.settings.strips.forEach(item => { if (item.group === oldName) item.group = newName; });
+  settingsRenameStripGroup(idx, newName);
   renderSettingsStrips();
-  persist();
 }
 function removeStripGroup(idx) {
-  const name = db.settings.stripGroups[idx];
-  db.settings.stripGroups.splice(idx, 1);
-  /* items in the removed group fall back to Ungrouped, not deleted */
-  db.settings.strips.forEach(item => { if (item.group === name) item.group = ""; });
+  settingsRemoveStripGroup(idx);
   renderSettingsStripGroups();
   renderSettingsStrips();
-  persist();
 }
 
+/* "Save Settings" reads the staged DOM fields (final-every-N,
+   named-credit labels, sub-tiers) and commits them all in one
+   Actions call — see settingsCommitAll() in actions.js. */
 function saveSettings() {
-  db.settings.finalEveryN = parseInt(document.getElementById('set-final-every-n').value)||3;
-  db.settings.namedCredits.forEach((nc, i) => {
+  const finalEveryN = parseInt(document.getElementById('set-final-every-n').value) || 3;
+
+  const namedCreditLabels = db.settings.namedCredits.map((nc, i) => {
     const el = document.querySelector(`#settings-named-credits .settings-item:nth-child(${i+1}) input`);
-    if(el) nc.label = el.value;
+    return el ? el.value : nc.label;
   });
+
+  const subTiersData = [];
   for(let i=1;i<=3;i++) {
     const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
     const tnames = document.getElementById(`cfg-tier-names-${i}`)?.value || '';
-    db.settings.subTiers[i-1] = {
+    subTiersData.push({
       type: ttype,
       names: tnames.split(',').map(n=>n.trim()).filter(Boolean)
-    };
+    });
   }
-  persist();
+
+  settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData);
   alert("Settings saved.");
   goToDashboard();
+
 }
 
 /* ═══════════════════════════════════════════

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   CLOSING BOOK
+   FLOOR 5 (Extension) — CLOSING BOOK
    Assembles every closing in a date/shift range into a single
    flip-through "book" — reusing the exact same print-sheet markup
    already used for individual PDF exports, so the book looks
@@ -9,6 +9,8 @@
    plus pinch), a jump-to-date dropdown, and resumes on the last
    page you were viewing. Export produces one multi-page PDF named
    "{Brand} Closing {FromShift} {FromDate} to {ToShift} {ToDate}".
+   Reads/renders like Pages (Floor 5); calls into Actions (Floor 3)
+   to build each sheet, same as the rest of the app.
 ═══════════════════════════════════════════════════════════════ */
 
 const BOOK_SHIFT_ORDER = ['Night', 'Morning', 'Evening'];
@@ -28,11 +30,21 @@ function _cbLocalDateStr(d) {
   return `${y}-${m}-${day}`;
 }
 
-let _cbCache            = {};   /* cacheKey -> { pages, fingerprint, builtAt } */
-let _cbCurrentCacheKey  = null;
-let _cbCurrentPage      = 0;
-let _cbZoom             = 1;
-let _cbAssemblyMode     = false; /* guards scheduleAutoSave() while looping through sheets */
+
+/* This file's own transient state — file-local, never read by
+   another floor directly. cbIsAssembling() below is the one
+   sanctioned peek Actions (Floor 3) is allowed. */
+const cbState = {
+  cache:           {},   /* cacheKey -> { pages, fingerprint, builtAt } */
+  currentCacheKey: null,
+  currentPage:     0,
+  zoom:            1,
+  assemblyMode:    false /* guards scheduleAutoSave() while looping through sheets */
+};
+
+/* Accessor for Actions (Floor 3) — see scheduleAutoSave() in
+   actions.js — instead of it reaching into cbState directly. */
+function cbIsAssembling() { return cbState.assemblyMode; }
 
 /* ── Defaults when the tab is opened ─────────────────────── */
 function initClosingBookDefaults() {
@@ -171,7 +183,7 @@ async function generateClosingBook() {
   const statusEl  = document.getElementById('cb-generate-status');
   const genBtn    = document.getElementById('cb-generate-btn');
 
-  if(_cbAssemblyMode) return; /* already assembling — ignore a double-tap rather than run two overlapping loops */
+  if(cbState.assemblyMode) return; /* already assembling — ignore a double-tap rather than run two overlapping loops */
 
   if(!fromDs || !toDs) { alert('Pick both a "From" and "To" date.'); return; }
 
@@ -185,7 +197,7 @@ async function generateClosingBook() {
 
   const cacheKey    = `${fromDs}_${fromShift}__${toDs}_${toShift}`;
   const fingerprint = computeClosingBookFingerprint(entries);
-  const cached      = _cbCache[cacheKey];
+  const cached      = cbState.cache[cacheKey];
 
   if(cached && cached.fingerprint === fingerprint) {
     openClosingBookReader(cacheKey);
@@ -207,7 +219,7 @@ async function generateClosingBook() {
      though nothing they'd typed was lost (drafts auto-save regardless). */
   const savedWasUnlockedForEdit = !!(savedActiveKey && !isSheetLocked && db.sheets[savedActiveKey] && db.sheets[savedActiveKey].draft !== true);
 
-  _cbAssemblyMode = true;
+  cbState.assemblyMode = true;
 
   try {
     const pages = [{ type: 'cover', html: buildClosingBookCoverPage(entries, fromDs, fromShift, toDs, toShift), label: 'Cover' }];
@@ -242,7 +254,7 @@ async function generateClosingBook() {
       if(i % 5 === 4) await new Promise(r => setTimeout(r, 0)); /* yield so the UI doesn't lock up */
     }
 
-    _cbCache[cacheKey] = { pages, fingerprint, builtAt: Date.now() };
+    cbState.cache[cacheKey] = { pages, fingerprint, builtAt: Date.now() };
   } catch(err) {
     console.error('Closing Book assembly failed:', err);
     alert('Something went wrong assembling the book. Please try again — if it keeps happening, try a smaller date range.');
@@ -251,7 +263,7 @@ async function generateClosingBook() {
     /* guaranteed to run even on error, so a bad sheet can't permanently
        strand assembly mode as "on" (which would silently block every
        future attempt) or leave the ledger context unrestored */
-    _cbAssemblyMode = false;
+    cbState.assemblyMode = false;
     if(genBtn) genBtn.disabled = false;
     statusEl.classList.add('hidden');
 
@@ -270,19 +282,19 @@ async function generateClosingBook() {
 
 /* ── Reader ───────────────────────────────────────────────── */
 function openClosingBookReader(cacheKey) {
-  _cbCurrentCacheKey = cacheKey;
+  cbState.currentCacheKey = cacheKey;
   document.getElementById('cb-reader').classList.remove('hidden');
   populateClosingBookJumpSelect();
 
-  const pages    = _cbCache[cacheKey].pages;
-  const lastPage = parseInt(localStorage.getItem('cb-last-page:' + cacheKey), 10);
-  _cbCurrentPage = (!isNaN(lastPage) && lastPage >= 0 && lastPage < pages.length) ? lastPage : 0;
-  _cbZoom = 1;
+  const pages    = cbState.cache[cacheKey].pages;
+  const lastPage = parseInt(repoGetLocal('cb-last-page:' + cacheKey), 10);
+  cbState.currentPage = (!isNaN(lastPage) && lastPage >= 0 && lastPage < pages.length) ? lastPage : 0;
+  cbState.zoom = 1;
   renderClosingBookPage();
 }
 
 /* Exits the fullscreen reader back to the Closing Book tab. The
-   assembled book stays cached (_cbCache), so re-opening it — either
+   assembled book stays cached (cbState.cache), so re-opening it — either
    via the range picker's Generate button or by navigating back here —
    shows the same book instantly instead of rebuilding it. */
 function closeClosingBookReader() {
@@ -291,7 +303,7 @@ function closeClosingBookReader() {
 
 function populateClosingBookJumpSelect() {
   const sel   = document.getElementById('cb-jump-select');
-  const pages = _cbCache[_cbCurrentCacheKey].pages;
+  const pages = cbState.cache[cbState.currentCacheKey].pages;
   sel.innerHTML = pages.map((p, i) => `<option value="${i}">${i === 0 ? '📕 Cover' : (i + 1) + '. ' + p.label}</option>`).join('');
 }
 
@@ -302,7 +314,7 @@ function _cbComputeFitScale() {
 }
 
 function _cbApplyStageScale() {
-  const scale = _cbComputeFitScale() * _cbZoom;
+  const scale = _cbComputeFitScale() * cbState.zoom;
   const stage = document.getElementById('cb-page-stage');
   const sizer = document.getElementById('cb-page-sizer');
   if(stage) stage.style.transform = `scale(${scale})`;
@@ -316,27 +328,27 @@ function _cbApplyStageScale() {
     sizer.style.height = (1123 * scale) + 'px';
   }
   const vp = document.getElementById('cb-viewport');
-  if(vp) vp.classList.toggle('cb-viewport-zoomed', _cbZoom > 1);
+  if(vp) vp.classList.toggle('cb-viewport-zoomed', cbState.zoom > 1);
 }
 
 function renderClosingBookPage() {
-  const cache = _cbCache[_cbCurrentCacheKey];
+  const cache = cbState.cache[cbState.currentCacheKey];
   if(!cache) return;
   const pages = cache.pages;
   const stage = document.getElementById('cb-page-stage');
 
-  stage.innerHTML = pages[_cbCurrentPage].html;
+  stage.innerHTML = pages[cbState.currentPage].html;
   _cbApplyStageScale();
 
-  document.getElementById('cb-page-counter').textContent = `${_cbCurrentPage + 1} / ${pages.length}`;
-  document.getElementById('cb-jump-select').value = _cbCurrentPage;
-  document.getElementById('cb-btn-prev').disabled = (_cbCurrentPage === 0);
-  document.getElementById('cb-btn-next').disabled = (_cbCurrentPage === pages.length - 1);
+  document.getElementById('cb-page-counter').textContent = `${cbState.currentPage + 1} / ${pages.length}`;
+  document.getElementById('cb-jump-select').value = cbState.currentPage;
+  document.getElementById('cb-btn-prev').disabled = (cbState.currentPage === 0);
+  document.getElementById('cb-btn-next').disabled = (cbState.currentPage === pages.length - 1);
 
   const vp = document.getElementById('cb-viewport');
   vp.scrollTop = 0; vp.scrollLeft = 0;
 
-  localStorage.setItem('cb-last-page:' + _cbCurrentCacheKey, String(_cbCurrentPage));
+  repoSetLocal('cb-last-page:' + cbState.currentCacheKey, String(cbState.currentPage));
 }
 
 /* cheap re-scale during a live pinch gesture — no HTML re-injection */
@@ -345,18 +357,18 @@ function _cbApplyZoomOnly() {
 }
 
 function closingBookNext() {
-  const pages = _cbCache[_cbCurrentCacheKey]?.pages;
-  if(pages && _cbCurrentPage < pages.length - 1) { _cbCurrentPage++; renderClosingBookPage(); }
+  const pages = cbState.cache[cbState.currentCacheKey]?.pages;
+  if(pages && cbState.currentPage < pages.length - 1) { cbState.currentPage++; renderClosingBookPage(); }
 }
 function closingBookPrev() {
-  if(_cbCurrentPage > 0) { _cbCurrentPage--; renderClosingBookPage(); }
+  if(cbState.currentPage > 0) { cbState.currentPage--; renderClosingBookPage(); }
 }
 function closingBookJump(idxStr) {
   const idx = parseInt(idxStr, 10);
-  if(!isNaN(idx)) { _cbCurrentPage = idx; renderClosingBookPage(); }
+  if(!isNaN(idx)) { cbState.currentPage = idx; renderClosingBookPage(); }
 }
 function closingBookZoom(z) {
-  _cbZoom = z;
+  cbState.zoom = z;
   renderClosingBookPage();
 }
 
@@ -378,8 +390,8 @@ function closingBookZoom(z) {
     if(e.touches.length === 2) {
       swiping = false;
       pinchStartDist = dist(e.touches);
-      pinchStartZoom = _cbZoom;
-    } else if(e.touches.length === 1 && _cbZoom === 1) {
+      pinchStartZoom = cbState.zoom;
+    } else if(e.touches.length === 1 && cbState.zoom === 1) {
       swiping = true;
       swipeStartX = e.touches[0].clientX;
       swipeStartY = e.touches[0].clientY;
@@ -391,7 +403,7 @@ function closingBookZoom(z) {
   vp.addEventListener('touchmove', (e) => {
     if(e.touches.length === 2 && pinchStartDist > 0) {
       const scale = dist(e.touches) / pinchStartDist;
-      _cbZoom = Math.min(8, Math.max(1, pinchStartZoom * scale));
+      cbState.zoom = Math.min(8, Math.max(1, pinchStartZoom * scale));
       _cbApplyZoomOnly();
     }
   }, { passive: true });
@@ -410,7 +422,7 @@ function closingBookZoom(z) {
     if(pinchStartDist === 0) _cbApplyStageScale();
   }, { passive: true });
 
-  window.addEventListener('resize', () => { if(_cbCurrentCacheKey) _cbApplyZoomOnly(); });
+  window.addEventListener('resize', () => { if(cbState.currentCacheKey) _cbApplyZoomOnly(); });
 })();
 
 /* ── Desktop input: no touch/swipe on a mouse, so give the reader
@@ -429,7 +441,7 @@ document.addEventListener('keydown', (e) => {
 /* ── Export as one multi-page PDF ────────────────────────────
    "{Brand} Closing {FromShift} {FromDate} to {ToShift} {ToDate}" */
 async function exportClosingBookPdf() {
-  const cache = _cbCache[_cbCurrentCacheKey];
+  const cache = cbState.cache[cbState.currentCacheKey];
   if(!cache) return;
 
   const btn = document.getElementById('cb-btn-export');
@@ -457,7 +469,7 @@ async function exportClosingBookPdf() {
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH);
     }
 
-    const [fromKey, toKey]       = _cbCurrentCacheKey.split('__');
+    const [fromKey, toKey]       = cbState.currentCacheKey.split('__');
     const [fromDs, fromShift]    = fromKey.split('_');
     const [toDs, toShift]        = toKey.split('_');
     const brand   = db.settings.bookBrandCode || 'FDPP BT';

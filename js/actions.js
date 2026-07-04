@@ -1067,7 +1067,7 @@ function cascadeDownstream(originKey) {
 ═══════════════════════════════════════════ */
 let _pushTimer = null;
 function scheduleSyncPush(delay = 0) {
-  if(!dbxClient) return;
+  if(!syncIsReady()) return;
   clearTimeout(_pushTimer);
   if(delay === 0) {
     syncPushToCloud(false).catch(() => {});
@@ -1084,7 +1084,7 @@ let _draftReady  = false; /* gates auto-save: true only after ledger fully inits
 
 function scheduleAutoSave() {
   if(!activeKey || !_draftReady || isSheetLocked) return;
-  if(typeof _cbAssemblyMode !== 'undefined' && _cbAssemblyMode) return; /* Closing Book is assembling — don't autosave every sheet it loads */
+  if(typeof cbIsAssembling === 'function' && cbIsAssembling()) return; /* Closing Book is assembling — don't autosave every sheet it loads */
   clearTimeout(_draftTimer);
   _draftTimer = setTimeout(() => {
     try {
@@ -1092,15 +1092,22 @@ function scheduleAutoSave() {
       record.draft  = true;
       record.locked = false;
       db.sheets[activeKey] = record;
-      localStorage.setItem('pharmpos_v2', JSON.stringify(db));
-      scheduleSyncPush(0); /* push draft immediately */
+      persist();
     } catch(e) { /* silent — draft save is best-effort */ }
   }, 3000); /* 3 s idle after last keystroke */
 }
 
 function persist() {
-  localStorage.setItem('pharmpos_v2', JSON.stringify(db));
+  repoPersist();
   scheduleSyncPush(0); /* immediate push on every explicit save */
+}
+
+/* Stop the debounced auto-draft (e.g. when leaving the ledger).
+   Exposed so other floors don't have to reach into Actions'
+   private _draftReady/_draftTimer variables directly. */
+function stopAutoDraft() {
+  _draftReady = false;
+  clearTimeout(_draftTimer);
 }
 
 function saveDraft() {
@@ -1143,6 +1150,74 @@ function deleteSheet(key) {
   else { renderManifest(); buildCalendar(); }
 }
 
+/* Change a saved sheet's shift/final profile mode (used when
+   re-opening a record for edit with a different mode selected).
+   Floor 4 (Components) calls this instead of poking db.sheets
+   directly. */
+function setSheetProfileMode(key, mode) {
+  if(db.sheets[key] && db.sheets[key].profileMode !== mode) {
+    db.sheets[key].profileMode = mode;
+    persist();
+  }
+}
+
 /* ═══════════════════════════════════════════
-   EDIT CLOSING MODAL
+   SETTINGS — the one door for all db.settings mutations.
+   Strips / strip-groups persist immediately on every edit (so a
+   change is never lost by navigating away). Named credits, the
+   final-every-N cadence, and sub-tiers are staged in memory and
+   only committed by settingsCommitAll() (the big "Save Settings"
+   button) — this mirrors the original behaviour exactly.
 ═══════════════════════════════════════════ */
+
+function settingsSetBookBrandCode(code) {
+  db.settings.bookBrandCode = code.trim() || 'FDPP BT';
+  persist();
+}
+
+function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); }
+function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); }
+function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = v; }
+
+function settingsAddStrip() {
+  db.settings.strips.push({name:"New Item",price:0,group:""});
+  persist();
+}
+function settingsRemoveStrip(i) {
+  db.settings.strips.splice(i,1);
+  persist();
+}
+function settingsSetStripField(i, field, value) {
+  if(db.settings.strips[i]) { db.settings.strips[i][field] = value; persist(); }
+}
+
+function settingsAddStripGroup() {
+  db.settings.stripGroups.push("New Group");
+  persist();
+}
+function settingsRenameStripGroup(i, newName) {
+  const oldName = db.settings.stripGroups[i];
+  db.settings.stripGroups[i] = newName;
+  /* keep items pointed at the renamed group */
+  db.settings.strips.forEach(item => { if(item.group === oldName) item.group = newName; });
+  persist();
+}
+function settingsRemoveStripGroup(i) {
+  const name = db.settings.stripGroups[i];
+  db.settings.stripGroups.splice(i, 1);
+  /* items in the removed group fall back to Ungrouped, not deleted */
+  db.settings.strips.forEach(item => { if(item.group === name) item.group = ""; });
+  persist();
+}
+
+/* Commits the staged fields (finalEveryN, named-credit labels,
+   sub-tiers) that pages.js's Save Settings button reads from the
+   DOM, then persists once. */
+function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) {
+  db.settings.finalEveryN = finalEveryN;
+  namedCreditLabels.forEach((label, i) => {
+    if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = label;
+  });
+  subTiersData.forEach((t, i) => { db.settings.subTiers[i] = t; });
+  persist();
+}

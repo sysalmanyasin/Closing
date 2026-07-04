@@ -27,17 +27,19 @@ const LEDGER_SECTIONS = [
 ];
 
 /* ── State ──────────────────────────────────────────────────── */
-let _touchedSections  = {};   /* { sectionKey: true } once a card has been opened (drives which section focus mode lands on) */
-/* Focus mode is the only mode now — always on. Kept as a body class
-   so existing CSS selectors (body.focus-mode ...) keep working unchanged. */
-let _focusIndex        = 0;
+const navState = {
+  touchedSections: {}, /* { sectionKey: true } once a card has been opened (drives which section focus mode lands on) */
+  /* Focus mode is the only mode now — always on. Kept as a body class
+     so existing CSS selectors (body.focus-mode ...) keep working unchanged. */
+  focusIndex: 0
+};
 
 /* ═══════════════════════════════════════════════════════════
    INIT — called once when a ledger sheet opens
 ═══════════════════════════════════════════════════════════ */
 function initLedgerNav() {
-  _touchedSections = {};
-  _focusIndex  = 0;
+  navState.touchedSections = {};
+  navState.focusIndex  = 0;
   document.body.classList.add('focus-mode');
   closeViewAll();
 
@@ -52,8 +54,8 @@ function initLedgerNav() {
   buildSectionNav();
   /* land on the first not-yet-touched section, or section 0 */
   const keys = visibleSectionKeys();
-  const firstUntouched = keys.findIndex(k => !_touchedSections[k]);
-  _focusIndex = firstUntouched >= 0 ? firstUntouched : 0;
+  const firstUntouched = keys.findIndex(k => !navState.touchedSections[k]);
+  navState.focusIndex = firstUntouched >= 0 ? firstUntouched : 0;
   applyFocusVisibility();
   updateSectionStatus();
 }
@@ -84,13 +86,13 @@ function jumpToSection(key) {
   const card = document.getElementById(sec.cardId);
   if (!card) return;
 
-  const oldIndex = _focusIndex;
+  const oldIndex = navState.focusIndex;
   const newIndex = visibleSectionKeys().indexOf(key);
-  _focusIndex = newIndex;
+  navState.focusIndex = newIndex;
   const direction = newIndex === oldIndex ? 0 : (newIndex > oldIndex ? 1 : -1);
   applyFocusVisibility(direction);
 
-  _touchedSections[key] = true;
+  navState.touchedSections[key] = true;
   updateSectionStatus();
 }
 
@@ -134,7 +136,7 @@ function visibleSectionKeys() {
 
 function applyFocusVisibility(direction = 0) {
   const keys = visibleSectionKeys();
-  const targetKey  = keys[_focusIndex];
+  const targetKey  = keys[navState.focusIndex];
   const targetSec  = LEDGER_SECTIONS.find(s => s.key === targetKey);
   const targetCard = targetSec ? document.getElementById(targetSec.cardId) : null;
 
@@ -178,8 +180,8 @@ function applyFocusVisibility(direction = 0) {
 
 function focusStep(dir) {
   const keys = visibleSectionKeys();
-  _touchedSections[keys[_focusIndex]] = true;
-  _focusIndex = Math.max(0, Math.min(keys.length - 1, _focusIndex + dir));
+  navState.touchedSections[keys[navState.focusIndex]] = true;
+  navState.focusIndex = Math.max(0, Math.min(keys.length - 1, navState.focusIndex + dir));
   applyFocusVisibility(dir);
   updateSectionStatus();
 }
@@ -189,10 +191,10 @@ function updateFocusButtons() {
   const prevBtn = document.getElementById('focus-btn-prev');
   const nextBtn = document.getElementById('focus-btn-next');
   const saveCloseBtn = document.getElementById('btn-save-close');
-  const isLast  = (_focusIndex >= keys.length - 1);
+  const isLast  = (navState.focusIndex >= keys.length - 1);
   const locked  = (typeof isSheetLocked !== 'undefined') && isSheetLocked;
 
-  if (prevBtn) prevBtn.disabled = (_focusIndex <= 0);
+  if (prevBtn) prevBtn.disabled = (navState.focusIndex <= 0);
 
   if (nextBtn) {
     if (isLast) {
@@ -354,7 +356,7 @@ function renderPrevShiftSnapshot() {
   if (!box) return;
 
   const keys = visibleSectionKeys();
-  const currentKey = keys[_focusIndex];
+  const currentKey = keys[navState.focusIndex];
   const sec = LEDGER_SECTIONS.find(s => s.key === currentKey);
   const prev = getPrevRealSheetForSnapshot();
 
@@ -455,7 +457,7 @@ function openViewAll() {
   if (!list) return;
 
   const keys = visibleSectionKeys();
-  const currentKey = keys[_focusIndex];
+  const currentKey = keys[navState.focusIndex];
 
   let runningTotal = 0;
   let countedAny = false;
@@ -507,7 +509,7 @@ function viewAllOutsideClick(e) {
 function onCardToggled(cardId) {
   const sec = LEDGER_SECTIONS.find(s => s.cardId === cardId);
   if (sec) {
-    _touchedSections[sec.key] = true;
+    navState.touchedSections[sec.key] = true;
     updateSectionStatus();
   }
 }

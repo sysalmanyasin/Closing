@@ -22,7 +22,7 @@ const DENOMS = [
   {label:"Coins / loose change", mult:1}
 ];
 
-let db = JSON.parse(localStorage.getItem("pharmpos_v2")) || {
+let db = repoLoad() || {
   settings: {
     bookBrandCode: "FDPP BT",
     namedCredits: [
@@ -62,6 +62,11 @@ if(!db.settings.stripGroups) db.settings.stripGroups = ["Water","Nestlé Juice",
 if(db.settings.strips) db.settings.strips.forEach(item => { if(item.group === undefined) item.group = ""; });
 if(!db.settings.bookBrandCode) db.settings.bookBrandCode = "FDPP BT";
 
+/* The ONLY sanctioned way to wholesale-replace the db reference.
+   Repository (import/restore) and Sync (cloud-adopt) call this
+   instead of reassigning `db` themselves. */
+function setDB(newDb) { db = newDb; }
+
 let activeKey      = null;
 let activeMode     = "shift";
 let overrides      = {};
@@ -75,7 +80,3 @@ let depositCount   = 0;
 let miscCount      = 0;
 let hsRowCount     = 0;
 let auxStripCount  = 0;
-
-/* ═══════════════════════════════════════════
-   NUMPAD ENGINE
-═══════════════════════════════════════════ */
