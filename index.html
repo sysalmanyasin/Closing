@@ -50,13 +50,17 @@
 
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <!-- ══ SYNC MINI TOP STATUS BAR ══ -->
 <div id="sync-topbar" onclick="syncPullFromCloud(true)" title="Tap to sync now">
   <span id="sync-tb-icon">☁</span>
   <span id="sync-tb-text">Checking…</span>
 </div>
+<div id="sync-live-region" class="visually-hidden" aria-live="polite" role="status"></div>
 
 <div class="shell">
+  <main id="main-content">
 
   <!-- ══ HEADER BAR ══ -->
   <div class="app-bar">
@@ -349,7 +353,7 @@
 
     <div class="ledger-toolbar">
       <div class="ledger-toolbar-left">
-        <button class="ltb-back" onclick="goToDashboard()" title="Close">←</button>
+        <button class="ltb-back" onclick="goToDashboard()" title="Close" aria-label="Close">←</button>
         <div>
           <div class="ltb-title" id="lbl-ledger-title">Shift Register</div>
           <div class="ltb-meta" id="lbl-ledger-meta"></div>
@@ -358,7 +362,7 @@
       <div class="ledger-toolbar-right">
         <div id="ledger-badge"></div>
         <div class="ltb-more-wrap" id="ltb-more-wrap">
-          <button class="ltb-icon-btn" onclick="toggleMoreMenu()" title="More">⋮</button>
+          <button class="ltb-icon-btn" onclick="toggleMoreMenu()" title="More" aria-label="More options">⋮</button>
           <div class="ltb-more-menu hidden" id="ltb-more-menu">
             <button onclick="openViewAll();toggleMoreMenu()">⊞ View All Sections</button>
             <button id="menu-edit-pin" class="hidden" onclick="openEditModal(activeKey);toggleMoreMenu()">✏️ Edit (PIN)</button>
@@ -379,6 +383,7 @@
         </button>
       </div>
       <div class="lpb-nav-row" id="lpb-nav-row"></div>
+      <div id="ledger-progress-live" class="visually-hidden" aria-live="polite" role="status"></div>
     </div>
 
     <!-- ══ VIEW ALL (read-only overlay, focus mode never turns off) ══ -->
@@ -541,7 +546,7 @@
           <div class="row computed" id="box-out-prev-credit"><label>Carried Debt from Previous Shift:</label><input type="number" id="out-prev-credit" oninput="setOverride('out-prev-credit')"></div>
           <div class="row"><label>Credit Adjustment:</label>
             <div style="display:flex;gap:4px;align-items:center;">
-              <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="toggleSign('in-credit-adj')">±</button>
+              <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="toggleSign('in-credit-adj')" aria-label="Toggle amount sign, positive or negative">±</button>
               <input type="number" id="in-credit-adj" value="0" oninput="calc()" placeholder="e.g. -500" style="flex:1;">
             </div>
           </div>
@@ -791,6 +796,7 @@
   </div>
   <!-- /PAGE 5 -->
 
+  </main>
 </div><!-- /shell -->
 
 <!-- ═══ NUMPAD OVERLAY ═══ -->
@@ -798,7 +804,7 @@
   <div class="numpad-sheet" onclick="event.stopPropagation()">
     <div class="numpad-header">
       <span class="numpad-label" id="numpad-label">Enter value</span>
-      <button class="numpad-close-btn" onclick="closeNumpad()">✕</button>
+      <button class="numpad-close-btn" onclick="closeNumpad()" aria-label="Close numpad">✕</button>
     </div>
     <div class="numpad-display" id="numpad-display">0</div>
     <div class="numpad-grid">
@@ -807,7 +813,7 @@
       <button class="np-btn" onclick="npKey('1')">1</button><button class="np-btn" onclick="npKey('2')">2</button><button class="np-btn" onclick="npKey('3')">3</button>
       <button class="np-btn np-zero" onclick="npKey('0')">0</button>
       <button class="np-btn" onclick="npKey('.')">·</button>
-      <button class="np-btn np-back" onclick="npKey('back')">⌫</button>
+      <button class="np-btn np-back" onclick="npKey('back')" aria-label="Backspace">⌫</button>
       <button class="np-btn np-clear" onclick="npKey('clear')">CLEAR</button>
       <button class="np-btn np-confirm" onclick="npConfirm()">✓ Confirm</button>
     </div>
@@ -819,7 +825,7 @@
   <div class="modal-picker-sheet" onclick="event.stopPropagation()">
     <div class="modal-picker-title">
       <span id="modal-picker-title">Select</span>
-      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;" onclick="closeModalPicker()">✕</button>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;" onclick="closeModalPicker()" aria-label="Close">✕</button>
     </div>
     <div class="modal-picker-list" id="modal-picker-list"></div>
   </div>
@@ -830,7 +836,7 @@
   <div class="pdf-modal-sheet">
     <div class="pdf-modal-head">
       <h3>📄 Export Closing</h3>
-      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closePdfModal()">✕</button>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closePdfModal()" aria-label="Close">✕</button>
     </div>
     <div class="pdf-modal-body">
       <div id="pdf-modal-status"></div>
@@ -864,6 +870,7 @@
       <span>⚠️</span>
       <span id="summary-incomplete-text">Some sections haven't been opened yet. You can still save, but double-check them first.</span>
     </div>
+    <div id="summary-live-region" class="visually-hidden" aria-live="polite" role="status"></div>
     <div class="summary-body">
       <div class="summary-stat" id="summary-stat-target">
         <div class="summary-stat-label" id="summary-label-target">Target Net Sales</div>
@@ -893,7 +900,7 @@
   <div class="edit-modal-sheet" onclick="event.stopPropagation()">
     <div class="edit-modal-head">
       <h3>✏️ Edit Closing</h3>
-      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closeEditModal()">✕</button>
+      <button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;" onclick="closeEditModal()" aria-label="Close">✕</button>
     </div>
     <div class="edit-modal-body">
       <div>
