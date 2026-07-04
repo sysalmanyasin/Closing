@@ -878,6 +878,26 @@
   }
   .cl-toolbar-btns { display: flex; gap: 6px; }
 
+  /* Credit / Misc mode tabs */
+  .cl-mode-tabs {
+    display: flex; gap: 6px; margin-bottom: 12px;
+    background: #f1f5f9; border-radius: var(--radius-md); padding: 4px;
+  }
+  .cl-mode-tab {
+    flex: 1; text-align: center; padding: 8px 10px; border: none; border-radius: var(--radius-sm);
+    background: transparent; color: var(--muted); font-size: 0.82rem; font-weight: 700;
+    cursor: pointer; font-family: 'Inter', sans-serif; transition: all .12s;
+  }
+  .cl-mode-tab.active { background: var(--white); color: var(--teal-dark); box-shadow: var(--shadow-sm); }
+
+  /* Per-snapshot print button (3" thermal receipt) */
+  .cl-print-btn {
+    font-size: 0.7rem; padding: 3px 8px; border-radius: var(--radius-sm);
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--slate); cursor: pointer; white-space: nowrap;
+  }
+  .cl-print-btn:hover { background: var(--teal); color: #fff; border-color: var(--teal); }
+
   /* Date group card */
   .cl-date-card {
     background: var(--surface); border: 1px solid var(--border);
