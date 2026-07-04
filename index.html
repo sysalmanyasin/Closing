@@ -36,9 +36,10 @@
   ║  Sync     — Dropbox (cloud sync, isolated module)    ║
   ╚══════════════════════════════════════════════════════╝
 -->
-<script src="js/state.js"></script>
 <script src="js/repository.js"></script>
+<script src="js/state.js"></script>
 <script src="js/actions.js"></script>
+<script src="js/ledger-engine.js"></script>
 <script src="js/components.js"></script>
 <script src="js/pages.js"></script>
 <script src="js/ledger-nav.js"></script>
@@ -253,7 +254,7 @@
           <div class="form-field">
             <label>Brand Code (used in exported PDF filenames)</label>
             <input type="text" id="cfg-book-brand-code"
-              onchange="db.settings.bookBrandCode=this.value.trim()||'FDPP BT';persist();document.getElementById('cfg-book-brand-example').textContent=db.settings.bookBrandCode+' Closing Night 1 July 2026 to Evening 3 July 2026.pdf'">
+              onchange="updateBookBrandCode(this.value)">
           </div>
           <p class="text-muted text-sm" style="margin-top:6px;">Example: "<span id="cfg-book-brand-example"></span>"</p>
         </div>
@@ -658,24 +659,31 @@
       </div>
       <div class="cl-toolbar">
         <div>
-          <div class="cl-toolbar-title">📒 Credit Ledger</div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Snapshot history of every shift's credit</div>
+          <div class="cl-toolbar-title" id="cl-toolbar-title">📒 Credit Ledger</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;" id="cl-toolbar-sub">Snapshot history of every shift's credit</div>
         </div>
         <div class="cl-toolbar-btns">
           <button class="btn btn-ghost btn-sm" id="cl-btn-expand-all" onclick="clToggleAll(true)">Expand All</button>
           <button class="btn btn-ghost btn-sm" onclick="clToggleAll(false)">Collapse All</button>
-          <button class="btn btn-teal btn-sm" onclick="clToggleExport()">⬇ Export</button>
+          <button class="btn btn-teal btn-sm" id="cl-btn-export" onclick="clToggleExport()">⬇ Export</button>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <div class="cl-mode-tabs" id="cl-mode-tabs">
+        <button class="cl-mode-tab active" id="cl-mode-tab-credit" onclick="clSwitchMode('credit')">💳 Credit</button>
+        <button class="cl-mode-tab" id="cl-mode-tab-misc" onclick="clSwitchMode('misc')">🧮 Misc / Ongoing</button>
+      </div>
+      <div id="cl-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Filter account:</label>
         <select id="cl-filter-select" onchange="renderCreditLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
           <option value="">All Accounts</option>
         </select>
         <span id="cl-count-badge" style="font-size:0.72rem;color:var(--muted);white-space:nowrap;"></span>
       </div>
+      <div id="cl-count-row-misc" class="hidden" style="margin-bottom:12px;">
+        <span id="cl-count-badge-misc" style="font-size:0.72rem;color:var(--muted);white-space:nowrap;"></span>
+      </div>
       <div class="cl-export-panel" id="cl-export-panel">
-        <h4>📤 Export Credit History as .txt</h4>
+        <h4 id="cl-export-title">📤 Export Credit History as .txt</h4>
         <div class="cl-export-row">
           <label>From</label>
           <input type="date" id="cl-exp-from-date">

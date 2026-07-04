@@ -2,7 +2,7 @@
 
 A single-page, installable web app (PWA) for cashier shift closing, cash
 reconciliation, and daily/period closing reports. Runs entirely
-client-side; data lives in `localStorage` with optional Dropbox sync..
+client-side; data lives in `localStorage` with optional Dropbox sync.
 
 **Live URL:** https://closing.duapharma.com
 
