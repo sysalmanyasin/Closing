@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
-   LEDGER NAV — sticky jump-nav, progress, focus mode, summary modal
+   FLOOR 5 (Extension) — LEDGER NAV
+   Sticky jump-nav, progress, focus mode, summary modal.
    This is a UI layer on top of the existing 5-floor architecture.
    It reads totals already computed by calc() (Floor 3) and never
    duplicates business logic — only orchestrates how sections are
    shown/hidden/jumped-to, and gates the final save behind a
-   review screen.
+   review screen. Never mutates db directly.
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Section registry: id, label, icon, badge element id ──────
