@@ -69,13 +69,46 @@ function buildSectionNav() {
   if (!row) return;
   const isFinal = (typeof activeMode !== 'undefined' && activeMode === 'final');
 
+  row.setAttribute('role', 'tablist');
+  row.setAttribute('aria-label', 'Ledger sections');
+
   row.innerHTML = LEDGER_SECTIONS
     .filter(sec => !sec.finalOnly || isFinal)
     .map(sec => `
-      <div class="lpb-chip" id="lpb-chip-${sec.key}" onclick="jumpToSection('${sec.key}')">
-        <span class="lpb-chip-icon">${sec.icon}</span><span>${sec.label}</span>
+      <div class="lpb-chip" id="lpb-chip-${sec.key}" onclick="jumpToSection('${sec.key}')"
+        role="tab" tabindex="-1" aria-selected="false" aria-controls="${sec.cardId}">
+        <span class="lpb-chip-icon" aria-hidden="true">${sec.icon}</span><span>${sec.label}</span>
       </div>
     `).join('');
+
+  enhanceChipKeyboardNav(row);
+}
+
+/* a11y: standard roving-tabindex arrow-key navigation for the tab-like
+   chip bar. Purely additive — jumpToSection()/click behavior unchanged;
+   this only adds keyboard operability equivalent to the existing tap. */
+function enhanceChipKeyboardNav(row) {
+  if (row.dataset.a11yEnhanced) return;
+  row.dataset.a11yEnhanced = 'true';
+  row.addEventListener('keydown', (e) => {
+    const chips = Array.from(row.querySelectorAll('.lpb-chip'));
+    const currentIdx = chips.findIndex(c => c === document.activeElement);
+    if (currentIdx === -1) return;
+    let targetIdx = null;
+    if (e.key === 'ArrowRight') targetIdx = Math.min(currentIdx + 1, chips.length - 1);
+    else if (e.key === 'ArrowLeft') targetIdx = Math.max(currentIdx - 1, 0);
+    else if (e.key === 'Home') targetIdx = 0;
+    else if (e.key === 'End') targetIdx = chips.length - 1;
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      chips[currentIdx].click();
+      return;
+    }
+    if (targetIdx !== null) {
+      e.preventDefault();
+      chips[targetIdx].focus();
+    }
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -120,11 +153,28 @@ function updateSectionStatus() {
       if (isOpen && !wasCurrent) {
         chip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
+      /* a11y: mirror the same current/not-current state as ARIA,
+         and give the current chip the roving tabindex so the tab
+         bar is reachable with a single Tab keypress. */
+      chip.setAttribute('aria-selected', isOpen ? 'true' : 'false');
+      chip.setAttribute('tabindex', isOpen ? '0' : '-1');
     }
   });
 
   updateFocusButtons();
   renderPrevShiftSnapshot();
+
+  /* a11y: announce completed-section count, but only when it actually
+     changes — updateSectionStatus() runs on every keystroke via calc(),
+     so this guards against repeating the same announcement constantly. */
+  const liveProgress = document.getElementById('ledger-progress-live');
+  if (liveProgress) {
+    const doneCount = visible.filter(sec => navState.touchedSections[sec.key]).length;
+    if (navState._lastAnnouncedDone !== doneCount) {
+      navState._lastAnnouncedDone = doneCount;
+      liveProgress.textContent = `${doneCount} of ${visible.length} sections done.`;
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -435,6 +485,17 @@ function openSummaryModal() {
   const noteBox = document.getElementById('summary-incomplete-note');
   if (noteBox) noteBox.classList.add('hidden');
   headSub.textContent = isFinal ? 'Review final closing before saving' : 'Review before saving';
+
+  /* a11y: announce the same status sighted users get from color,
+     to anyone using a screen reader. Additive — reads values already
+     computed above, doesn't change any existing logic or classes. */
+  const liveRegion = document.getElementById('summary-live-region');
+  if (liveRegion) {
+    let statusWord = 'balanced';
+    if (statBox.classList.contains('sv-warn')) statusWord = 'a moderate shortage — please double-check';
+    else if (statBox.classList.contains('sv-bad')) statusWord = 'a significant shortage — please double-check';
+    liveRegion.textContent = `${varianceLabel}: ${varianceText}, ${statusWord}.`;
+  }
 
   document.getElementById('summary-modal-overlay').classList.remove('hidden');
 }

@@ -128,6 +128,7 @@ function toggleCard(id) {
     const hidden = body.style.display === 'none';
     body.style.display = hidden ? 'block' : 'none';
     if(icon) icon.textContent = hidden ? '▼' : '▶';
+    syncCardHeadAria(card, hidden);
   } else if (card.classList.contains('ledger-section')) {
     /* Ledger section cards are driven entirely by focus mode now —
        there's no Browse state to toggle into, so header taps are a no-op.
@@ -138,7 +139,49 @@ function toggleCard(id) {
     /* notify the ledger-nav layer so the jump-nav/progress bar stays in sync;
        safe no-op if ledger-nav.js hasn't loaded (e.g. on non-ledger pages) */
     if (typeof onCardToggled === 'function') onCardToggled(id);
+    syncCardHeadAria(card, !card.classList.contains('collapsed'));
   }
+}
+
+/* ═══════════════════════════════════════════
+   ACCESSIBILITY — card-head keyboard/ARIA support
+   Purely additive: does not change toggleCard's existing
+   behavior, only keeps aria-expanded in sync and makes the
+   clickable header divs reachable/operable via keyboard.
+═══════════════════════════════════════════ */
+function syncCardHeadAria(card, expanded) {
+  const head = card.querySelector ? card.querySelector('.card-head') : null;
+  if(head) head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
+
+function enhanceCardHeadsA11y() {
+  document.querySelectorAll('.card-head').forEach(head => {
+    if(head.dataset.a11yEnhanced) return; /* avoid double-binding */
+    head.dataset.a11yEnhanced = 'true';
+    head.setAttribute('role', 'button');
+    head.setAttribute('tabindex', '0');
+
+    /* initial aria-expanded state */
+    const card = head.closest('.card');
+    let expanded = true;
+    if(card) {
+      if(card.id === 'card-cloud-sync') {
+        const body = document.getElementById('card-cloud-sync-body');
+        expanded = !!body && body.style.display !== 'none';
+      } else {
+        expanded = !card.classList.contains('collapsed');
+      }
+    }
+    head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+
+    /* Enter / Space activates it, same as a native button */
+    head.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        head.click();
+      }
+    });
+  });
 }
 
 /* ═══════════════════════════════════════════
@@ -150,6 +193,7 @@ window.onload = () => {
   renderManifest();
   dbxInit(); /* ── Cloud sync: parse token & init on load ── */
   if (typeof initLedgerSwipeNav === 'function') initLedgerSwipeNav(); /* mobile swipe-to-navigate */
+  enhanceCardHeadsA11y(); /* a11y: keyboard + aria-expanded for card-head toggles */
 };
 
 /* ═══════════════════════════════════════════
@@ -164,7 +208,8 @@ function buildDenomRows() {
     DENOMS.forEach(d => {
       const row = document.createElement('div');
       row.className = "row";
-      row.innerHTML = `<label>${d.label}</label><input type="number" class="${cls}" data-mult="${d.mult}" oninput="calc()" value="0">`;
+      const inputId = `${containerId}-${d.mult}`;
+      row.innerHTML = `<label for="${inputId}">${d.label}</label><input type="number" id="${inputId}" class="${cls}" data-mult="${d.mult}" oninput="calc()" value="0">`;
       box.appendChild(row);
       const inp = row.querySelector('input');
       attachNumpad(inp, d.label);
@@ -183,7 +228,7 @@ function addHsRow(lbl='', val='') {
   row.innerHTML = `
     <input type="text" class="lbl-input hs-lbl" placeholder="Home Service ${hsRowCount}" value="${lbl}">
     <input type="number" class="hs-val" value="${val||0}" oninput="calc()">
-    <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
   document.getElementById('hs-rows').appendChild(row);
   const inp = row.querySelector('.hs-val');
   attachNumpad(inp);
@@ -197,11 +242,11 @@ function addAuxStripRow(lbl='', price='', qty='') {
   const row = document.createElement('div');
   row.className = "row strip-row"; row.id = id;
   row.innerHTML = `
-    <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" value="${lbl}" style="flex:1;">
-    <input type="number" class="aux-strip-price" value="${price||0}" oninput="calc()" style="width:80px;">
-    <input type="number" class="aux-strip-qty"   value="${qty||0}"   oninput="calc()" style="width:80px;">
-    <input type="number" class="aux-strip-total" readonly style="width:80px;">
-    <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
+    <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" aria-label="Extra item" value="${lbl}" style="flex:1;">
+    <input type="number" class="aux-strip-price" aria-label="Unit price" value="${price||0}" oninput="calc()" style="width:80px;">
+    <input type="number" class="aux-strip-qty"   aria-label="Quantity"   value="${qty||0}"   oninput="calc()" style="width:80px;">
+    <input type="number" class="aux-strip-total" aria-label="Line total" readonly style="width:80px;">
+    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
   sc.appendChild(row);
   attachNumpad(row.querySelector('.aux-strip-price'), 'Unit Price');
   attachNumpad(row.querySelector('.aux-strip-qty'),   'Quantity');
@@ -239,12 +284,12 @@ function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
   row.className = "row named-entry-row"; row.id = rowId;
   row.dataset.accountIdx = accountIdx;
   row.innerHTML = `
-    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" value="${desc||''}">
+    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" aria-label="Description (optional)" value="${desc||''}">
     <div style="display:flex;gap:4px;align-items:center;">
-      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')">±</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle amount sign, positive or negative">±</button>
       <input type="number" class="named-entry-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
     </div>
-    <button class="del-row-btn" onclick="delRow('${rowId}',true)">✕</button>`;
+    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${rowId}',true)">✕</button>`;
   rowsBox.appendChild(row);
   attachNumpad(row.querySelector('.named-entry-val'));
   calc();
@@ -255,10 +300,10 @@ function addTierCreditRow(num) {
   const row = document.createElement('div');
   row.className = "row three-col"; row.id = `tier-row-${num}`;
   row.innerHTML = `
-    <select id="sel-tier-${num}" onchange="openTierPicker(${num})"></select>
-    <select id="sel-name-${num}" onchange="calc()"></select>
+    <select id="sel-tier-${num}" onchange="openTierPicker(${num})" aria-label="Credit account group"></select>
+    <select id="sel-name-${num}" onchange="calc()" aria-label="Credit account name"></select>
     <div style="display:flex;gap:4px;align-items:center;">
-      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('in-nested-${num}')">±</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('in-nested-${num}')" aria-label="Toggle amount sign, positive or negative">±</button>
       <input type="number" id="in-nested-${num}" oninput="calc()" placeholder="Amount" style="width:90px;">
     </div>`;
   container.appendChild(row);
@@ -308,12 +353,12 @@ function addAuxCreditRow(lbl='', val='') {
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.innerHTML = `
-    <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" value="${lbl}">
+    <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" aria-label="Other account name" value="${lbl}">
     <div style="display:flex;gap:4px;align-items:center;">
-      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')">±</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle amount sign, positive or negative">±</button>
       <input type="number" class="aux-cred-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
     </div>
-    <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
   document.getElementById('ledger-aux-credits').appendChild(row);
   attachNumpad(row.querySelector('.aux-cred-val'));
   calc();
@@ -325,9 +370,9 @@ function addDepositRow(lbl='', val='') {
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.innerHTML = `
-    <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" value="${lbl}">
+    <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" aria-label="Safe drop reference" value="${lbl}">
     <input type="number" class="dep-val" value="${val||0}" oninput="calc()">
-    <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
   document.getElementById('ledger-deposits').appendChild(row);
   attachNumpad(row.querySelector('.dep-val'));
   calc();
@@ -339,9 +384,9 @@ function addMiscRow(lbl='', val='') {
   const row = document.createElement('div');
   row.className = "row misc-row"; row.id = id;
   row.innerHTML = `
-    <input type="text"   id="misc-lbl-${miscCount}" class="lbl-input" placeholder="Charge / note" value="${lbl}">
+    <input type="text"   id="misc-lbl-${miscCount}" class="lbl-input" placeholder="Charge / note" aria-label="Charge / note" value="${lbl}">
     <input type="number" id="misc-val-${miscCount}" value="${val||0}" style="width:90px;" oninput="calc()">
-    <button class="del-row-btn" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
   document.getElementById('ledger-misc').appendChild(row);
   const inp = row.querySelector('input[type="number"]');
   attachNumpad(inp);

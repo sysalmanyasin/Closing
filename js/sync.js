@@ -60,6 +60,12 @@ function dbxSetStatus(text, type = 'ok', spinner = false) {
       : (type === 'ok' ? '☁' : '✕');
     tbText.textContent = text.length > 48 ? text.substring(0, 46) + '…' : text;
   }
+  /* ── a11y: announce only settled states (not every spinner tick,
+     to avoid noisy repeated announcements) ── */
+  if (!spinner && (type === 'ok' || type === 'error')) {
+    const live = document.getElementById('sync-live-region');
+    if (live) live.textContent = 'Sync: ' + text;
+  }
 }
 
 function dbxSetBusy(busy) {
