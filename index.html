@@ -840,10 +840,35 @@
     </div>
     <div class="pdf-modal-body">
       <div id="pdf-modal-status"></div>
-      <button class="btn btn-green" onclick="pdfModalAction('whatsapp')">📤 Send to WhatsApp</button>
-      <button class="btn btn-ghost" onclick="pdfModalAction('print')">🖨 Print / Save PDF</button>
+      <button class="btn btn-ghost" onclick="pdfModalAction()">🖨 Print / Save PDF</button>
+      <button class="btn btn-ghost" onclick="pdfModalViewImage()">🖼 View as Image</button>
+      <button class="btn btn-green" onclick="pdfModalShareImage()">📤 Send Image to WhatsApp</button>
       <button class="btn btn-ghost" style="color:var(--muted);font-size:0.8rem;padding:8px;" onclick="closePdfModal()">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══ CLOSING IMAGE VIEWER (View as Image) ═══
+     Fullscreen, single-image-at-a-time viewer for the last 10 saved
+     records (newest first). Swipe / arrow keys move between records;
+     each image is the shift-closing page only (never the Final
+     Closing period page), rasterized on demand and cached. ═══ -->
+<div id="image-reader" class="hidden" role="dialog" aria-modal="true">
+  <div class="img-reader-toolbar">
+    <button class="btn btn-ghost btn-sm" onclick="closeImageViewer()" aria-label="Close">✕ Close</button>
+    <div class="img-reader-info">
+      <span id="img-reader-label"></span>
+      <span id="img-reader-counter" class="img-reader-counter"></span>
+    </div>
+  </div>
+  <div class="img-reader-viewport" id="img-reader-viewport">
+    <button class="img-reader-nav img-reader-nav-prev" onclick="imageViewerPrev()" aria-label="Previous">‹</button>
+    <div id="img-reader-status" class="img-reader-status hidden">Rendering…</div>
+    <img id="img-reader-img" class="img-reader-img hidden" alt="Closing sheet" />
+    <button class="img-reader-nav img-reader-nav-next" onclick="imageViewerNext()" aria-label="Next">›</button>
+  </div>
+  <div class="img-reader-footer">
+    <button class="btn btn-green" onclick="imageViewerShareCurrent()">📤 Send to WhatsApp</button>
   </div>
 </div>
 
