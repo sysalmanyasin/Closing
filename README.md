@@ -1,127 +1,137 @@
 # Shift Register & Daily Closing — Fazal Din's Pharma Plus
 
 A single-page, installable web app (PWA) for cashier shift closing, cash
-reconciliation, and daily/period closing reports. Runs entirely
-client-side; data lives in `localStorage` with optional Dropbox sync.
+reconciliation, credit tracking, and daily/period closing reports. Runs
+entirely client-side as native ES modules — no bundler, no build step.
+Data lives in `localStorage`, with optional Dropbox sync for
+across-device backup.
 
 **Live URL:** https://closing.duapharma.com
 
 ---
 
-## Architecture — The 5 Floors + Nav Layer
+## Features
+
+- **Shift closing ledger** — guided, one-section-at-a-time flow (Night
+  → Morning → Evening; Night starts the day) covering POS/cash
+  reconciliation, HS entries, strip sales, till/vault cash counts,
+  credit accounts, deposits, and misc/ongoing charges.
+- **Credit Ledger** — a permanent snapshot history of every shift's
+  credit, browsable by date, with a toggle to switch to a **Misc /
+  Ongoing Ledger** view (derived live from each shift's misc charges).
+  Any snapshot can be printed directly to a 3" thermal receipt printer.
+- **Closing Book** — assembles any date/shift range into a single
+  flip-through, fullscreen "book" for review or export as one
+  multi-page PDF. Includes quick shortcuts (Last 10 Closings, Last 3/7
+  days, Last month), zoom, swipe/keyboard paging, and jump-to-date.
+- **Data Retention** — configurable (default 6 months) archival of old
+  records. Nothing deletes automatically; it's a PIN-gated Settings
+  action, same safety level as deleting a single sheet.
+- **Named credit accounts** with multiple entries per account (each
+  with an optional description and signed amount), staff/tier credit
+  groups, and free-label credit entries.
+- **Backup & restore** — full JSON export/import of all local data.
+- **Dropbox cloud sync** (optional) — pushes a copy after every save
+  so the same data is available across devices.
+- **Installable PWA** with offline support via a service worker.
+
+---
+
+## Architecture — 5 floors, real ES modules
+
+The app is a set of native ES modules (`<script type="module">`, no
+bundler). Every file has one job; each floor only depends on the
+floor(s) at or below it — enforced by real `import`/`export`, not
+convention. Internal per-file state (numpad state, cache, UI mode
+flags, etc.) is a private, unexported object — genuinely inaccessible
+from any other file, not just "private by agreement."
 
 ```
 ├── index.html
 ├── css/main.css
-├── manifest.json         ← PWA install config
-├── sw.js                 ← service worker (offline cache)
+├── manifest.json          ← PWA install config
+├── sw.js                  ← service worker (offline cache)
 └── js/
-    ├── state.js          ← FLOOR 2: AppState, constants, DENOMS, SHIFTS
-    ├── repository.js     ← FLOOR 1: localStorage read/write, JSON backup export/import
-    ├── actions.js        ← FLOOR 3: Business logic + EventBus
-    ├── components.js     ← FLOOR 4: UI builders, numpad, PDF, row builders
-    ├── pages.js           ← FLOOR 5: Page renderers, navigation
-    ├── ledger-nav.js      ← FLOOR 4/5: guided-focus mode, progress bar,
-    │                         jump-nav, end-of-shift summary modal
-    └── sync.js           ← FLOOR 1 (ext): Dropbox cloud sync module
+    ├── app.js              ← ENTRY POINT — the only <script> index.html loads.
+    │                          Imports every module below (which is what
+    │                          resolves load order — no more manually-ordered
+    │                          <script> tags) and exposes the handful of
+    │                          functions index.html's onclick/onchange
+    │                          attributes need, on `window`.
+    ├── repository.js        ← FLOOR 1 — the only file that touches
+    │                          localStorage. db load/persist, generic
+    │                          key/value storage, JSON backup export/import.
+    ├── state.js              ← FLOOR 2 — the one protected source of truth:
+    │                          `db` (business data), `session` (current
+    │                          "what am I looking at" pointers), and shared
+    │                          constants (PIN, SHIFTS, SHIFT_SR, DENOMS).
+    ├── actions.js            ← FLOOR 3 — the only door to change data: calc
+    │                          engine, ledger lifecycle, save/delete sheets,
+    │                          Settings mutations, auto-save, retention.
+    ├── ledger-engine.js      ← FLOOR 3 (ext) — Credit/Misc Ledger snapshot
+    │                          engine: builds/persists credit snapshots,
+    │                          derives misc snapshots live, retention queries.
+    ├── components.js         ← FLOOR 4 — pure UI building blocks: numpad,
+    │                          modal picker, row builders, toast, print
+    │                          sheet, PDF/WhatsApp export, edit modal.
+    ├── pages.js              ← FLOOR 5 — reads state, renders UI, calls
+    │                          actions: navigation, Credit/Misc Ledger page,
+    │                          Calendar, Manifest, Settings UI.
+    ├── ledger-nav.js         ← FLOOR 5 (ext) — guided-focus mode, progress
+    │                          bar, jump-nav, end-of-shift summary modal.
+    ├── closing-book.js       ← FLOOR 5 (ext) — Closing Book assembly,
+    │                          fullscreen reader, PDF export.
+    └── sync.js               ← FLOOR 1 (ext) — Dropbox OAuth2 PKCE cloud
+                                  sync, client-side only, no backend.
 ```
 
-Each floor only talks to the floor(s) below it. `ledger-nav.js` sits
-on top of the original 5 floors — it doesn't duplicate business logic,
-it only reads totals already computed by `calc()` (Floor 3) and
-orchestrates which section is shown.
+**Shift order:** `Night → Morning → Evening` — Night starts the day,
+not ends it. This shows up in sort order, "Closing 1/2/3" numbering,
+and Closing Book range defaults everywhere in the codebase; don't
+reintroduce a Morning-first assumption.
 
-**Load order matters:** `state.js` → `repository.js` → `actions.js` →
-`components.js` → `pages.js` → `ledger-nav.js` → `sync.js`. All are
-plain `<script>` tags (no bundler, no build step).
+**One door, verified:** `db` is only ever mutated inside
+`actions.js`/`ledger-engine.js` (Floor 3), and `localStorage` is only
+ever touched inside `repository.js` (Floor 1) — checked by grep, not
+assumed, every time something changes.
 
----
-
-## Ledger Nav Layer (`ledger-nav.js`)
-
-The ledger page is **guided-focus only** — there is no "browse all
-cards freely" mode. One section is shown at a time; cashiers move
-through it with Back / Next.
-
-- **Sticky jump-nav** — pill chips at the top of the ledger page, one
-  per section. Tap a chip to jump straight to that section.
-- **Progress bar** — "X of Y done," fills in as sections are marked
-  complete.
-- **Focus flow** — the current section is expanded, everything else
-  is collapsed. "✓ Save Section" marks a section complete; editing a
-  completed section un-marks it automatically.
-- **View all** — a read-only overlay (tap "View all" on the progress
-  bar) to glance across every section without leaving focus mode.
-  It's a look, not a second editing path.
-- **End-of-shift summary modal** — the Save & Close button opens a
-  review screen first: Target Net Sales / Net Cash / Variance, plus a
-  note listing any section that's unopened or entered-but-unsaved.
-  Variance is color-coded: green (surplus, or ≤ Rs. 100 rounding
-  gap), amber (Rs. 100–1,000 shortage), red (> Rs. 1,000 shortage).
-  The note is a warning, not a hard block — you can still save.
-
-**Integration points in the existing floors (3 edits only):**
-1. `index.html` — Save button calls `openSummaryModal()` instead of
-   `saveSheet()` directly; `confirmSummaryAndSave()` calls the real
-   `saveSheet()` after review.
-2. `actions.js` — `initLedger()` calls `initLedgerNav()` at the end;
-   `calc()` calls `updateSectionStatus()` at the end.
-3. `components.js` — `toggleCard()` is a no-op for ledger section
-   cards (navigation is via chips / Back-Next / View all instead);
-   for non-ledger cards it still toggles normally and notifies
-   `onCardToggled()` so the nav stays in sync.
-
-**Dependency note:** `sync.js` must always be loaded — `actions.js`'s
-`persist()` → `scheduleSyncPush()` references `dbxClient`, which is
-declared in `sync.js`. This is a pre-existing coupling, not introduced
-by the nav layer.
+See `SCHEMA.md` for the full shape of `db` (every field, what writes
+it, what reads it).
 
 ---
 
-## Named Credit Accounts
+## Dev tooling
 
-Each named account (configured in Settings) can hold **multiple
-entries**, not just one lump value:
+No build step for the app itself — `package.json` and `node_modules`
+are dev-only (linting/testing), never loaded by `index.html`.
 
-- "＋ Add entry" adds another row under an account, each with an
-  optional description and a signed amount (± toggle).
-- Descriptions carry through to the printable PDF and the closing
-  summary export (`Account — description`).
-- Old sheets saved before this change (single value per account) load
-  correctly — they're treated as one entry with no description.
+```bash
+npm install        # one-time, installs eslint + test runner deps
+npm run lint        # ESLint — catches undefined vars, unused imports,
+                     # duplicate declarations
+npm test            # Node's built-in test runner — tests/*.test.mjs
+```
 
----
-
-## Backup / Restore
-
-Settings → Data → **Export Backup** / **Import Backup** writes/reads
-a full JSON snapshot of `localStorage` (`js/repository.js`:
-`exportDataJSON()` / `importDataJSON()`).
-
----
-
-## Dropbox Sync
-
-Optional cloud sync (`js/sync.js`). When configured, `persist()`
-schedules a push to Dropbox after every save so the same shift data
-is available across devices. Sync failures don't block local saves —
-`localStorage` is always the source of truth on-device.
+Tests currently cover the shift day-cycle ordering, the Credit/Misc
+Ledger snapshot engine, retention math, and Repository's
+corruption-safe loading. They don't yet cover `calc()` (the core
+financial arithmetic) or any rendering code — the highest-value next
+addition if you extend the test suite.
 
 ---
 
 ## Deployment
 
-`.github/workflows/deploy.yml` deploys this as a **static site** to
-GitHub Pages on every push to `main` — no build step, no
-`package.json`, just the files as-is. `CNAME` points the Pages site
-at `closing.duapharma.com`.
+`.github/workflows/deploy.yml` triggers on any push of a `*.zip` file
+to `main`: it unzips the archive and deploys the contents as a static
+site to GitHub Pages — no build step, just the files as-is. `CNAME`
+points the Pages site at `closing.duapharma.com`.
 
 ---
 
 ## Local development
 
-No build tooling required. Serve the folder with anything that can
-host static files, e.g.:
+Serve the folder with anything that can host static files, e.g.:
 
 ```bash
 npx serve .
@@ -129,6 +139,8 @@ npx serve .
 python3 -m http.server 8000
 ```
 
-Open the served URL in a browser. For full PWA/offline behavior
-(service worker), use `http://localhost` or HTTPS — `sw.js` won't
-register over a plain `file://` URL.
+Open the served URL in a browser. ES modules require serving over
+`http(s)://` — opening `index.html` directly via `file://` will fail
+to load the module graph (a browser security restriction, not a bug).
+For full PWA/offline behavior, use `http://localhost` or HTTPS —
+`sw.js` won't register otherwise.
