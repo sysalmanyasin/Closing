@@ -25,42 +25,26 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.11.0/Dropbox-sdk.min.js"></script>
 
 <!--
-  ╔══════════════════════════════════════════════════════╗
-  ║  LOAD ORDER — must match the 5-floor architecture   ║
-  ║                                                      ║
-  ║  Floor 2 — State    (AppState, constants)            ║
-  ║  Floor 1 — Repo     (localStorage read/write)        ║
-  ║  Floor 3 — Actions  (business logic, EventBus)       ║
-  ║  Floor 4 — Components (UI builders, numpad, PDF)     ║
-  ║  Floor 5 — Pages    (renders, nav)                   ║
-  ║  Sync     — Dropbox (cloud sync, isolated module)    ║
-  ╚══════════════════════════════════════════════════════╝
+  This is now a single ES module entry point (js/app.js), which
+  imports every other file directly. Load order is resolved by the
+  import graph itself, not by the order of <script> tags — see
+  each file's own header comment for its Floor in the architecture,
+  and js/app.js for the full import graph + the window-exposed
+  functions that index.html's onclick/onchange attributes call.
 -->
-<script src="js/repository.js"></script>
-<script src="js/state.js"></script>
-<script src="js/actions.js"></script>
-<script src="js/ledger-engine.js"></script>
-<script src="js/components.js"></script>
-<script src="js/pages.js"></script>
-<script src="js/ledger-nav.js"></script>
-<script src="js/closing-book.js"></script>
-<script src="js/sync.js"></script>
+<script type="module" src="js/app.js"></script>
 
 </head>
 
 <body>
-
-<a href="#main-content" class="skip-link">Skip to main content</a>
 
 <!-- ══ SYNC MINI TOP STATUS BAR ══ -->
 <div id="sync-topbar" onclick="syncPullFromCloud(true)" title="Tap to sync now">
   <span id="sync-tb-icon">☁</span>
   <span id="sync-tb-text">Checking…</span>
 </div>
-<div id="sync-live-region" class="visually-hidden" aria-live="polite" role="status"></div>
 
 <div class="shell">
-  <main id="main-content">
 
   <!-- ══ HEADER BAR ══ -->
   <div class="app-bar">
@@ -90,7 +74,7 @@
               <p style="color:#64748b;margin:0;font-size:0.72rem;">Dropbox · Secure · Real-time</p>
             </div>
           </div>
-          <span class="collapse-icon" style="color:#64748b;">▶</span>
+          <span class="collapse-icon" style="color:#64748b;" aria-hidden="true">▶</span>
         </div>
         <div class="card-body collapsed" id="card-cloud-sync-body" style="display:none;">
         <div class="sync-card-body">
@@ -256,7 +240,7 @@
         <div class="card-head" style="cursor:default;"><h3>Closing Book — Branding</h3></div>
         <div style="padding:14px 16px;">
           <div class="form-field">
-            <label>Brand Code (used in exported PDF filenames)</label>
+            <label for="cfg-book-brand-code">Brand Code (used in exported PDF filenames)</label>
             <input type="text" id="cfg-book-brand-code"
               onchange="updateBookBrandCode(this.value)">
           </div>
@@ -281,10 +265,28 @@
       </div>
 
       <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Data Retention</h3></div>
+        <div class="card-body">
+          <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+            Nothing is deleted automatically. Export a backup first if you want to keep old records elsewhere, then archive them here to keep this device's storage lean.
+          </p>
+          <div class="row" style="padding:12px 16px 0;">
+            <label for="set-retention-months">Keep records for how many months?</label>
+            <input type="number" id="set-retention-months" style="width:70px;" value="6" min="1"
+              onchange="updateRetentionMonths(parseInt(this.value)||6)">
+          </div>
+          <p id="retention-status" style="font-size:0.8rem;color:var(--muted);padding:10px 16px 0;"></p>
+          <div style="padding:12px 16px;">
+            <button class="btn btn-red btn-full" onclick="archiveOldRecords()">🗑 Archive &amp; Delete Old Records</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head" style="cursor:default;"><h3>Auto Final Closing</h3></div>
         <div class="card-body">
           <div class="row">
-            <label>Remind for Final Closing after how many shift closings?</label>
+            <label for="set-final-every-n">Remind for Final Closing after how many shift closings?</label>
             <input type="number" id="set-final-every-n" style="width:70px;" value="3">
           </div>
         </div>
@@ -383,11 +385,10 @@
         </button>
       </div>
       <div class="lpb-nav-row" id="lpb-nav-row"></div>
-      <div id="ledger-progress-live" class="visually-hidden" aria-live="polite" role="status"></div>
     </div>
 
     <!-- ══ VIEW ALL (read-only overlay, focus mode never turns off) ══ -->
-    <div class="viewall-overlay hidden" id="viewall-overlay" onclick="viewAllOutsideClick(event)">
+    <div class="viewall-overlay hidden" id="viewall-overlay" onclick="viewAllOutsideClick(event)" role="dialog" aria-modal="true">
       <div class="viewall-panel">
         <div class="viewall-head">
           <button class="viewall-close" onclick="closeViewAll()">✕ Close</button>
@@ -415,18 +416,18 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="row"><label>System Cash Sales Total:</label><input type="number" id="in-sys-cash" oninput="calc()"></div>
-          <div class="row"><label>Last Bill Amount:</label><input type="number" id="in-last-bill-amt" oninput="calc()"></div>
-          <div class="row"><label>Last Bill Number:</label><input type="number" id="in-last-bill-num" oninput="calc()"></div>
-          <div class="row"><label>Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
-          <div class="row"><label>Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
-          <div class="row"><label>Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
+          <div class="row"><label for="in-sys-cash">System Cash Sales Total:</label><input type="number" id="in-sys-cash" oninput="calc()"></div>
+          <div class="row"><label for="in-last-bill-amt">Last Bill Amount:</label><input type="number" id="in-last-bill-amt" oninput="calc()"></div>
+          <div class="row"><label for="in-last-bill-num">Last Bill Number:</label><input type="number" id="in-last-bill-num" oninput="calc()"></div>
+          <div class="row"><label for="in-comp-sale">Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
+          <div class="row"><label for="in-alfalah">Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
+          <div class="row"><label for="in-keenu">Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
           <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Returns / Refunds</div>
-          <div class="row highlight-red" id="pos-ret-row-1"><label>Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-2"><label>Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-3"><label>Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-sys"><label>System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
-          <div class="row computed"><label>Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
+          <div class="row highlight-red" id="pos-ret-row-1"><label for="pos-ret-1">Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-2"><label for="pos-ret-2">Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-3"><label for="pos-ret-3">Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
+          <div class="row highlight-red" id="pos-ret-row-sys"><label for="pos-ret-sys">System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
+          <div class="row computed"><label for="out-total-returns">Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
         </div>
       </div>
 
@@ -440,11 +441,11 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="row computed" id="box-out-shift-sale"><label>This Shift's Sales (delta):</label><input type="number" id="out-shift-sale" oninput="setOverride('out-shift-sale')"></div>
-          <div class="row"><label>Book Bill 1:</label><input type="number" id="in-book-1" oninput="calc()"></div>
-          <div class="row"><label>Book Bill 2:</label><input type="number" id="in-book-2" oninput="calc()"></div>
-          <div class="row computed" id="box-out-cust"><label>Customers This Shift (delta):</label><input type="number" id="out-cust" oninput="setOverride('out-cust')"></div>
-          <div class="row highlight-blue"><label>Net Sale (this shift):</label><input type="number" id="out-net-sale" readonly value="0"></div>
+          <div class="row computed" id="box-out-shift-sale"><label for="out-shift-sale">This Shift's Sales (delta):</label><input type="number" id="out-shift-sale" oninput="setOverride('out-shift-sale')"></div>
+          <div class="row"><label for="in-book-1">Book Bill 1:</label><input type="number" id="in-book-1" oninput="calc()"></div>
+          <div class="row"><label for="in-book-2">Book Bill 2:</label><input type="number" id="in-book-2" oninput="calc()"></div>
+          <div class="row computed" id="box-out-cust"><label for="out-cust">Customers This Shift (delta):</label><input type="number" id="out-cust" oninput="setOverride('out-cust')"></div>
+          <div class="row highlight-blue"><label for="out-net-sale">Net Sale (this shift):</label><input type="number" id="out-net-sale" readonly value="0"></div>
         </div>
       </div>
 
@@ -458,7 +459,7 @@
           </div>
         </div>
         <div id="hs-rows" class="card-body"></div>
-        <div class="row computed"><label>Total HS (A):</label><input type="number" id="out-total-hs" readonly value="0"></div>
+        <div class="row computed"><label for="out-total-hs">Total HS (A):</label><input type="number" id="out-total-hs" readonly value="0"></div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addHsRow()">＋ Add Row</button></div>
       </div>
 
@@ -474,7 +475,7 @@
         <div class="strips-header"><span>Item</span><span>Price</span><span>Qty</span><span>Total</span></div>
         <div id="ledger-strips" class="card-body"></div>
         <div class="divider"></div>
-        <div class="row computed"><label>Total Inventory Revenue (B):</label><input type="number" id="out-total-a" readonly value="0"></div>
+        <div class="row computed"><label for="out-total-a">Total Inventory Revenue (B):</label><input type="number" id="out-total-a" readonly value="0"></div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addAuxStripRow()">＋ Add Row</button></div>
       </div>
 
@@ -488,7 +489,7 @@
           </div>
         </div>
         <div id="ledger-misc" class="card-body" style="margin-top:4px;"></div>
-        <div class="row computed"><label>Total Misc (C):</label><input type="number" id="out-total-g" readonly value="0"></div>
+        <div class="row computed"><label for="out-total-g">Total Misc (C):</label><input type="number" id="out-total-g" readonly value="0"></div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMiscRow()">＋ Add Row</button></div>
       </div>
 
@@ -502,8 +503,8 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="row computed" id="box-out-prev-cc"><label>Carried CC from Previous:</label><input type="number" id="out-prev-cc" oninput="setOverride('out-prev-cc')"></div>
-          <div class="row computed" id="box-out-curr-cc"><label>Card Sales This Shift (D):</label><input type="number" id="out-curr-cc" oninput="setOverride('out-curr-cc')"></div>
+          <div class="row computed" id="box-out-prev-cc"><label for="out-prev-cc">Carried CC from Previous:</label><input type="number" id="out-prev-cc" oninput="setOverride('out-prev-cc')"></div>
+          <div class="row computed" id="box-out-curr-cc"><label for="out-curr-cc">Card Sales This Shift (D):</label><input type="number" id="out-curr-cc" oninput="setOverride('out-curr-cc')"></div>
         </div>
       </div>
 
@@ -517,7 +518,7 @@
           </div>
         </div>
         <div id="denom-till" class="card-body"></div>
-        <div class="row computed"><label>Total Till Cash (E):</label><input type="number" id="out-subtotal-c" readonly value="0"></div>
+        <div class="row computed"><label for="out-subtotal-c">Total Till Cash (E):</label><input type="number" id="out-subtotal-c" readonly value="0"></div>
       </div>
 
       <!-- BLOCK 6: Draw Cash (F) -->
@@ -530,7 +531,7 @@
           </div>
         </div>
         <div id="denom-vault" class="card-body"></div>
-        <div class="row computed"><label>Total Draw Cash (F):</label><input type="number" id="out-subtotal-d" readonly value="0"></div>
+        <div class="row computed"><label for="out-subtotal-d">Total Draw Cash (F):</label><input type="number" id="out-subtotal-d" readonly value="0"></div>
       </div>
 
       <!-- BLOCK 7: Credit Detail (G) -->
@@ -543,10 +544,10 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="row computed" id="box-out-prev-credit"><label>Carried Debt from Previous Shift:</label><input type="number" id="out-prev-credit" oninput="setOverride('out-prev-credit')"></div>
-          <div class="row"><label>Credit Adjustment:</label>
+          <div class="row computed" id="box-out-prev-credit"><label for="out-prev-credit">Carried Debt from Previous Shift:</label><input type="number" id="out-prev-credit" oninput="setOverride('out-prev-credit')"></div>
+          <div class="row"><label for="in-credit-adj">Credit Adjustment:</label>
             <div style="display:flex;gap:4px;align-items:center;">
-              <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="toggleSign('in-credit-adj')" aria-label="Toggle amount sign, positive or negative">±</button>
+              <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 10px;" onclick="toggleSign('in-credit-adj')" aria-label="Toggle positive or negative">±</button>
               <input type="number" id="in-credit-adj" value="0" oninput="calc()" placeholder="e.g. -500" style="flex:1;">
             </div>
           </div>
@@ -555,7 +556,7 @@
           <div id="ledger-tier-credits"></div>
           <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Aux / Other Credit</div>
           <div id="ledger-aux-credits"></div>
-          <div class="row computed"><label>Total Credit Detail (G):</label><input type="number" id="out-total-e" readonly value="0"></div>
+          <div class="row computed"><label for="out-total-e">Total Credit Detail (G):</label><input type="number" id="out-total-e" readonly value="0"></div>
         </div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addAuxCreditRow()">＋ Add Aux Row</button></div>
       </div>
@@ -570,9 +571,9 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="row computed" id="box-out-prev-dep"><label>Carried Deposits from Previous:</label><input type="number" id="out-prev-dep" oninput="setOverride('out-prev-dep')"></div>
+          <div class="row computed" id="box-out-prev-dep"><label for="out-prev-dep">Carried Deposits from Previous:</label><input type="number" id="out-prev-dep" oninput="setOverride('out-prev-dep')"></div>
           <div id="ledger-deposits"></div>
-          <div class="row computed"><label>Total Cash Deposits (H):</label><input type="number" id="out-total-f" readonly value="0"></div>
+          <div class="row computed"><label for="out-total-f">Total Cash Deposits (H):</label><input type="number" id="out-total-f" readonly value="0"></div>
         </div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addDepositRow()">＋ Add Row</button></div>
       </div>
@@ -584,12 +585,12 @@
           <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
         </div>
         <div class="card-body">
-          <div class="row computed"><label>Grand Total (A+B+C+D+E+F+G+H):</label><input type="number" id="out-grand" readonly value="0"></div>
-          <div class="row"><label>Less: Cash Reserve (held in till):</label><input type="text" readonly value="– Rs. 45,000" style="border:none;font-weight:700;color:var(--red);background:transparent;width:auto;text-align:right;"></div>
-          <div class="row computed"><label>Net Cash Available:</label><input type="number" id="out-liquid" readonly value="0"></div>
-          <div class="row computed" id="box-out-prev-cash"><label>Less: Previous Shift's Cash Position:</label><input type="number" id="out-prev-cash" oninput="setOverride('out-prev-cash')"></div>
-          <div class="row highlight-green"><label>Net Committed Cash (this shift):</label><input type="number" id="out-net-cash" readonly value="0"></div>
-          <div class="row"><label>Extra Cash Added to Pharmacy (− from Net Cash, applied at next Final):</label><input type="number" id="in-extra-cash" value="0" oninput="calc()"></div>
+          <div class="row computed"><label for="out-grand">Grand Total (A+B+C+D+E+F+G+H):</label><input type="number" id="out-grand" readonly value="0"></div>
+          <div class="row"><label for="out-cash-reserve-display">Less: Cash Reserve (held in till):</label><input type="text" id="out-cash-reserve-display" readonly value="– Rs. 45,000" style="border:none;font-weight:700;color:var(--red);background:transparent;width:auto;text-align:right;"></div>
+          <div class="row computed"><label for="out-liquid">Net Cash Available:</label><input type="number" id="out-liquid" readonly value="0"></div>
+          <div class="row computed" id="box-out-prev-cash"><label for="out-prev-cash">Less: Previous Shift's Cash Position:</label><input type="number" id="out-prev-cash" oninput="setOverride('out-prev-cash')"></div>
+          <div class="row highlight-green"><label for="out-net-cash">Net Committed Cash (this shift):</label><input type="number" id="out-net-cash" readonly value="0"></div>
+          <div class="row"><label for="in-extra-cash">Extra Cash Added to Pharmacy (− from Net Cash, applied at next Final):</label><input type="number" id="in-extra-cash" value="0" oninput="calc()"></div>
         </div>
         <div class="summary-banner" id="audit-summary-banner">
           <div class="banner-row"><span>Target Net Sales</span><span class="val" id="audit-ban-target">Rs. 0</span></div>
@@ -605,25 +606,25 @@
           <div class="card-head-right"><span class="collapse-icon" style="color:#94a3b8;">▼</span></div>
         </div>
         <div class="card-body">
-          <div class="row computed"><label>Shifts since last Final:</label><input type="text" id="out-final-shifts" readonly value="—"></div>
+          <div class="row computed"><label for="out-final-shifts">Shifts since last Final:</label><input type="text" id="out-final-shifts" readonly value="—"></div>
           <div style="background:#0f172a;padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
           <div class="row computed"><label id="lbl-final-same-sys">＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
           <div class="row computed"><label id="lbl-final-books">＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
           <div class="row computed"><label id="lbl-final-same-cust">＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-man-ret">－ Manual Returns — all periods ＋ prev. final:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-same-sysret">－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
-          <div class="row highlight-red"><label>－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
-          <div class="row highlight-green"><label><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
+          <div class="row highlight-red"><label for="in-final-sys-returns">－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
+          <div class="row highlight-green"><label for="out-final-net-sale"><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
           <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
-          <div class="row computed"><label>Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
+          <div class="row computed"><label for="out-final-net-cash-base">Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-pre-sys">－ Pre-date POS Sales:</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-pre-cust">－ Pre-date Customers:</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-pre-sysret">－ Less Pre-date System Return:</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-extra-cash">－ Extra Cash Added to Pharmacy:</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
-          <div class="row computed highlight-red"><label>－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
-          <div class="row highlight-blue"><label><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
+          <div class="row computed highlight-red"><label for="out-final-target-sale">－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
+          <div class="row highlight-blue"><label for="out-final-net-cash"><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
           <div style="background:#0f172a;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
-          <div class="row computed"><label>Pre-date Total:</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          <div class="row computed"><label for="out-final-pre-total">Pre-date Total:</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
           <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
         </div>
       </div>
@@ -690,12 +691,12 @@
       <div class="cl-export-panel" id="cl-export-panel">
         <h4 id="cl-export-title">📤 Export Credit History as .txt</h4>
         <div class="cl-export-row">
-          <label>From</label>
+          <label for="cl-exp-from-date">From</label>
           <input type="date" id="cl-exp-from-date">
           <select id="cl-exp-from-shift"><option value="">Any shift</option><option>Night</option><option>Morning</option><option>Evening</option></select>
         </div>
         <div class="cl-export-row">
-          <label>To</label>
+          <label for="cl-exp-to-date">To</label>
           <input type="date" id="cl-exp-to-date">
           <select id="cl-exp-to-shift"><option value="">Any shift</option><option>Night</option><option>Morning</option><option>Evening</option></select>
         </div>
@@ -729,11 +730,11 @@
         <div style="padding:14px 16px;">
           <div class="cb-range-row">
             <div class="cb-range-field">
-              <label>From date</label>
+              <label for="cb-from-date">From date</label>
               <input type="date" id="cb-from-date">
             </div>
             <div class="cb-range-field">
-              <label>Shift</label>
+              <label for="cb-from-shift">Shift</label>
               <select id="cb-from-shift">
                 <option value="Night">Night</option>
                 <option value="Morning">Morning</option>
@@ -743,11 +744,11 @@
           </div>
           <div class="cb-range-row">
             <div class="cb-range-field">
-              <label>To date</label>
+              <label for="cb-to-date">To date</label>
               <input type="date" id="cb-to-date">
             </div>
             <div class="cb-range-field">
-              <label>Shift</label>
+              <label for="cb-to-shift">Shift</label>
               <select id="cb-to-shift">
                 <option value="Night">Night</option>
                 <option value="Morning">Morning</option>
@@ -796,11 +797,10 @@
   </div>
   <!-- /PAGE 5 -->
 
-  </main>
 </div><!-- /shell -->
 
 <!-- ═══ NUMPAD OVERLAY ═══ -->
-<div id="numpad-overlay" class="hidden" style="display:none!important;" onclick="numpadOutsideClick(event)">
+<div id="numpad-overlay" class="hidden" onclick="numpadOutsideClick(event)" role="dialog" aria-modal="true" aria-label="Number entry">
   <div class="numpad-sheet" onclick="event.stopPropagation()">
     <div class="numpad-header">
       <span class="numpad-label" id="numpad-label">Enter value</span>
@@ -821,7 +821,7 @@
 </div>
 
 <!-- ═══ MODAL PICKER OVERLAY ═══ -->
-<div id="modal-picker-overlay" class="hidden" onclick="closeModalPicker()">
+<div id="modal-picker-overlay" class="hidden" onclick="closeModalPicker()" role="dialog" aria-modal="true">
   <div class="modal-picker-sheet" onclick="event.stopPropagation()">
     <div class="modal-picker-title">
       <span id="modal-picker-title">Select</span>
@@ -832,7 +832,7 @@
 </div>
 
 <!-- ═══ PDF / PRINT MODAL ═══ -->
-<div id="pdf-modal-overlay" class="hidden" onclick="if(event.target===this)closePdfModal()">
+<div id="pdf-modal-overlay" class="hidden" onclick="if(event.target===this)closePdfModal()" role="dialog" aria-modal="true">
   <div class="pdf-modal-sheet">
     <div class="pdf-modal-head">
       <h3>📄 Export Closing</h3>
@@ -848,7 +848,7 @@
 </div>
 
 <!-- ═══ SAVE ACTION SHEET ═══ -->
-<div id="save-action-overlay" class="hidden">
+<div id="save-action-overlay" class="hidden" role="dialog" aria-modal="true">
   <div class="save-action-sheet">
     <div class="save-action-title" id="save-action-title">✅ Closing Saved</div>
     <div class="save-action-sub"  id="save-action-sub"></div>
@@ -859,7 +859,7 @@
 <!-- ═══ TOAST ═══ -->
 
 <!-- ═══ END-OF-SHIFT SUMMARY MODAL ═══ -->
-<div id="summary-modal-overlay" class="hidden" onclick="if(event.target===this)closeSummaryModal()">
+<div id="summary-modal-overlay" class="hidden" onclick="if(event.target===this)closeSummaryModal()" role="dialog" aria-modal="true">
   <div class="summary-sheet" onclick="event.stopPropagation()">
     <div class="summary-head">
       <div class="summary-head-icon" id="summary-head-icon">✅</div>
@@ -870,7 +870,6 @@
       <span>⚠️</span>
       <span id="summary-incomplete-text">Some sections haven't been opened yet. You can still save, but double-check them first.</span>
     </div>
-    <div id="summary-live-region" class="visually-hidden" aria-live="polite" role="status"></div>
     <div class="summary-body">
       <div class="summary-stat" id="summary-stat-target">
         <div class="summary-stat-label" id="summary-label-target">Target Net Sales</div>
@@ -896,7 +895,7 @@
 </div>
 
 <!-- ═══ EDIT CLOSING MODAL ═══ -->
-<div id="edit-modal-overlay" class="hidden" onclick="editModalOutsideClick(event)">
+<div id="edit-modal-overlay" class="hidden" onclick="editModalOutsideClick(event)" role="dialog" aria-modal="true">
   <div class="edit-modal-sheet" onclick="event.stopPropagation()">
     <div class="edit-modal-head">
       <h3>✏️ Edit Closing</h3>

@@ -1,0 +1,19 @@
+{
+  "name": "closing-main",
+  "version": "1.0.0",
+  "description": "A single-page, installable web app (PWA) for cashier shift closing, cash reconciliation, and daily/period closing reports. Runs entirely client-side; data lives in `localStorage` with optional Dropbox sync.",
+  "main": "sw.js",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint js/",
+    "test": "node --test \"tests/**/*.test.mjs\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0"
+  }
+}

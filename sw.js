@@ -4,22 +4,31 @@
    Dropbox API calls always go to network (never cached).
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v1.1';
+const CACHE_NAME = 'pharmpos-closing-v1.2';
 
-/* ── App Shell — all files that make the app work offline ── */
+/* ── App Shell — all files that make the app work offline ──
+   Load order no longer matters here — js/app.js is the only
+   <script> tag index.html loads; it's an ES module that imports
+   every other file below directly, and the browser's module
+   loader resolves the graph. But since a service worker still
+   intercepts each individual import as its own fetch, every file
+   below still needs to be listed so it's available offline. ── */
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   /* ── CSS ── */
   './css/main.css',
-  /* ── JS — load order matters (matches index.html) ── */
-  './js/state.js',
+  /* ── JS ── */
+  './js/app.js',
   './js/repository.js',
+  './js/state.js',
   './js/actions.js',
+  './js/ledger-engine.js',
   './js/components.js',
   './js/pages.js',
   './js/ledger-nav.js',
+  './js/closing-book.js',
   './js/sync.js',
   /* ── Icons ── */
   './icons/icon.svg',
