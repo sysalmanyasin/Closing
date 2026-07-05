@@ -4,6 +4,15 @@
    toast, print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
+import { DENOMS, PIN, SHIFTS, db, srLabel, session } from './state.js';
+import {
+  calc, flushInputs, initLedger, populateNameDropdown,
+  pullPreviousShift, setLockedState, setSheetProfileMode
+} from './actions.js';
+import { buildCalendar, goToDashboard, renderManifest } from './pages.js';
+import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
+import { dbxInit } from './sync.js';
+
 /* Floor 4's own transient UI state — file-local, never read by
    another floor. One object instead of scattered globals. */
 const compState = {
@@ -18,7 +27,7 @@ const compState = {
 };
 
 
-function openNumpad(inputEl, label, onConfirm) {
+export function openNumpad(inputEl, label, onConfirm) {
   compState.numpadTarget   = inputEl;
   compState.numpadCallback = onConfirm || null;
   compState.numpadRawStr   = (inputEl.value && inputEl.value !== "0") ? String(inputEl.value) : "";
@@ -27,13 +36,13 @@ function openNumpad(inputEl, label, onConfirm) {
   document.getElementById('numpad-overlay').classList.remove('hidden');
 }
 
-function renderNumpadDisplay() {
+export function renderNumpadDisplay() {
   const el = document.getElementById('numpad-display');
   el.textContent = compState.numpadRawStr || "0";
   el.className = 'numpad-display ' + (compState.numpadRawStr ? 'has-val' : 'empty-val');
 }
 
-function npKey(k) {
+export function npKey(k) {
   if(k === 'back')  { compState.numpadRawStr = compState.numpadRawStr.slice(0,-1); }
   else if(k === 'clear') { compState.numpadRawStr = ""; }
   else if(k === '.') {
@@ -45,7 +54,7 @@ function npKey(k) {
   renderNumpadDisplay();
 }
 
-function npConfirm() {
+export function npConfirm() {
   if(compState.numpadTarget) {
     compState.numpadTarget.value = compState.numpadRawStr || "0";
     compState.numpadTarget.dispatchEvent(new Event('input', {bubbles:true}));
@@ -54,17 +63,17 @@ function npConfirm() {
   closeNumpad();
 }
 
-function closeNumpad() {
+export function closeNumpad() {
   document.getElementById('numpad-overlay').classList.add('hidden');
   compState.numpadTarget = null; compState.numpadRawStr = ""; compState.numpadCallback = null;
 }
 
-function numpadOutsideClick(e) {
+export function numpadOutsideClick(e) {
   if(e.target === document.getElementById('numpad-overlay')) closeNumpad();
 }
 
 /* attach numpad to a number input — NUMPAD DISABLED, using native keyboard */
-function attachNumpad(el, label) {
+export function attachNumpad(el, label) {
   /* Restore normal input behaviour: remove any readonly/inputmode restrictions */
   el.removeAttribute('inputmode');
   el.removeAttribute('readonly');
@@ -95,7 +104,7 @@ document.addEventListener('blur', function(e) {
    MODAL PICKER ENGINE (replaces <select>)
 ═══════════════════════════════════════════ */
 
-function openModalPicker(title, options, currentVal, onPick) {
+export function openModalPicker(title, options, currentVal, onPick) {
   compState.pickerCallback = onPick;
   document.getElementById('modal-picker-title').textContent = title;
   const list = document.getElementById('modal-picker-list');
@@ -110,7 +119,7 @@ function openModalPicker(title, options, currentVal, onPick) {
   document.getElementById('modal-picker-overlay').classList.remove('hidden');
 }
 
-function closeModalPicker() {
+export function closeModalPicker() {
   document.getElementById('modal-picker-overlay').classList.add('hidden');
   compState.pickerTarget = null; compState.pickerCallback = null;
 }
@@ -118,7 +127,7 @@ function closeModalPicker() {
 /* ═══════════════════════════════════════════
    COLLAPSIBLE CARDS
 ═══════════════════════════════════════════ */
-function toggleCard(id) {
+export function toggleCard(id) {
   const card = document.getElementById(id);
   if(!card) return;
   /* Cloud sync card uses a separate explicit body div */
@@ -128,7 +137,6 @@ function toggleCard(id) {
     const hidden = body.style.display === 'none';
     body.style.display = hidden ? 'block' : 'none';
     if(icon) icon.textContent = hidden ? '▼' : '▶';
-    syncCardHeadAria(card, hidden);
   } else if (card.classList.contains('ledger-section')) {
     /* Ledger section cards are driven entirely by focus mode now —
        there's no Browse state to toggle into, so header taps are a no-op.
@@ -139,49 +147,7 @@ function toggleCard(id) {
     /* notify the ledger-nav layer so the jump-nav/progress bar stays in sync;
        safe no-op if ledger-nav.js hasn't loaded (e.g. on non-ledger pages) */
     if (typeof onCardToggled === 'function') onCardToggled(id);
-    syncCardHeadAria(card, !card.classList.contains('collapsed'));
   }
-}
-
-/* ═══════════════════════════════════════════
-   ACCESSIBILITY — card-head keyboard/ARIA support
-   Purely additive: does not change toggleCard's existing
-   behavior, only keeps aria-expanded in sync and makes the
-   clickable header divs reachable/operable via keyboard.
-═══════════════════════════════════════════ */
-function syncCardHeadAria(card, expanded) {
-  const head = card.querySelector ? card.querySelector('.card-head') : null;
-  if(head) head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-}
-
-function enhanceCardHeadsA11y() {
-  document.querySelectorAll('.card-head').forEach(head => {
-    if(head.dataset.a11yEnhanced) return; /* avoid double-binding */
-    head.dataset.a11yEnhanced = 'true';
-    head.setAttribute('role', 'button');
-    head.setAttribute('tabindex', '0');
-
-    /* initial aria-expanded state */
-    const card = head.closest('.card');
-    let expanded = true;
-    if(card) {
-      if(card.id === 'card-cloud-sync') {
-        const body = document.getElementById('card-cloud-sync-body');
-        expanded = !!body && body.style.display !== 'none';
-      } else {
-        expanded = !card.classList.contains('collapsed');
-      }
-    }
-    head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-
-    /* Enter / Space activates it, same as a native button */
-    head.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-        e.preventDefault();
-        head.click();
-      }
-    });
-  });
 }
 
 /* ═══════════════════════════════════════════
@@ -193,14 +159,13 @@ window.onload = () => {
   renderManifest();
   dbxInit(); /* ── Cloud sync: parse token & init on load ── */
   if (typeof initLedgerSwipeNav === 'function') initLedgerSwipeNav(); /* mobile swipe-to-navigate */
-  enhanceCardHeadsA11y(); /* a11y: keyboard + aria-expanded for card-head toggles */
 };
 
 /* ═══════════════════════════════════════════
    PAGE NAVIGATION
 ═══════════════════════════════════════════ */
 
-function buildDenomRows() {
+export function buildDenomRows() {
   ['denom-till','denom-vault'].forEach((containerId, setIdx) => {
     const box = document.getElementById(containerId);
     box.innerHTML = "";
@@ -220,33 +185,33 @@ function buildDenomRows() {
 /* ═══════════════════════════════════════════
    DYNAMIC ROW BUILDERS
 ═══════════════════════════════════════════ */
-function addHsRow(lbl='', val='') {
-  hsRowCount++;
-  const id = `hs-row-${hsRowCount}`;
+export function addHsRow(lbl='', val='') {
+  session.hsRowCount++;
+  const id = `hs-row-${session.hsRowCount}`;
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.innerHTML = `
-    <input type="text" class="lbl-input hs-lbl" placeholder="Home Service ${hsRowCount}" value="${lbl}">
+    <input type="text" class="lbl-input hs-lbl" placeholder="Home Service ${session.hsRowCount}" value="${lbl}">
     <input type="number" class="hs-val" value="${val||0}" oninput="calc()">
-    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('hs-rows').appendChild(row);
   const inp = row.querySelector('.hs-val');
   attachNumpad(inp);
   calc();
 }
 
-function addAuxStripRow(lbl='', price='', qty='') {
-  auxStripCount++;
-  const id = `aux-strip-row-${auxStripCount}`;
+export function addAuxStripRow(lbl='', price='', qty='') {
+  session.auxStripCount++;
+  const id = `aux-strip-row-${session.auxStripCount}`;
   const sc = document.getElementById('ledger-strips');
   const row = document.createElement('div');
   row.className = "row strip-row"; row.id = id;
   row.innerHTML = `
-    <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" aria-label="Extra item" value="${lbl}" style="flex:1;">
-    <input type="number" class="aux-strip-price" aria-label="Unit price" value="${price||0}" oninput="calc()" style="width:80px;">
-    <input type="number" class="aux-strip-qty"   aria-label="Quantity"   value="${qty||0}"   oninput="calc()" style="width:80px;">
-    <input type="number" class="aux-strip-total" aria-label="Line total" readonly style="width:80px;">
-    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
+    <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" value="${lbl}" style="flex:1;">
+    <input type="number" class="aux-strip-price" value="${price||0}" oninput="calc()" style="width:80px;">
+    <input type="number" class="aux-strip-qty"   value="${qty||0}"   oninput="calc()" style="width:80px;">
+    <input type="number" class="aux-strip-total" readonly style="width:80px;">
+    <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   sc.appendChild(row);
   attachNumpad(row.querySelector('.aux-strip-price'), 'Unit Price');
   attachNumpad(row.querySelector('.aux-strip-qty'),   'Quantity');
@@ -256,7 +221,7 @@ function addAuxStripRow(lbl='', price='', qty='') {
 /* per-account entry-row counters, keyed by account index, so ids stay unique
    across add/remove/hydrate cycles within a single ledger session */
 
-function addNamedAccountBlock(accountIdx, lbl) {
+export function addNamedAccountBlock(accountIdx, lbl) {
   const container = document.getElementById('ledger-named-credits');
   const block = document.createElement('div');
   block.className = "named-account-block";
@@ -272,7 +237,7 @@ function addNamedAccountBlock(accountIdx, lbl) {
   compState.namedEntrySeq[accountIdx] = 0;
 }
 
-function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
+export function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
   const block = document.getElementById(`named-account-${accountIdx}`);
   if(!block) return;
   const rowsBox = block.querySelector('.named-account-rows');
@@ -284,26 +249,26 @@ function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
   row.className = "row named-entry-row"; row.id = rowId;
   row.dataset.accountIdx = accountIdx;
   row.innerHTML = `
-    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" aria-label="Description (optional)" value="${desc||''}">
+    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" value="${desc||''}">
     <div style="display:flex;gap:4px;align-items:center;">
-      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle amount sign, positive or negative">±</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle positive or negative">±</button>
       <input type="number" class="named-entry-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
     </div>
-    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${rowId}',true)">✕</button>`;
+    <button class="del-row-btn" onclick="delRow('${rowId}',true)" aria-label="Remove row">✕</button>`;
   rowsBox.appendChild(row);
   attachNumpad(row.querySelector('.named-entry-val'));
   calc();
 }
 
-function addTierCreditRow(num) {
+export function addTierCreditRow(num) {
   const container = document.getElementById('ledger-tier-credits');
   const row = document.createElement('div');
   row.className = "row three-col"; row.id = `tier-row-${num}`;
   row.innerHTML = `
-    <select id="sel-tier-${num}" onchange="openTierPicker(${num})" aria-label="Credit account group"></select>
-    <select id="sel-name-${num}" onchange="calc()" aria-label="Credit account name"></select>
+    <select id="sel-tier-${num}" onchange="openTierPicker(${num})"></select>
+    <select id="sel-name-${num}" onchange="calc()"></select>
     <div style="display:flex;gap:4px;align-items:center;">
-      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('in-nested-${num}')" aria-label="Toggle amount sign, positive or negative">±</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('in-nested-${num}')" aria-label="Toggle positive or negative">±</button>
       <input type="number" id="in-nested-${num}" oninput="calc()" placeholder="Amount" style="width:90px;">
     </div>`;
   container.appendChild(row);
@@ -346,67 +311,67 @@ function addTierCreditRow(num) {
   attachNumpad(inp, 'Amount');
 }
 
-function addAuxCreditRow(lbl='', val='') {
-  auxCreditCount++;
-  const id = `aux-cred-row-${auxCreditCount}`;
-  const valId = `aux-cred-val-${auxCreditCount}`;
+export function addAuxCreditRow(lbl='', val='') {
+  session.auxCreditCount++;
+  const id = `aux-cred-row-${session.auxCreditCount}`;
+  const valId = `aux-cred-val-${session.auxCreditCount}`;
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.innerHTML = `
-    <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" aria-label="Other account name" value="${lbl}">
+    <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" value="${lbl}">
     <div style="display:flex;gap:4px;align-items:center;">
-      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle amount sign, positive or negative">±</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle positive or negative">±</button>
       <input type="number" class="aux-cred-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
     </div>
-    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-aux-credits').appendChild(row);
   attachNumpad(row.querySelector('.aux-cred-val'));
   calc();
 }
 
-function addDepositRow(lbl='', val='') {
-  depositCount++;
-  const id = `dep-row-${depositCount}`;
+export function addDepositRow(lbl='', val='') {
+  session.depositCount++;
+  const id = `dep-row-${session.depositCount}`;
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.innerHTML = `
-    <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" aria-label="Safe drop reference" value="${lbl}">
+    <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" value="${lbl}">
     <input type="number" class="dep-val" value="${val||0}" oninput="calc()">
-    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
+    <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-deposits').appendChild(row);
   attachNumpad(row.querySelector('.dep-val'));
   calc();
 }
 
-function addMiscRow(lbl='', val='') {
-  miscCount++;
-  const id = `misc-row-${miscCount}`;
+export function addMiscRow(lbl='', val='') {
+  session.miscCount++;
+  const id = `misc-row-${session.miscCount}`;
   const row = document.createElement('div');
   row.className = "row misc-row"; row.id = id;
   row.innerHTML = `
-    <input type="text"   id="misc-lbl-${miscCount}" class="lbl-input" placeholder="Charge / note" aria-label="Charge / note" value="${lbl}">
-    <input type="number" id="misc-val-${miscCount}" value="${val||0}" style="width:90px;" oninput="calc()">
-    <button class="del-row-btn" aria-label="Delete row" onclick="delRow('${id}',true)">✕</button>`;
+    <input type="text"   id="misc-lbl-${session.miscCount}" class="lbl-input" placeholder="Charge / note" value="${lbl}">
+    <input type="number" id="misc-val-${session.miscCount}" value="${val||0}" style="width:90px;" oninput="calc()">
+    <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-misc').appendChild(row);
   const inp = row.querySelector('input[type="number"]');
   attachNumpad(inp);
   calc();
 }
 
-function delRow(id, recalc) {
+export function delRow(id, recalc) {
   const el = document.getElementById(id);
   if(el) el.remove();
   if(recalc) calc();
 }
 
-function openTierPicker(num) { /* triggered by change, handled via mousedown */ }
+export function openTierPicker(num) { /* triggered by change, handled via mousedown */ }
 
 /* ═══════════════════════════════════════════
    LEDGER INIT
 ═══════════════════════════════════════════ */
 
 /* ── SAVE ACTION SHEET ───────────────────────────────────── */
-function showSaveAction(title, sub, buttons) {
+export function showSaveAction(title, sub, buttons) {
   document.getElementById('save-action-title').textContent = title;
   document.getElementById('save-action-sub').textContent   = sub;
   const btns = document.getElementById('save-action-btns');
@@ -425,23 +390,23 @@ function showSaveAction(title, sub, buttons) {
 }
 
 
-function g(id) { return document.getElementById(id); }
-function set(id, v) { const el=g(id); if(el) el.value=v; }
-function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
+export function g(id) { return document.getElementById(id); }
+export function set(id, v) { const el=g(id); if(el) el.value=v; }
+export function val(id) { const el=g(id); return el?parseFloat(el.value)||0:0; }
 
 /* A sheet only "counts" for calendar dots, manifest, carry-over,
    and Final aggregation once it has been explicitly Saved
    (saveSheet sets draft=false). Auto-drafts (draft=true) are
    excluded until then. */
-function isRealSheet(rec) {
+export function isRealSheet(rec) {
   return !!rec && rec.draft !== true;
 }
-function getRealSheet(key) {
+export function getRealSheet(key) {
   const rec = db.sheets[key];
   return isRealSheet(rec) ? rec : null;
 }
 
-function timelineStep(ds, shift, n) {
+export function timelineStep(ds, shift, n) {
   let d   = new Date(ds);
   let idx = SHIFTS.indexOf(shift) + n;
   if(idx >= SHIFTS.length) {
@@ -455,8 +420,8 @@ function timelineStep(ds, shift, n) {
   return {key:`${outDs}_${SHIFTS[idx]}`, date:outDs, shift:SHIFTS[idx]};
 }
 
-function buildPrintSheet() {
-  const parts = activeKey ? activeKey.split('_') : ['',''];
+export function buildPrintSheet() {
+  const parts = session.activeKey ? session.activeKey.split('_') : ['',''];
   const ds = parts[0], shift = parts[1];
   const psRow = (label, value, cls='') => `<div class="ps-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
   const psRowOrEmpty = (label, raw, cls='') => {
@@ -477,8 +442,8 @@ function buildPrintSheet() {
     <div class="ps-idstrip">
       <div class="ps-idchip"><div class="ps-idchip-label">Date</div><div class="ps-idchip-val">${ds || '—'}</div></div>
       <div class="ps-idchip"><div class="ps-idchip-label">Closing</div><div class="ps-idchip-val">${srLabel(shift)}</div></div>
-      <div class="ps-idchip"><div class="ps-idchip-label">Mode</div><div class="ps-idchip-val">${(activeMode||'shift').toUpperCase()}</div></div>
-      <div class="ps-idchip"><div class="ps-idchip-label">Status</div><div class="ps-idchip-val">${isSheetLocked ? 'CLOSED' : 'DRAFT'}</div></div>
+      <div class="ps-idchip"><div class="ps-idchip-label">Mode</div><div class="ps-idchip-val">${(session.activeMode||'shift').toUpperCase()}</div></div>
+      <div class="ps-idchip"><div class="ps-idchip-label">Status</div><div class="ps-idchip-val">${session.isSheetLocked ? 'CLOSED' : 'DRAFT'}</div></div>
     </div>`;
 
   /* Sale Info box */
@@ -637,8 +602,8 @@ function buildPrintSheet() {
             <p>${branchName}</p>
           </div>
           <div class="ps-doctype">
-            <span class="ps-doctype-tag">${(activeMode||'shift')==='final'?'Final Closing':'Shift Closing'}</span>
-            <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)} · ${isSheetLocked?'CLOSED':'DRAFT'} · Generated ${genStamp}</div>
+            <span class="ps-doctype-tag">${(session.activeMode||'shift')==='final'?'Final Closing':'Shift Closing'}</span>
+            <div class="ps-doctype-date">${ds || '—'} · ${srLabel(shift)} · ${session.isSheetLocked?'CLOSED':'DRAFT'} · Generated ${genStamp}</div>
           </div>
         </div>
 
@@ -755,7 +720,7 @@ function buildPrintSheet() {
 }
 
 
-async function renderPDF() {
+export async function renderPDF() {
   buildPrintSheet();
   const sheet = document.getElementById('print-sheet');
   sheet.classList.add('show');
@@ -786,30 +751,30 @@ async function renderPDF() {
 
 /* ── PDF MODAL (from Saved Records) ─────────────────────── */
 
-function openPdfModal(key) {
+export function openPdfModal(key) {
   compState.pdfModalKey = key;
   document.getElementById('pdf-modal-status').textContent = '';
   document.getElementById('pdf-modal-overlay').classList.remove('hidden');
 }
 
-function closePdfModal() {
+export function closePdfModal() {
   document.getElementById('pdf-modal-overlay').classList.add('hidden');
   compState.pdfModalKey = null;
 }
 
-async function pdfModalAction(type) {
+export async function pdfModalAction(type) {
   const key = compState.pdfModalKey;
   if(!key) return;
   const statusEl = document.getElementById('pdf-modal-status');
   statusEl.textContent = type === 'whatsapp' ? 'Preparing PDF…' : 'Generating PDF…';
 
   /* Temporarily load the sheet into the ledger (hidden) so buildPrintSheet can read DOM */
-  const prevKey  = activeKey;
-  const prevMode = activeMode;
-  activeKey  = key;
-  activeMode = db.sheets[key]?.profileMode || 'shift';
+  const prevKey  = session.activeKey;
+  const prevMode = session.activeMode;
+  session.activeKey  = key;
+  session.activeMode = db.sheets[key]?.profileMode || 'shift';
   const parts = key.split('_');
-  initLedger(parts[0], parts[1], activeMode);
+  initLedger(parts[0], parts[1], session.activeMode);
   await new Promise(r => setTimeout(r, 120)); /* let DOM settle */
 
   try {
@@ -840,14 +805,14 @@ async function pdfModalAction(type) {
   }
 
   /* Restore previous state */
-  activeKey  = prevKey;
-  activeMode = prevMode;
+  session.activeKey  = prevKey;
+  session.activeMode = prevMode;
   if(prevKey) { const p = prevKey.split('_'); initLedger(p[0], p[1], prevMode); }
   else goToDashboard();
 }
 
 
-function openEditModal(key) {
+export function openEditModal(key) {
   compState.editModalKey = key;
   const currentMode = db.sheets[key]?.profileMode || 'shift';
   editModalSelectMode(currentMode);
@@ -857,16 +822,16 @@ function openEditModal(key) {
   setTimeout(() => document.getElementById('edit-modal-pin').focus(), 120);
 }
 
-function closeEditModal() {
+export function closeEditModal() {
   document.getElementById('edit-modal-overlay').classList.add('hidden');
   compState.editModalKey = null;
 }
 
-function editModalOutsideClick(e) {
+export function editModalOutsideClick(e) {
   if(e.target === document.getElementById('edit-modal-overlay')) closeEditModal();
 }
 
-function editModalSelectMode(mode) {
+export function editModalSelectMode(mode) {
   const btnShift = document.getElementById('em-btn-shift');
   const btnFinal = document.getElementById('em-btn-final');
   btnShift.className = 'edit-mode-btn' + (mode === 'shift' ? ' active-shift' : '');
@@ -874,11 +839,11 @@ function editModalSelectMode(mode) {
   btnShift.dataset.selected = mode === 'shift' ? '1' : '';
 }
 
-function getEditModalMode() {
+export function getEditModalMode() {
   return document.getElementById('em-btn-shift').dataset.selected === '1' ? 'shift' : 'final';
 }
 
-function confirmEditModal() {
+export function confirmEditModal() {
   const pin = document.getElementById('edit-modal-pin').value;
   const errEl = document.getElementById('edit-modal-err');
   if(pin !== PIN) {
@@ -892,16 +857,16 @@ function confirmEditModal() {
   closeEditModal();
   /* Apply mode change to saved record before opening */
   setSheetProfileMode(key, newMode);
-  activeKey  = key;
-  activeMode = newMode;
-  overrides  = db.sheets[key]?.overrides || {};
+  session.activeKey  = key;
+  session.activeMode = newMode;
+  session.overrides  = db.sheets[key]?.overrides || {};
   const p    = key.split('_');
-  initLedger(p[0], p[1], activeMode, { forEdit: true });
+  initLedger(p[0], p[1], session.activeMode, { forEdit: true });
   setLockedState(false);
 }
 
 
-function toggleMoreMenu() {
+export function toggleMoreMenu() {
   const m = document.getElementById('ltb-more-menu');
   if(m) m.classList.toggle('hidden');
 }
@@ -916,13 +881,13 @@ document.addEventListener('click', function(e) {
 /* ═══════════════════════════════════════════
    CLEAR ALL FIELDS
 ═══════════════════════════════════════════ */
-function clearAllFields() {
+export function clearAllFields() {
   if(!confirm('Clear ALL fields on this sheet? This cannot be undone unless you saved a draft.')) return;
-  overrides = {};
-  isSavedSheet = false;
-  const parts = activeKey ? activeKey.split('_') : ['',''];
+  session.overrides = {};
+  session.isSavedSheet = false;
+  const parts = session.activeKey ? session.activeKey.split('_') : ['',''];
   flushInputs();
-  pullPreviousShift(parts[0], parts[1], activeMode);
+  pullPreviousShift(parts[0], parts[1], session.activeMode);
   calc();
 }
 

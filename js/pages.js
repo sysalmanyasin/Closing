@@ -5,27 +5,41 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-function showPage(id) {
+import { PIN, SHIFTS, db, srLabel, session } from './state.js';
+import {
+  initLedger, settingsAddNamedCredit, settingsAddStrip,
+  settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
+  settingsRemoveStrip, settingsRemoveStripGroup, settingsRenameStripGroup,
+  settingsSetBookBrandCode, settingsSetRetentionMonths, stopAutoDraft
+} from './actions.js';
+import {
+  clAllLabels, clBackfillSnapshots, clEnsureArray, clGroupByDate,
+  countRecordsOlderThan, mlAllSnapshots
+} from './ledger-engine.js';
+import { isRealSheet, timelineStep } from './components.js';
+import { initClosingBookDefaults } from './closing-book.js';
+
+export function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 }
-function goToDashboard() {
+export function goToDashboard() {
   stopAutoDraft();          /* stop auto-draft when leaving ledger */
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
 }
-function goToClosingBook() {
+export function goToClosingBook() {
   showPage('page-closing-book');
   if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
 }
-function goToSettings()  {
+export function goToSettings()  {
   let pin = prompt("Enter settings PIN:");
   if(pin !== PIN) { alert("Incorrect PIN."); return; }
   showPage('page-settings');
   buildSettingsUI();
 }
-function goToCreditLedger() {
+export function goToCreditLedger() {
   showPage('page-credit-ledger');
   clBackfillSnapshots();
   clSwitchMode('credit');
@@ -50,9 +64,9 @@ const clPageState = {
 };
 
 /* ── FORMAT HELPERS ── */
-function clFmt(v) { return 'Rs. ' + Math.abs(v).toLocaleString(); }
-function clFmtSigned(v) { return (v >= 0 ? '+' : '−') + ' Rs. ' + Math.abs(v).toLocaleString(); }
-function clFmtDate(ds) {
+export function clFmt(v) { return 'Rs. ' + Math.abs(v).toLocaleString(); }
+export function clFmtSigned(v) { return (v >= 0 ? '+' : '−') + ' Rs. ' + Math.abs(v).toLocaleString(); }
+export function clFmtDate(ds) {
   try {
     const d = new Date(ds + 'T00:00:00');
     return d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -60,7 +74,7 @@ function clFmtDate(ds) {
 }
 
 /* Switch between Credit and Misc/Ongoing views on the same tab */
-function clSwitchMode(mode) {
+export function clSwitchMode(mode) {
   clPageState.activeMode = mode;
   document.getElementById('cl-mode-tab-credit')?.classList.toggle('active', mode === 'credit');
   document.getElementById('cl-mode-tab-misc')?.classList.toggle('active', mode === 'misc');
@@ -85,7 +99,7 @@ function clSwitchMode(mode) {
 /* ═══════════════════════════════════════════
    CREDIT LEDGER — RENDER
 ═══════════════════════════════════════════ */
-function renderCreditLedger() {
+export function renderCreditLedger() {
   if(clPageState.activeMode === 'misc') { renderMiscLedgerInternal(); return; }
   clEnsureArray();
   const filterLbl = document.getElementById('cl-filter-select')?.value || '';
@@ -140,7 +154,7 @@ function renderCreditLedger() {
   }
 }
 
-function clBuildDateCard(group, activeFilter) {
+export function clBuildDateCard(group, activeFilter) {
   const card = document.createElement('div');
   card.className = 'cl-date-card';
   card.dataset.date = group.date;
@@ -157,7 +171,7 @@ function clBuildDateCard(group, activeFilter) {
         <div class="cl-date-sub">${shiftLabels}</div>
       </div>
       <span class="cl-date-total">${clFmt(latestTotal)}</span>
-      <span class="cl-chevron">▶</span>
+      <span class="cl-chevron" aria-hidden="true">▶</span>
     </div>
     <div class="cl-date-body">
       ${group.snaps.map(s => clBuildShiftBlock(s, activeFilter)).join('')}
@@ -165,7 +179,7 @@ function clBuildDateCard(group, activeFilter) {
   return card;
 }
 
-function clBuildShiftBlock(snap, activeFilter) {
+export function clBuildShiftBlock(snap, activeFilter) {
   const isFinal = snap.mode === 'final';
   const modeClass = isFinal ? 'mode-final' : '';
   const badge = isFinal
@@ -237,26 +251,26 @@ function clBuildShiftBlock(snap, activeFilter) {
 }
 
 /* Toggle a date card open/closed */
-function clToggleDateCard(card) {
+export function clToggleDateCard(card) {
   card.classList.toggle('open');
 }
 
 /* Expand or collapse all date cards */
-function clToggleAll(open) {
+export function clToggleAll(open) {
   document.querySelectorAll('#cl-cards-container .cl-date-card').forEach(c => {
     c.classList.toggle('open', open);
   });
 }
 
 /* Show more date groups */
-function clShowMore() {
+export function clShowMore() {
   if(clPageState.activeMode === 'misc') clPageState.mlVisibleCount += 10;
   else clPageState.visibleCount += 10;
   renderCreditLedger();
 }
 
 /* Open a shift in the ledger */
-function clOpenShift(key) {
+export function clOpenShift(key) {
   const parts = key.split('_');
   if(parts.length < 2) return;
   stopAutoDraft();
@@ -264,7 +278,7 @@ function clOpenShift(key) {
 }
 
 /* Toggle export panel */
-function clToggleExport() {
+export function clToggleExport() {
   const panel = document.getElementById('cl-export-panel');
   if(!panel) return;
   panel.classList.toggle('open');
@@ -285,7 +299,7 @@ function clToggleExport() {
 }
 
 /* Export .txt file for a date+shift range */
-function clExportTxt() {
+export function clExportTxt() {
   if(clPageState.activeMode === 'misc') { mlExportTxt(); return; }
   clEnsureArray();
   const fromDate  = document.getElementById('cl-exp-from-date')?.value  || '';
@@ -357,7 +371,7 @@ function clExportTxt() {
    mlAllSnapshots() itself now lives in ledger-engine.js.
 ═══════════════════════════════════════════ */
 
-function renderMiscLedgerInternal() {
+export function renderMiscLedgerInternal() {
   const snapshots = mlAllSnapshots();
   const groups    = clGroupByDate(snapshots);
   const container = document.getElementById('cl-cards-container');
@@ -387,7 +401,7 @@ function renderMiscLedgerInternal() {
   }
 }
 
-function mlBuildDateCard(group) {
+export function mlBuildDateCard(group) {
   const card = document.createElement('div');
   card.className = 'cl-date-card';
   card.dataset.date = group.date;
@@ -403,7 +417,7 @@ function mlBuildDateCard(group) {
         <div class="cl-date-sub">${shiftLabels}</div>
       </div>
       <span class="cl-date-total">${clFmt(latestTotal)}</span>
-      <span class="cl-chevron">▶</span>
+      <span class="cl-chevron" aria-hidden="true">▶</span>
     </div>
     <div class="cl-date-body">
       ${group.snaps.map(s => mlBuildShiftBlock(s)).join('')}
@@ -411,7 +425,7 @@ function mlBuildDateCard(group) {
   return card;
 }
 
-function mlBuildShiftBlock(snap) {
+export function mlBuildShiftBlock(snap) {
   const isFinal   = snap.mode === 'final';
   const modeClass = isFinal ? 'mode-final' : '';
   const badge     = isFinal
@@ -443,7 +457,7 @@ function mlBuildShiftBlock(snap) {
 }
 
 /* Export Misc history as .txt (mirrors clExportTxt but for miscRows) */
-function mlExportTxt() {
+export function mlExportTxt() {
   const fromDate  = document.getElementById('cl-exp-from-date')?.value  || '';
   const fromShift = document.getElementById('cl-exp-from-shift')?.value || '';
   const toDate    = document.getElementById('cl-exp-to-date')?.value    || '';
@@ -492,7 +506,7 @@ function mlExportTxt() {
    collides with the app's own A4 print-sheet CSS.
 ═══════════════════════════════════════════ */
 
-function printThermalSnapshot(kind, key) {
+export function printThermalSnapshot(kind, key) {
   let snap;
 
   if(kind === 'credit') {
@@ -550,7 +564,7 @@ function printThermalSnapshot(kind, key) {
   _printThermalHtml(bodyHtml);
 }
 
-function _printThermalHtml(bodyHtml) {
+export function _printThermalHtml(bodyHtml) {
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.width  = '0';
@@ -595,9 +609,9 @@ function _printThermalHtml(bodyHtml) {
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WDAYS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-function buildCalendar() {
-  const yr = calViewDate.getFullYear();
-  const mo = calViewDate.getMonth();
+export function buildCalendar() {
+  const yr = session.calViewDate.getFullYear();
+  const mo = session.calViewDate.getMonth();
   document.getElementById('cal-title').textContent = `${MONTHS[mo]} ${yr}`;
   const grid = document.getElementById('cal-grid');
   grid.innerHTML = "";
@@ -629,9 +643,9 @@ function buildCalendar() {
   }
 }
 
-function shiftMonth(n) { calViewDate.setMonth(calViewDate.getMonth()+n); buildCalendar(); }
+export function shiftMonth(n) { session.calViewDate.setMonth(session.calViewDate.getMonth()+n); buildCalendar(); }
 
-function openDatePicker(ds) {
+export function openDatePicker(ds) {
   const panel = document.getElementById('shift-picker');
   panel.classList.remove('hidden');
   document.getElementById('lbl-picker-date').textContent = `Open shift for: ${ds}`;
@@ -757,7 +771,7 @@ function openDatePicker(ds) {
 
 /* Count saved (non-draft) shift-mode closings since the last saved
    Final closing, walking backwards in chronological order. */
-function shiftsSinceLastFinal() {
+export function shiftsSinceLastFinal() {
   const allSavedKeys = Object.keys(db.sheets)
     .filter(k => db.sheets[k] && db.sheets[k].draft !== true)
     .sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b)));
@@ -771,7 +785,7 @@ function shiftsSinceLastFinal() {
 }
 
 /* Should the NEXT (not-yet-saved) closing default to Final mode? */
-function computeAutoClosingMode() {
+export function computeAutoClosingMode() {
   const everyN = parseInt(db.settings?.finalEveryN, 10) || 3;
   if(everyN <= 0) return 'shift';
   const sinceLastFinal = shiftsSinceLastFinal();
@@ -779,7 +793,7 @@ function computeAutoClosingMode() {
   return (sinceLastFinal + 1) >= everyN ? 'final' : 'shift';
 }
 
-function setPickerMode(mode) {
+export function setPickerMode(mode) {
   const panel = document.getElementById('shift-picker');
   panel.dataset.mode = mode;
   const btnShift = document.getElementById('picker-mode-shift');
@@ -794,11 +808,11 @@ function setPickerMode(mode) {
   }
 }
 
-function openSheetFromPicker() {
+export function openSheetFromPicker() {
   const ds    = document.getElementById('lbl-picker-date').dataset.date;
   const panel = document.getElementById('shift-picker');
   const shift = panel.dataset.shift;
-  activeMode  = panel.dataset.mode || 'shift';
+  session.activeMode  = panel.dataset.mode || 'shift';
   if(!shift) return;
   const key   = `${ds}_${shift}`;
 
@@ -831,22 +845,22 @@ function openSheetFromPicker() {
     }
   }
 
-  activeKey   = key;
-  overrides   = db.sheets[activeKey]?.overrides || {};
-  initLedger(ds, shift, activeMode);
+  session.activeKey   = key;
+  session.overrides   = db.sheets[session.activeKey]?.overrides || {};
+  initLedger(ds, shift, session.activeMode);
 }
 
 /* ═══════════════════════════════════════════
    MANIFEST FILTER TOGGLE
 ═══════════════════════════════════════════ */
-function toggleManifestFilter() {
+export function toggleManifestFilter() {
   const panel = document.getElementById('manifest-filter-panel');
   const icon  = document.getElementById('manifest-filter-icon');
   const open  = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : 'block';
   icon.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
 }
-function clearManifestFilter() {
+export function clearManifestFilter() {
   const f = document.getElementById('filter-date-from');
   const t = document.getElementById('filter-date-to');
   if(f) f.value = '';
@@ -860,7 +874,7 @@ function clearManifestFilter() {
    So within a date: Night=0, Morning=1, Evening=2
 ═══════════════════════════════════════════ */
 const SHIFT_CHRONO = {Night: 0, Morning: 1, Evening: 2};
-function sheetSortKey(k) {
+export function sheetSortKey(k) {
   const parts = k.split('_');
   return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9);
 }
@@ -868,7 +882,7 @@ function sheetSortKey(k) {
 /* ═══════════════════════════════════════════
    MANIFEST
 ═══════════════════════════════════════════ */
-function renderManifest() {
+export function renderManifest() {
   const box = document.getElementById('manifest-list');
 
   /* date filter values */
@@ -976,14 +990,34 @@ function renderManifest() {
 
 /* Brand-code input handler (index.html onchange) — Actions does the
    mutation+persist, Pages updates its own example-text preview. */
-function updateBookBrandCode(value) {
+export function updateBookBrandCode(value) {
   settingsSetBookBrandCode(value);
   const exampleEl = document.getElementById('cfg-book-brand-example');
   if(exampleEl) exampleEl.textContent = db.settings.bookBrandCode + ' Closing Night 1 July 2026 to Evening 3 July 2026.pdf';
 }
 
-function buildSettingsUI() {
+/* Retention months input handler — Actions persists the setting,
+   Pages refreshes the "N records eligible" status line. */
+export function updateRetentionMonths(value) {
+  settingsSetRetentionMonths(value);
+  refreshRetentionStatus();
+}
+
+export function refreshRetentionStatus() {
+  const el = document.getElementById('retention-status');
+  if(!el) return;
+  const months = db.settings.retentionMonths || 6;
+  const count  = countRecordsOlderThan(months);
+  el.textContent = count > 0
+    ? `📦 ${count} record(s) older than ${months} months — eligible for archiving.`
+    : `✅ No records older than ${months} months yet.`;
+}
+
+export function buildSettingsUI() {
   document.getElementById('set-final-every-n').value = db.settings.finalEveryN || 3;
+  const retentionEl = document.getElementById('set-retention-months');
+  if(retentionEl) retentionEl.value = db.settings.retentionMonths || 6;
+  refreshRetentionStatus();
   const brandCodeEl = document.getElementById('cfg-book-brand-code');
   if(brandCodeEl) {
     brandCodeEl.value = db.settings.bookBrandCode || 'FDPP BT';
@@ -998,15 +1032,15 @@ function buildSettingsUI() {
     if(i>0) { div.style.borderTop="1px solid var(--border)"; div.style.paddingTop="14px"; }
     div.style.marginBottom = "14px";
     div.innerHTML = `
-      <div class="form-field"><label>Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${t?.type||''}"></div>
-      <div class="form-field"><label>Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${t?.names?.join(', ')||''}"></div>`;
+      <div class="form-field"><label for="cfg-tier-type-${i+1}">Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${t?.type||''}"></div>
+      <div class="form-field"><label for="cfg-tier-names-${i+1}">Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${t?.names?.join(', ')||''}"></div>`;
     sf.appendChild(div);
   }
   renderSettingsStripGroups();
   renderSettingsStrips();
 }
 
-function renderSettingsNamedCredits() {
+export function renderSettingsNamedCredits() {
   const box = document.getElementById('settings-named-credits');
   box.innerHTML = "";
   db.settings.namedCredits.forEach((nc, idx) => {
@@ -1014,22 +1048,22 @@ function renderSettingsNamedCredits() {
     div.className = "settings-item";
     div.innerHTML = `
       <input type="text" value="${nc.label}" placeholder="Account name" onchange="settingsSetNamedCreditLabel(${idx}, this.value)">
-      <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})">✕</button>`;
+      <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})" aria-label="Remove account">✕</button>`;
     box.appendChild(div);
   });
 }
 
-function addNamedCreditSetting() {
+export function addNamedCreditSetting() {
   settingsAddNamedCredit();
   renderSettingsNamedCredits();
 }
 
-function removeNamedCredit(i) {
+export function removeNamedCredit(i) {
   settingsRemoveNamedCredit(i);
   renderSettingsNamedCredits();
 }
 
-function renderSettingsStrips() {
+export function renderSettingsStrips() {
   const box = document.getElementById('settings-strips');
   box.innerHTML = "";
   const groupOptions = (selected) => `<option value="">— Ungrouped —</option>` +
@@ -1041,20 +1075,20 @@ function renderSettingsStrips() {
       <input type="text" value="${item.name}" onchange="settingsSetStripField(${idx},'name',this.value)">
       <select onchange="settingsSetStripField(${idx},'group',this.value)">${groupOptions(item.group||'')}</select>
       <input type="number" value="${item.price}" onchange="settingsSetStripField(${idx},'price',parseFloat(this.value)||0)">
-      <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})">✕</button>`;
+      <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})" aria-label="Remove item">✕</button>`;
     box.appendChild(div);
   });
 }
 
-function addStripRow()  { settingsAddStrip(); renderSettingsStrips(); }
-function removeStrip(i) { settingsRemoveStrip(i); renderSettingsStrips(); }
+export function addStripRow()  { settingsAddStrip(); renderSettingsStrips(); }
+export function removeStrip(i) { settingsRemoveStrip(i); renderSettingsStrips(); }
 
 /* ── Item Groups (Settings) ─────────────────────────────────
    Every add/rename/remove persists (and therefore syncs to
    Dropbox, same as everything else) immediately — it doesn't
    wait for the page-wide "Save Settings" click, so a group
    isn't silently lost if someone navigates away first. ───── */
-function renderSettingsStripGroups() {
+export function renderSettingsStripGroups() {
   const box = document.getElementById('settings-strip-groups');
   if (!box) return;
   box.innerHTML = "";
@@ -1063,20 +1097,20 @@ function renderSettingsStripGroups() {
     div.className = "settings-item";
     div.innerHTML = `
       <input type="text" value="${name}" onchange="renameStripGroup(${idx}, this.value)">
-      <button class="btn btn-red btn-sm" onclick="removeStripGroup(${idx})">✕</button>`;
+      <button class="btn btn-red btn-sm" onclick="removeStripGroup(${idx})" aria-label="Remove group">✕</button>`;
     box.appendChild(div);
   });
 }
-function addStripGroup() {
+export function addStripGroup() {
   settingsAddStripGroup();
   renderSettingsStripGroups();
   renderSettingsStrips();
 }
-function renameStripGroup(idx, newName) {
+export function renameStripGroup(idx, newName) {
   settingsRenameStripGroup(idx, newName);
   renderSettingsStrips();
 }
-function removeStripGroup(idx) {
+export function removeStripGroup(idx) {
   settingsRemoveStripGroup(idx);
   renderSettingsStripGroups();
   renderSettingsStrips();
@@ -1085,7 +1119,7 @@ function removeStripGroup(idx) {
 /* "Save Settings" reads the staged DOM fields (final-every-N,
    named-credit labels, sub-tiers) and commits them all in one
    Actions call — see settingsCommitAll() in actions.js. */
-function saveSettings() {
+export function saveSettings() {
   const finalEveryN = parseInt(document.getElementById('set-final-every-n').value) || 3;
 
   const namedCreditLabels = db.settings.namedCredits.map((nc, i) => {
@@ -1113,12 +1147,12 @@ function saveSettings() {
    DENOMINATION ROW BUILDER
 ═══════════════════════════════════════════ */
 
-function loadKey(key) {
-  activeKey  = key;
+export function loadKey(key) {
+  session.activeKey  = key;
   const p    = key.split('_');
-  activeMode = db.sheets[key]?.profileMode || 'shift';
-  overrides  = db.sheets[key]?.overrides || {};
-  initLedger(p[0], p[1], activeMode);
+  session.activeMode = db.sheets[key]?.profileMode || 'shift';
+  session.overrides  = db.sheets[key]?.overrides || {};
+  initLedger(p[0], p[1], session.activeMode);
 }
 
 /* ═══════════════════════════════════════════

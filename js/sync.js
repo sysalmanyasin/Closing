@@ -4,6 +4,10 @@
    Reads/writes via repoReplaceDB() / repoPersist() only.
 ═══════════════════════════════════════════════════════════════ */
 
+import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
+import { db } from './state.js';
+import { buildCalendar, renderManifest } from './pages.js';
+
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const DBX_APP_KEY_STORE   = 'dropbox_app_key';
 const DBX_SYNC_PATH       = '/pharmpos_sync_data.json';
@@ -17,7 +21,7 @@ const DBX_QUICK_DELAY_MS  = 5000; /* 5s between quick retries */
 /* After quick retries: exponential backoff — 30s, 2min, 5min */
 const DBX_BACKOFF_DELAYS  = [30000, 120000, 300000];
 
-function dbxGetAppKey() {
+export function dbxGetAppKey() {
   return (repoGetLocal(DBX_APP_KEY_STORE) || '').trim();
 }
 
@@ -33,10 +37,10 @@ const dbxState = {
 
 /* Accessor for Actions (Floor 3) — see scheduleSyncPush() in
    actions.js — instead of it reaching into dbxState directly. */
-function syncIsReady() { return !!dbxState.client; }
+export function syncIsReady() { return !!dbxState.client; }
 
 /* ── UI HELPERS ─────────────────────────────────────────── */
-function dbxSetStatus(text, type = 'ok', spinner = false) {
+export function dbxSetStatus(text, type = 'ok', spinner = false) {
   /* ── in-card status ── */
   const line = document.getElementById('sync-status-line');
   const icon = document.getElementById('sync-status-icon');
@@ -60,15 +64,9 @@ function dbxSetStatus(text, type = 'ok', spinner = false) {
       : (type === 'ok' ? '☁' : '✕');
     tbText.textContent = text.length > 48 ? text.substring(0, 46) + '…' : text;
   }
-  /* ── a11y: announce only settled states (not every spinner tick,
-     to avoid noisy repeated announcements) ── */
-  if (!spinner && (type === 'ok' || type === 'error')) {
-    const live = document.getElementById('sync-live-region');
-    if (live) live.textContent = 'Sync: ' + text;
-  }
 }
 
-function dbxSetBusy(busy) {
+export function dbxSetBusy(busy) {
   dbxState.busy = busy;
   const btnPull = document.getElementById('btn-pull');
   const btnPush = document.getElementById('btn-push');
@@ -76,7 +74,7 @@ function dbxSetBusy(busy) {
   if(btnPush) btnPush.disabled = busy;
 }
 
-function dbxShowLinked(accountName) {
+export function dbxShowLinked(accountName) {
   const u = document.getElementById('sync-state-unlinked');
   const l = document.getElementById('sync-state-linked');
   const a = document.getElementById('sync-account-name');
@@ -85,7 +83,7 @@ function dbxShowLinked(accountName) {
   if(a) a.textContent = accountName || '';
 }
 
-function dbxShowUnlinked() {
+export function dbxShowUnlinked() {
   const u = document.getElementById('sync-state-unlinked');
   const l = document.getElementById('sync-state-linked');
   if(u) u.classList.remove('hidden');
@@ -98,13 +96,13 @@ function dbxShowUnlinked() {
    enough — the SDK mints short-lived access tokens from it in
    memory for the lifetime of the page, and we re-supply it to
    a fresh DropboxAuth on every app load. ──────────────────── */
-function dbxSaveRefreshToken(token) {
+export function dbxSaveRefreshToken(token) {
   repoSetLocal(DBX_REFRESH_KEY, token);
 }
-function dbxGetRefreshToken() {
+export function dbxGetRefreshToken() {
   return repoGetLocal(DBX_REFRESH_KEY) || null;
 }
-function dbxClearToken() {
+export function dbxClearToken() {
   repoRemoveLocal(DBX_REFRESH_KEY);
   repoRemoveLocal(DBX_ACCOUNT_KEY);
   repoRemoveLocal(DBX_VERIFIER_KEY);
@@ -112,12 +110,12 @@ function dbxClearToken() {
 }
 
 /* ── APP KEY SETUP ──────────────────────────────────────── */
-function dbxShowKeyError(msg) {
+export function dbxShowKeyError(msg) {
   const el = document.getElementById('dbx-key-error');
   if(el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
 }
 
-function dbxSaveAppKey() {
+export function dbxSaveAppKey() {
   const inp = document.getElementById('dbx-app-key-input');
   const key = (inp?.value || '').trim();
   if(!key) { dbxShowKeyError('Please paste your App Key first.'); return; }
@@ -132,7 +130,7 @@ function dbxSaveAppKey() {
    alongside the short-lived access token. The PKCE code
    verifier must survive the full-page redirect, so it's saved
    to localStorage (the SDK only keeps it in memory). ───────── */
-async function dbxAuthStart() {
+export async function dbxAuthStart() {
   const appKey = dbxGetAppKey();
   if(!appKey) {
     /* Show the App Key input panel instead of the connect button */
@@ -159,12 +157,12 @@ async function dbxAuthStart() {
   window.location.href = authUrl.toString ? authUrl.toString() : authUrl;
 }
 
-function dbxShowConnectStep() {
+export function dbxShowConnectStep() {
   document.getElementById('sync-setup-step').classList.add('hidden');
   document.getElementById('sync-connect-step').classList.remove('hidden');
 }
 
-function dbxClearAppKey() {
+export function dbxClearAppKey() {
   repoRemoveLocal(DBX_APP_KEY_STORE);
   dbxClearToken();
   dbxState.client = null;
@@ -175,7 +173,7 @@ function dbxClearAppKey() {
 }
 
 /* ── OAUTH2 REDIRECT: pull ?code= from the URL ──────────── */
-function dbxParseCodeFromUrl() {
+export function dbxParseCodeFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   if(code) {
@@ -189,7 +187,7 @@ function dbxParseCodeFromUrl() {
    Runs on every app load and on retry.
    NEVER clears the refresh token on network errors —
    only on confirmed 401 invalid_grant from Dropbox. ───────── */
-async function dbxInit() {
+export async function dbxInit() {
   const appKey = dbxGetAppKey();
 
   const keyInput = document.getElementById('dbx-app-key-input');
@@ -284,7 +282,7 @@ async function dbxInit() {
    3 quick retries (5s apart), then exponential backoff
    (30s → 2min → 5min). Also retries when tab regains focus. ─ */
 
-function dbxScheduleRetry() {
+export function dbxScheduleRetry() {
   if(dbxState.retryTimer) clearTimeout(dbxState.retryTimer);
 
   let delay;
@@ -320,7 +318,7 @@ document.addEventListener('visibilitychange', () => {
    without going through the full OAuth flow again. The token
    is base64-encoded (not encrypted) so treat it like a password.
    It only works with the same App Key. ───────────────────────── */
-function dbxExportConnection() {
+export function dbxExportConnection() {
   const appKey      = dbxGetAppKey();
   const refreshToken = dbxGetRefreshToken();
   if(!refreshToken || !appKey) {
@@ -336,22 +334,22 @@ function dbxExportConnection() {
   });
 }
 
-function dbxShowImport() {
+export function dbxShowImport() {
   const box = document.getElementById('sync-import-box');
   if(box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
 
-async function dbxImportConnection() {
+export async function dbxImportConnection() {
   const raw = (document.getElementById('sync-import-input')?.value || '').trim();
   await _dbxApplyImportToken(raw);
 }
 
-async function dbxImportConnectionUnlinked() {
+export async function dbxImportConnectionUnlinked() {
   const raw = (document.getElementById('sync-import-input-unlinked')?.value || '').trim();
   await _dbxApplyImportToken(raw);
 }
 
-async function _dbxApplyImportToken(raw) {
+export async function _dbxApplyImportToken(raw) {
   if(!raw) { alert('Please paste a connection token first.'); return; }
   let parsed;
   try {
@@ -382,7 +380,7 @@ async function _dbxApplyImportToken(raw) {
 }
 
 /* ── DISCONNECT ─────────────────────────────────────────── */
-function dbxDisconnect() {
+export function dbxDisconnect() {
   if(!confirm('Disconnect Dropbox?\n\nYour local data will not be deleted. You can re-link at any time.')) return;
   dbxClearToken();
   dbxState.client = null;
@@ -391,7 +389,7 @@ function dbxDisconnect() {
 }
 
 /* ── PUSH: Local → Cloud ────────────────────────────────── */
-async function syncPushToCloud(manual = false) {
+export async function syncPushToCloud(manual = false) {
   if(!dbxState.client) return;
   if(dbxState.busy && !manual) return;     /* skip silent push if already busy */
   dbxSetBusy(true);
@@ -434,7 +432,7 @@ async function syncPushToCloud(manual = false) {
 }
 
 /* ── PULL: Cloud → Local ────────────────────────────────── */
-async function syncPullFromCloud(manual = false) {
+export async function syncPullFromCloud(manual = false) {
   if(!dbxState.client) return;
   dbxSetBusy(true);
   dbxSetStatus('Checking for updates…', 'busy', true);

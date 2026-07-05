@@ -13,12 +13,15 @@
    the sheet record itself.
 ═══════════════════════════════════════════════════════════════ */
 
-function clEnsureArray() {
+import { db } from './state.js';
+import { persist } from './actions.js';
+
+export function clEnsureArray() {
   if(!Array.isArray(db.creditLedger)) db.creditLedger = [];
 }
 
 /* Build a credit snapshot from a saved sheet record + its key */
-function clBuildSnapshot(key, rec) {
+export function clBuildSnapshot(key, rec) {
   const parts = key.split('_');
   const date  = parts[0] || '';
   const shift = parts[1] || '';
@@ -65,7 +68,7 @@ function clBuildSnapshot(key, rec) {
 /* Write a snapshot when a shift is explicitly saved.
    Called from actions.js's saveSheet() — persist() there covers
    both db.sheets and this db.creditLedger write in one go. */
-function clSaveSnapshot(key, rec) {
+export function clSaveSnapshot(key, rec) {
   clEnsureArray();
   /* Remove any existing snapshot for this key first */
   db.creditLedger = db.creditLedger.filter(s => s.key !== key);
@@ -74,7 +77,7 @@ function clSaveSnapshot(key, rec) {
 }
 
 /* Backfill: scan all saved (non-draft) sheets not yet in creditLedger */
-function clBackfillSnapshots() {
+export function clBackfillSnapshots() {
   clEnsureArray();
   const existingKeys = new Set(db.creditLedger.map(s => s.key));
   let changed = false;
@@ -88,7 +91,7 @@ function clBackfillSnapshots() {
 }
 
 /* Collect all unique account labels across all snapshots */
-function clAllLabels() {
+export function clAllLabels() {
   clEnsureArray();
   const seen = new Set();
   db.creditLedger.forEach(s => s.lines.forEach(l => seen.add(l.lbl)));
@@ -97,7 +100,7 @@ function clAllLabels() {
 
 /* Sort snapshots newest-first, group by date. Shared by both
    Credit and Misc rendering — pure data shape, no DOM. */
-function clGroupByDate(snapshots) {
+export function clGroupByDate(snapshots) {
   const order = { Night: 0, Morning: 1, Evening: 2 };
   const sorted = [...snapshots].sort((a, b) => {
     if(b.date !== a.date) return b.date.localeCompare(a.date);
@@ -118,7 +121,7 @@ function clGroupByDate(snapshots) {
    since miscRows are already saved per shift).
 ═══════════════════════════════════════════ */
 
-function mlAllSnapshots() {
+export function mlAllSnapshots() {
   const out = [];
   Object.entries(db.sheets || {}).forEach(([key, rec]) => {
     if(!rec || rec.draft) return; /* skip drafts, same rule as Credit Ledger */
@@ -135,4 +138,29 @@ function mlAllSnapshots() {
     });
   });
   return out;
+}
+
+/* ═══════════════════════════════════════════
+   DATA RETENTION — pure queries only. The actual
+   delete (archiveOldRecords) is a mutation and
+   lives in actions.js, PIN-gated like deleteSheet().
+═══════════════════════════════════════════ */
+
+/* YYYY-MM-DD cutoff: anything dated before this is "old" */
+export function retentionCutoffDate(months) {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
+export function staleRecordKeys(months) {
+  const cutoff = retentionCutoffDate(months);
+  return Object.keys(db.sheets || {}).filter(key => {
+    const ds = key.split('_')[0];
+    return ds && ds < cutoff;
+  });
+}
+
+export function countRecordsOlderThan(months) {
+  return staleRecordKeys(months).length;
 }

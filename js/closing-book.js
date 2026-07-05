@@ -13,6 +13,12 @@
    to build each sheet, same as the rest of the app.
 ═══════════════════════════════════════════════════════════════ */
 
+import { repoGetLocal, repoSetLocal } from './repository.js';
+import { db, srLabel, session } from './state.js';
+import { initLedger, setLockedState } from './actions.js';
+import { buildPrintSheet, timelineStep } from './components.js';
+import { sheetSortKey } from './pages.js';
+
 const BOOK_SHIFT_ORDER = ['Night', 'Morning', 'Evening'];
 
 /* CRITICAL: never use Date#toISOString() to derive a "date string" here.
@@ -21,9 +27,9 @@ const BOOK_SHIFT_ORDER = ['Night', 'Morning', 'Evening'];
    lands on the PREVIOUS UTC calendar day, silently shifting every date
    in the book back by one and breaking every db.sheets[key] lookup.
    This reads the Date object's LOCAL year/month/day instead, which is
-   what activeKey/db.sheets keys are actually built from everywhere else
+   what session.activeKey/db.sheets keys are actually built from everywhere else
    in the app (via date-picker input values, not UTC conversion). */
-function _cbLocalDateStr(d) {
+export function _cbLocalDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -44,16 +50,16 @@ const cbState = {
 
 /* Accessor for Actions (Floor 3) — see scheduleAutoSave() in
    actions.js — instead of it reaching into cbState directly. */
-function cbIsAssembling() { return cbState.assemblyMode; }
+export function cbIsAssembling() { return cbState.assemblyMode; }
 
 /* ── Defaults when the tab is opened ─────────────────────── */
-function initClosingBookDefaults() {
+export function initClosingBookDefaults() {
   const fromEl = document.getElementById('cb-from-date');
   const toEl   = document.getElementById('cb-to-date');
   if(fromEl && !fromEl.value) setClosingBookShortcut(3);
 }
 
-function setClosingBookShortcut(days) {
+export function setClosingBookShortcut(days) {
   const today = new Date();
   const from  = new Date(today);
   from.setDate(from.getDate() - (days - 1));
@@ -69,7 +75,7 @@ function setClosingBookShortcut(days) {
    today's Evening only if nothing has ever been saved. Uses the same
    Night→Morning→Evening step function (timelineStep) the rest of the
    app uses for chronology. */
-function setClosingBookShortcutClosings(n) {
+export function setClosingBookShortcutClosings(n) {
   const savedKeys = Object.keys(db.sheets).filter(k => db.sheets[k] && db.sheets[k].draft !== true);
 
   let toDs, toShift;
@@ -92,7 +98,7 @@ function setClosingBookShortcutClosings(n) {
 
 /* ── Range enumeration: Night → Morning → Evening per calendar
    day (Night = start of day), inclusive of both endpoints ─────── */
-function enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift) {
+export function enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift) {
   const entries = [];
   let d = new Date(fromDs + 'T00:00:00');
   const end = new Date(toDs + 'T00:00:00');
@@ -116,12 +122,12 @@ function enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift) {
 /* ── Cheap content fingerprint for cache invalidation ────────
    Any edit to a sheet changes its JSON, so this changes too —
    that's all "unless underlying sheet data changed" needs. ──── */
-function _cbHashStr(s) {
+export function _cbHashStr(s) {
   let h = 0;
   for(let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
   return h;
 }
-function computeClosingBookFingerprint(entries) {
+export function computeClosingBookFingerprint(entries) {
   return entries.map(e => {
     const rec = db.sheets[e.key];
     return rec ? (e.key + ':' + _cbHashStr(JSON.stringify(rec))) : (e.key + ':none');
@@ -129,7 +135,7 @@ function computeClosingBookFingerprint(entries) {
 }
 
 /* ── Cover & placeholder pages (styled to match the print sheet) ── */
-function buildClosingBookCoverPage(entries, fromDs, fromShift, toDs, toShift) {
+export function buildClosingBookCoverPage(entries, fromDs, fromShift, toDs, toShift) {
   const recorded = entries.filter(e => db.sheets[e.key]).length;
   const finals   = entries.filter(e => db.sheets[e.key] && db.sheets[e.key].profileMode === 'final').length;
   const drafts   = entries.filter(e => db.sheets[e.key] && db.sheets[e.key].draft === true).length;
@@ -161,7 +167,7 @@ function buildClosingBookCoverPage(entries, fromDs, fromShift, toDs, toShift) {
     </div>`;
 }
 
-function buildClosingBookPlaceholderPage(e) {
+export function buildClosingBookPlaceholderPage(e) {
   return `
     <div class="ps-page cb-placeholder-page">
       <div class="ps-content" style="margin-left:0;height:100%;display:flex;align-items:center;justify-content:center;">
@@ -175,7 +181,7 @@ function buildClosingBookPlaceholderPage(e) {
 }
 
 /* ── Assembly ─────────────────────────────────────────────── */
-async function generateClosingBook() {
+export async function generateClosingBook() {
   const fromDs    = document.getElementById('cb-from-date').value;
   const fromShift = document.getElementById('cb-from-shift').value;
   const toDs      = document.getElementById('cb-to-date').value;
@@ -210,14 +216,14 @@ async function generateClosingBook() {
 
   /* remember whatever ledger context was open so we can restore it
      after looping through every sheet in the range */
-  const savedActiveKey   = activeKey;
-  const savedActiveMode  = activeMode;
-  const savedOverrides   = overrides;
+  const savedActiveKey   = session.activeKey;
+  const savedActiveMode  = session.activeMode;
+  const savedOverrides   = session.overrides;
   /* if the user had a locked/saved sheet unlocked for editing via PIN
      right now, remember that — otherwise restoring it below would leave
      it looking locked again, forcing them to re-enter the PIN even
      though nothing they'd typed was lost (drafts auto-save regardless). */
-  const savedWasUnlockedForEdit = !!(savedActiveKey && !isSheetLocked && db.sheets[savedActiveKey] && db.sheets[savedActiveKey].draft !== true);
+  const savedWasUnlockedForEdit = !!(savedActiveKey && !session.isSheetLocked && db.sheets[savedActiveKey] && db.sheets[savedActiveKey].draft !== true);
 
   cbState.assemblyMode = true;
 
@@ -232,10 +238,10 @@ async function generateClosingBook() {
       if(!rec) {
         pages.push({ type: 'placeholder', html: buildClosingBookPlaceholderPage(e), date: e.date, shift: e.shift, label: pageLabel });
       } else {
-        activeKey  = e.key;
-        activeMode = rec.profileMode || 'shift';
-        overrides  = rec.overrides || {};
-        initLedger(e.date, e.shift, activeMode, { silent: true });
+        session.activeKey  = e.key;
+        session.activeMode = rec.profileMode || 'shift';
+        session.overrides  = rec.overrides || {};
+        initLedger(e.date, e.shift, session.activeMode, { silent: true });
         buildPrintSheet();
 
         const sheetEl   = document.getElementById('print-sheet');
@@ -268,9 +274,9 @@ async function generateClosingBook() {
     statusEl.classList.add('hidden');
 
     if(savedActiveKey) {
-      activeKey  = savedActiveKey;
-      activeMode = savedActiveMode;
-      overrides  = savedOverrides;
+      session.activeKey  = savedActiveKey;
+      session.activeMode = savedActiveMode;
+      session.overrides  = savedOverrides;
       const p = savedActiveKey.split('_');
       initLedger(p[0], p[1], savedActiveMode, { forEdit: savedWasUnlockedForEdit, silent: true });
       if(savedWasUnlockedForEdit) setLockedState(false);
@@ -281,7 +287,7 @@ async function generateClosingBook() {
 }
 
 /* ── Reader ───────────────────────────────────────────────── */
-function openClosingBookReader(cacheKey) {
+export function openClosingBookReader(cacheKey) {
   cbState.currentCacheKey = cacheKey;
   document.getElementById('cb-reader').classList.remove('hidden');
   populateClosingBookJumpSelect();
@@ -297,23 +303,23 @@ function openClosingBookReader(cacheKey) {
    assembled book stays cached (cbState.cache), so re-opening it — either
    via the range picker's Generate button or by navigating back here —
    shows the same book instantly instead of rebuilding it. */
-function closeClosingBookReader() {
+export function closeClosingBookReader() {
   document.getElementById('cb-reader').classList.add('hidden');
 }
 
-function populateClosingBookJumpSelect() {
+export function populateClosingBookJumpSelect() {
   const sel   = document.getElementById('cb-jump-select');
   const pages = cbState.cache[cbState.currentCacheKey].pages;
   sel.innerHTML = pages.map((p, i) => `<option value="${i}">${i === 0 ? '📕 Cover' : (i + 1) + '. ' + p.label}</option>`).join('');
 }
 
-function _cbComputeFitScale() {
+export function _cbComputeFitScale() {
   const vp = document.getElementById('cb-viewport');
   if(!vp || !vp.clientWidth) return 0.4;
   return Math.max(0.18, (vp.clientWidth - 20) / 794);
 }
 
-function _cbApplyStageScale() {
+export function _cbApplyStageScale() {
   const scale = _cbComputeFitScale() * cbState.zoom;
   const stage = document.getElementById('cb-page-stage');
   const sizer = document.getElementById('cb-page-sizer');
@@ -331,7 +337,7 @@ function _cbApplyStageScale() {
   if(vp) vp.classList.toggle('cb-viewport-zoomed', cbState.zoom > 1);
 }
 
-function renderClosingBookPage() {
+export function renderClosingBookPage() {
   const cache = cbState.cache[cbState.currentCacheKey];
   if(!cache) return;
   const pages = cache.pages;
@@ -352,22 +358,22 @@ function renderClosingBookPage() {
 }
 
 /* cheap re-scale during a live pinch gesture — no HTML re-injection */
-function _cbApplyZoomOnly() {
+export function _cbApplyZoomOnly() {
   _cbApplyStageScale();
 }
 
-function closingBookNext() {
+export function closingBookNext() {
   const pages = cbState.cache[cbState.currentCacheKey]?.pages;
   if(pages && cbState.currentPage < pages.length - 1) { cbState.currentPage++; renderClosingBookPage(); }
 }
-function closingBookPrev() {
+export function closingBookPrev() {
   if(cbState.currentPage > 0) { cbState.currentPage--; renderClosingBookPage(); }
 }
-function closingBookJump(idxStr) {
+export function closingBookJump(idxStr) {
   const idx = parseInt(idxStr, 10);
   if(!isNaN(idx)) { cbState.currentPage = idx; renderClosingBookPage(); }
 }
-function closingBookZoom(z) {
+export function closingBookZoom(z) {
   cbState.zoom = z;
   renderClosingBookPage();
 }
@@ -440,7 +446,7 @@ document.addEventListener('keydown', (e) => {
 
 /* ── Export as one multi-page PDF ────────────────────────────
    "{Brand} Closing {FromShift} {FromDate} to {ToShift} {ToDate}" */
-async function exportClosingBookPdf() {
+export async function exportClosingBookPdf() {
   const cache = cbState.cache[cbState.currentCacheKey];
   if(!cache) return;
 

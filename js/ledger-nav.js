@@ -8,6 +8,10 @@
    review screen. Never mutates db directly.
 ═══════════════════════════════════════════════════════════════ */
 
+import { DENOMS, db, srLabel, session } from './state.js';
+import { calc, saveSheet } from './actions.js';
+import { getRealSheet, timelineStep } from './components.js';
+
 /* ── Section registry: id, label, icon, badge element id ──────
    Order matches the real DOM order of cards in the ledger.
    'final-agg' is always the 12th card in every mode — calc()
@@ -38,7 +42,7 @@ const navState = {
 /* ═══════════════════════════════════════════════════════════
    INIT — called once when a ledger sheet opens
 ═══════════════════════════════════════════════════════════ */
-function initLedgerNav() {
+export function initLedgerNav() {
   navState.touchedSections = {};
   navState.focusIndex  = 0;
   document.body.classList.add('focus-mode');
@@ -64,57 +68,24 @@ function initLedgerNav() {
 /* ═══════════════════════════════════════════════════════════
    BUILD NAV CHIPS
 ═══════════════════════════════════════════════════════════ */
-function buildSectionNav() {
+export function buildSectionNav() {
   const row = document.getElementById('lpb-nav-row');
   if (!row) return;
-  const isFinal = (typeof activeMode !== 'undefined' && activeMode === 'final');
-
-  row.setAttribute('role', 'tablist');
-  row.setAttribute('aria-label', 'Ledger sections');
+  const isFinal = (typeof session.activeMode !== 'undefined' && session.activeMode === 'final');
 
   row.innerHTML = LEDGER_SECTIONS
     .filter(sec => !sec.finalOnly || isFinal)
     .map(sec => `
-      <div class="lpb-chip" id="lpb-chip-${sec.key}" onclick="jumpToSection('${sec.key}')"
-        role="tab" tabindex="-1" aria-selected="false" aria-controls="${sec.cardId}">
-        <span class="lpb-chip-icon" aria-hidden="true">${sec.icon}</span><span>${sec.label}</span>
+      <div class="lpb-chip" id="lpb-chip-${sec.key}" onclick="jumpToSection('${sec.key}')">
+        <span class="lpb-chip-icon">${sec.icon}</span><span>${sec.label}</span>
       </div>
     `).join('');
-
-  enhanceChipKeyboardNav(row);
-}
-
-/* a11y: standard roving-tabindex arrow-key navigation for the tab-like
-   chip bar. Purely additive — jumpToSection()/click behavior unchanged;
-   this only adds keyboard operability equivalent to the existing tap. */
-function enhanceChipKeyboardNav(row) {
-  if (row.dataset.a11yEnhanced) return;
-  row.dataset.a11yEnhanced = 'true';
-  row.addEventListener('keydown', (e) => {
-    const chips = Array.from(row.querySelectorAll('.lpb-chip'));
-    const currentIdx = chips.findIndex(c => c === document.activeElement);
-    if (currentIdx === -1) return;
-    let targetIdx = null;
-    if (e.key === 'ArrowRight') targetIdx = Math.min(currentIdx + 1, chips.length - 1);
-    else if (e.key === 'ArrowLeft') targetIdx = Math.max(currentIdx - 1, 0);
-    else if (e.key === 'Home') targetIdx = 0;
-    else if (e.key === 'End') targetIdx = chips.length - 1;
-    else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      chips[currentIdx].click();
-      return;
-    }
-    if (targetIdx !== null) {
-      e.preventDefault();
-      chips[targetIdx].focus();
-    }
-  });
 }
 
 /* ═══════════════════════════════════════════════════════════
    JUMP TO SECTION — used by both nav chips and focus mode
 ═══════════════════════════════════════════════════════════ */
-function jumpToSection(key) {
+export function jumpToSection(key) {
   const sec = LEDGER_SECTIONS.find(s => s.key === key);
   if (!sec) return;
   const card = document.getElementById(sec.cardId);
@@ -130,8 +101,8 @@ function jumpToSection(key) {
   updateSectionStatus();
 }
 
-function updateSectionStatus() {
-  const isFinal = (typeof activeMode !== 'undefined' && activeMode === 'final');
+export function updateSectionStatus() {
+  const isFinal = (typeof session.activeMode !== 'undefined' && session.activeMode === 'final');
   const visible = LEDGER_SECTIONS.filter(sec => !sec.finalOnly || isFinal);
 
   visible.forEach(sec => {
@@ -153,39 +124,22 @@ function updateSectionStatus() {
       if (isOpen && !wasCurrent) {
         chip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
-      /* a11y: mirror the same current/not-current state as ARIA,
-         and give the current chip the roving tabindex so the tab
-         bar is reachable with a single Tab keypress. */
-      chip.setAttribute('aria-selected', isOpen ? 'true' : 'false');
-      chip.setAttribute('tabindex', isOpen ? '0' : '-1');
     }
   });
 
   updateFocusButtons();
   renderPrevShiftSnapshot();
-
-  /* a11y: announce completed-section count, but only when it actually
-     changes — updateSectionStatus() runs on every keystroke via calc(),
-     so this guards against repeating the same announcement constantly. */
-  const liveProgress = document.getElementById('ledger-progress-live');
-  if (liveProgress) {
-    const doneCount = visible.filter(sec => navState.touchedSections[sec.key]).length;
-    if (navState._lastAnnouncedDone !== doneCount) {
-      navState._lastAnnouncedDone = doneCount;
-      liveProgress.textContent = `${doneCount} of ${visible.length} sections done.`;
-    }
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════
    FOCUS MODE
 ═══════════════════════════════════════════════════════════ */
-function visibleSectionKeys() {
-  const isFinal = (typeof activeMode !== 'undefined' && activeMode === 'final');
+export function visibleSectionKeys() {
+  const isFinal = (typeof session.activeMode !== 'undefined' && session.activeMode === 'final');
   return LEDGER_SECTIONS.filter(sec => !sec.finalOnly || isFinal).map(s => s.key);
 }
 
-function applyFocusVisibility(direction = 0) {
+export function applyFocusVisibility(direction = 0) {
   const keys = visibleSectionKeys();
   const targetKey  = keys[navState.focusIndex];
   const targetSec  = LEDGER_SECTIONS.find(s => s.key === targetKey);
@@ -229,7 +183,7 @@ function applyFocusVisibility(direction = 0) {
   targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function focusStep(dir) {
+export function focusStep(dir) {
   const keys = visibleSectionKeys();
   navState.touchedSections[keys[navState.focusIndex]] = true;
   navState.focusIndex = Math.max(0, Math.min(keys.length - 1, navState.focusIndex + dir));
@@ -237,13 +191,13 @@ function focusStep(dir) {
   updateSectionStatus();
 }
 
-function updateFocusButtons() {
+export function updateFocusButtons() {
   const keys = visibleSectionKeys();
   const prevBtn = document.getElementById('focus-btn-prev');
   const nextBtn = document.getElementById('focus-btn-next');
   const saveCloseBtn = document.getElementById('btn-save-close');
   const isLast  = (navState.focusIndex >= keys.length - 1);
-  const locked  = (typeof isSheetLocked !== 'undefined') && isSheetLocked;
+  const locked  = (typeof session.isSheetLocked !== 'undefined') && session.isSheetLocked;
 
   if (prevBtn) prevBtn.disabled = (navState.focusIndex <= 0);
 
@@ -274,9 +228,9 @@ function updateFocusButtons() {
    whichever section is currently in focus. Lives in the section
    footer, below "Save as Draft". Never editable, never collapsed.
 ═══════════════════════════════════════════════════════════ */
-function getPrevRealSheetForSnapshot() {
-  if (!activeKey || typeof timelineStep !== 'function' || typeof getRealSheet !== 'function') return null;
-  const parts = activeKey.split('_');
+export function getPrevRealSheetForSnapshot() {
+  if (!session.activeKey || typeof timelineStep !== 'function' || typeof getRealSheet !== 'function') return null;
+  const parts = session.activeKey.split('_');
   const prevNode = timelineStep(parts[0], parts[1], -1);
   const rec = getRealSheet(prevNode.key);
   return rec ? { rec, date: prevNode.date, shift: prevNode.shift } : null;
@@ -285,7 +239,7 @@ function getPrevRealSheetForSnapshot() {
 /* label + a FULL breakdown per section — mirrors the live section's own
    rows (not just a collapsed total), pulled straight from the fields
    already persisted by buildSheetRecord()/saveSheet(). */
-function snapshotRowsForSection(key, rec) {
+export function snapshotRowsForSection(key, rec) {
   const money = n => 'Rs. ' + (parseFloat(n) || 0).toLocaleString('en-PK');
   const plain = n => (parseFloat(n) || 0).toLocaleString('en-PK');
 
@@ -402,7 +356,7 @@ function snapshotRowsForSection(key, rec) {
   }
 }
 
-function renderPrevShiftSnapshot() {
+export function renderPrevShiftSnapshot() {
   const box = document.getElementById('prev-shift-snapshot');
   if (!box) return;
 
@@ -433,11 +387,11 @@ function renderPrevShiftSnapshot() {
    This intercepts the Save button: saveSheet() only runs after
    the user confirms here.
 ═══════════════════════════════════════════════════════════ */
-function openSummaryModal() {
+export function openSummaryModal() {
   /* Force a fresh calc so banner values are current */
   if (typeof calc === 'function') calc();
 
-  const isFinal = (typeof activeMode !== 'undefined' && activeMode === 'final');
+  const isFinal = (typeof session.activeMode !== 'undefined' && session.activeMode === 'final');
   const targetLabel = isFinal ? 'Target Net Sales (Final)' : 'Target Net Sales';
   const cashLabel    = isFinal ? 'Net Final Cash Available' : 'Net Cash Available';
 
@@ -486,25 +440,14 @@ function openSummaryModal() {
   if (noteBox) noteBox.classList.add('hidden');
   headSub.textContent = isFinal ? 'Review final closing before saving' : 'Review before saving';
 
-  /* a11y: announce the same status sighted users get from color,
-     to anyone using a screen reader. Additive — reads values already
-     computed above, doesn't change any existing logic or classes. */
-  const liveRegion = document.getElementById('summary-live-region');
-  if (liveRegion) {
-    let statusWord = 'balanced';
-    if (statBox.classList.contains('sv-warn')) statusWord = 'a moderate shortage — please double-check';
-    else if (statBox.classList.contains('sv-bad')) statusWord = 'a significant shortage — please double-check';
-    liveRegion.textContent = `${varianceLabel}: ${varianceText}, ${statusWord}.`;
-  }
-
   document.getElementById('summary-modal-overlay').classList.remove('hidden');
 }
 
-function closeSummaryModal() {
+export function closeSummaryModal() {
   document.getElementById('summary-modal-overlay').classList.add('hidden');
 }
 
-function confirmSummaryAndSave() {
+export function confirmSummaryAndSave() {
   closeSummaryModal();
   if (typeof saveSheet === 'function') saveSheet();
 }
@@ -513,7 +456,7 @@ function confirmSummaryAndSave() {
    VIEW ALL — read-only overlay (Option 1: focus stays the only
    real mode; this is a glance, never a second editing path)
 ═══════════════════════════════════════════════════════════ */
-function openViewAll() {
+export function openViewAll() {
   const list = document.getElementById('viewall-list');
   const foot = document.getElementById('viewall-foot');
   if (!list) return;
@@ -525,7 +468,7 @@ function openViewAll() {
   let countedAny = false;
 
   list.innerHTML = LEDGER_SECTIONS
-    .filter(sec => !sec.finalOnly || (typeof activeMode !== 'undefined' && activeMode === 'final'))
+    .filter(sec => !sec.finalOnly || (typeof session.activeMode !== 'undefined' && session.activeMode === 'final'))
     .map(sec => {
       const badgeEl   = sec.badgeId ? document.getElementById(sec.badgeId) : null;
       const isCurrent = sec.key === currentKey;
@@ -554,12 +497,12 @@ function openViewAll() {
   document.getElementById('viewall-overlay').classList.remove('hidden');
 }
 
-function closeViewAll() {
+export function closeViewAll() {
   const overlay = document.getElementById('viewall-overlay');
   if (overlay) overlay.classList.add('hidden');
 }
 
-function viewAllOutsideClick(e) {
+export function viewAllOutsideClick(e) {
   if (e.target === document.getElementById('viewall-overlay')) closeViewAll();
 }
 
@@ -568,7 +511,7 @@ function viewAllOutsideClick(e) {
    card is opened or closed by its own header tap, not just nav,
    so the jump-nav and progress bar always stay in sync.
 ═══════════════════════════════════════════════════════════ */
-function onCardToggled(cardId) {
+export function onCardToggled(cardId) {
   const sec = LEDGER_SECTIONS.find(s => s.cardId === cardId);
   if (sec) {
     navState.touchedSections[sec.key] = true;
@@ -583,7 +526,7 @@ function onCardToggled(cardId) {
    boot; scoped to #page-ledger so it only ever fires while a
    closing is open.
 ═══════════════════════════════════════════════════════════ */
-function initLedgerSwipeNav() {
+export function initLedgerSwipeNav() {
   const zone = document.getElementById('page-ledger');
   if (!zone || zone.dataset.swipeBound) return;
   zone.dataset.swipeBound = '1';

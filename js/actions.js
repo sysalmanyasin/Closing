@@ -4,7 +4,20 @@
    save/delete sheets, auto-save scheduling.
 ═══════════════════════════════════════════════════════════════ */
 
-function initLedger(ds, shift, mode, opts = {}) {
+import { PIN, db, srLabel, session } from './state.js';
+import { repoPersist } from './repository.js';
+import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
+import {
+  addAuxCreditRow, addAuxStripRow, addDepositRow, addHsRow, addMiscRow,
+  addNamedAccountBlock, addNamedCreditEntryRow, addTierCreditRow,
+  attachNumpad, g, getRealSheet, set, showSaveAction, timelineStep, val
+} from './components.js';
+import { buildCalendar, goToDashboard, refreshRetentionStatus, renderManifest, showPage } from './pages.js';
+import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
+import { cbIsAssembling } from './closing-book.js';
+import { syncIsReady, syncPushToCloud } from './sync.js';
+
+export function initLedger(ds, shift, mode, opts = {}) {
   if(!opts.silent) showPage('page-ledger');
 
   document.getElementById('lbl-ledger-pager').textContent = `${ds} — ${srLabel(shift)}`;
@@ -54,7 +67,7 @@ function initLedger(ds, shift, mode, opts = {}) {
   /* card-final-agg always visible now — shows period aggregation in all modes */
 
   /* reset dynamic counters */
-  auxCreditCount = 0; depositCount = 0; miscCount = 0; hsRowCount = 0; auxStripCount = 0;
+  session.auxCreditCount = 0; session.depositCount = 0; session.miscCount = 0; session.hsRowCount = 0; session.auxStripCount = 0;
 
   /* clear dynamic containers */
   ['hs-rows','ledger-strips','ledger-named-credits','ledger-tier-credits',
@@ -117,30 +130,30 @@ function initLedger(ds, shift, mode, opts = {}) {
     else { el.classList.remove('final-editable'); }
   });
 
-  if(db.sheets[activeKey]) {
+  if(db.sheets[session.activeKey]) {
     /* Only a fully-closed sheet (draft === false) should freeze the
        computed carry-over fields. An auto-draft or manually-saved draft
        (draft === true) is still being worked on, so its computed fields
        must keep recalculating live — matching the intent already
        documented in saveDraft(). */
-    isSavedSheet = (db.sheets[activeKey].draft !== true);
-    hydrate(db.sheets[activeKey]);
+    session.isSavedSheet = (db.sheets[session.activeKey].draft !== true);
+    hydrate(db.sheets[session.activeKey]);
     /* Re-sync the "carried forward" fields (CC, Credit, Deposits, Cash
        Position) from whatever the previous shift's record looks like
        RIGHT NOW — not the snapshot frozen into this sheet the last time
        it was saved. This way, editing shift A and re-saving it correctly
        flows forward into shift B the next time B is opened for editing,
        without clobbering any of those 4 fields the user has manually
-       corrected in B itself (tracked via `overrides`).
+       corrected in B itself (tracked via `session.overrides`).
        Only runs when B is actually editable right now — a draft, or
        explicitly reopened via Edit (PIN) — never for a locked sheet
        being opened in plain View-Only, which should keep showing
        exactly what was recorded at the time it was saved. */
-    if(!isSavedSheet || opts.forEdit) {
+    if(!session.isSavedSheet || opts.forEdit) {
       refreshCarryForwardFromPrevious(ds, shift, mode);
     }
   } else {
-    isSavedSheet = false;
+    session.isSavedSheet = false;
     flushInputs();
     pullPreviousShift(ds, shift, mode);
     if(mode === 'shift' || mode === 'final') zeroCreditEntries();
@@ -151,7 +164,7 @@ function initLedger(ds, shift, mode, opts = {}) {
   setTimeout(() => { _draftReady = true; }, 600);
 
   /* apply view-only / editable state based on the saved record */
-  setLockedState(!!db.sheets[activeKey]?.locked);
+  setLockedState(!!db.sheets[session.activeKey]?.locked);
 
   /* sticky jump-nav + progress bar + focus mode reset for this sheet */
   if (typeof initLedgerNav === 'function') initLedgerNav();
@@ -160,7 +173,7 @@ function initLedger(ds, shift, mode, opts = {}) {
 /* ═══════════════════════════════════════════
    ZERO CREDIT ENTRIES (Shift & Final open)
 ═══════════════════════════════════════════ */
-function zeroCreditEntries() {
+export function zeroCreditEntries() {
   /* named credits — clear each account back to no entries (empty state) */
   document.querySelectorAll('.named-account-block').forEach(block => {
     block.querySelectorAll('.named-entry-row').forEach(r => r.remove());
@@ -177,8 +190,8 @@ function zeroCreditEntries() {
    read-only snapshot. It can only be edited again after
    entering the PIN via "Edit (PIN)".
 ═══════════════════════════════════════════ */
-function setLockedState(locked) {
-  isSheetLocked = locked;
+export function setLockedState(locked) {
+  session.isSheetLocked = locked;
   const scope = document.querySelector('#page-ledger .page-body');
   if(!scope) return;
 
@@ -237,7 +250,7 @@ function setLockedState(locked) {
 /* ═══════════════════════════════════════════
    CARRY-OVER PULL
 ═══════════════════════════════════════════ */
-function pullPreviousShift(ds, shift, mode) {
+export function pullPreviousShift(ds, shift, mode) {
   const prev      = timelineStep(ds, shift, -1);
   const hs        = getRealSheet(prev.key);
   const dayChanged = (ds !== prev.date);
@@ -302,7 +315,7 @@ function pullPreviousShift(ds, shift, mode) {
   if(hs.miscRows && hs.miscRows.length) {
     /* clear any default blank rows that flushInputs() added */
     document.getElementById('ledger-misc').innerHTML = "";
-    miscCount = 0;
+    session.miscCount = 0;
     hs.miscRows.forEach(m => addMiscRow(m.label || "", m.val || 0));
   }
 }
@@ -314,15 +327,15 @@ function pullPreviousShift(ds, shift, mode) {
    else pullPreviousShift() seeds — those are one-time defaults for a
    brand-new sheet, not something to silently re-apply over a sheet
    the user has already been working on. Any of the 4 fields the user
-   has manually corrected in THIS sheet (tracked in `overrides`) is
+   has manually corrected in THIS sheet (tracked in `session.overrides`) is
    left exactly as they set it. */
-function refreshCarryForwardFromPrevious(ds, shift, mode) {
+export function refreshCarryForwardFromPrevious(ds, shift, mode) {
   const prev = timelineStep(ds, shift, -1);
   const hs   = getRealSheet(prev.key);
   if(!hs) return;
 
   const setIfNotOverridden = (id, v) => {
-    if(overrides[id] !== undefined) return;
+    if(session.overrides[id] !== undefined) return;
     set(id, v);
   };
 
@@ -347,7 +360,7 @@ function refreshCarryForwardFromPrevious(ds, shift, mode) {
   }
 }
 
-function findLastFinal(ds, shift) {
+export function findLastFinal(ds, shift) {
   let cur = {date: ds, shift: shift};
   for(let i=0;i<400;i++) {
     cur = timelineStep(cur.date, cur.shift, -1);
@@ -358,7 +371,7 @@ function findLastFinal(ds, shift) {
   return null;
 }
 
-function aggregateSinceLastFinal(ds, shift) {
+export function aggregateSinceLastFinal(ds, shift) {
   const lastFinal = findLastFinal(ds, shift);
   let totalCustomers = 0, totalShiftSale = 0, totalManualReturns = 0, totalSysReturns = 0,
       totalExtraCash = 0, totalShiftNetCash = 0, totalBookBills = 0, shiftCount = 0;
@@ -429,7 +442,7 @@ function aggregateSinceLastFinal(ds, shift) {
 /* ═══════════════════════════════════════════
    MAIN CALCULATION PIPELINE
 ═══════════════════════════════════════════ */
-function calc() {
+export function calc() {
   /* HS */
   let hsTotal = 0;
   document.querySelectorAll('.hs-val').forEach(el => hsTotal += parseFloat(el.value)||0);
@@ -478,13 +491,13 @@ function calc() {
   if(badge_pos) badge_pos.textContent = 'Rs. ' + sysCash.toLocaleString();
 
   /* Shift sale delta */
-  const parts     = activeKey ? activeKey.split('_') : ['',''];
+  const parts     = session.activeKey ? session.activeKey.split('_') : ['',''];
   const prevNode  = timelineStep(parts[0], parts[1], -1);
   const prevSheet = getRealSheet(prevNode.key);
   const dayChanged = (parts[0] !== prevNode.date);
 
   let shiftSale = 0;
-  if(activeMode==="final" || dayChanged || !prevSheet) {
+  if(session.activeMode==="final" || dayChanged || !prevSheet) {
     shiftSale = sysCash;
   } else {
     shiftSale = sysCash - (parseFloat(prevSheet.inSysCash)||0);
@@ -576,14 +589,14 @@ function calc() {
 
   /* ── Final Closing aggregation — computed in ALL modes ── */
   let bannerTarget = netSale, bannerCash = netCash;
-  if(activeKey) {
-    const parts2 = activeKey.split('_');
+  if(session.activeKey) {
+    const parts2 = session.activeKey.split('_');
     const agg    = aggregateSinceLastFinal(parts2[0], parts2[1]);
     set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
 
     /* ─── PART 1: Net Final Sale ─────────────────────────── */
     let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet;
-    if (activeMode === 'final') {
+    if (session.activeMode === 'final') {
       /* Final Closing selected: use current shift values only */
       totalSameDateSys  = shiftSaleVal;
       totalBooks        = book1 + book2;
@@ -617,7 +630,7 @@ function calc() {
 
     /* ─── PART 2: Net Final Cash Available ───────────────── */
     let preDateSys, preDateCust, preDateSysRet, totalExtraCashPeriod;
-    if (activeMode === 'final') {
+    if (session.activeMode === 'final') {
       /* Final Closing selected: no pre-date aggregation, extra cash = current shift only */
       preDateSys             = 0;
       preDateCust            = 0;
@@ -661,7 +674,7 @@ function calc() {
     set('out-final-net-cash-adj', finalNetCash);
     set('out-final-prev-sale',    0);
 
-    if(activeMode === 'final') {
+    if(session.activeMode === 'final') {
       bannerTarget = netSale;
       bannerCash   = netCash;
     }
@@ -706,7 +719,7 @@ function calc() {
    carried-over values, etc). Readonly inputs are pulled out of the tab
    order entirely; new rows added dynamically (strips, credit entries)
    are covered because calc() re-runs this after every change. */
-function skipReadonlyInTabOrder() {
+export function skipReadonlyInTabOrder() {
   document.querySelectorAll('input[readonly]').forEach(el => {
     el.tabIndex = -1;
   });
@@ -716,24 +729,24 @@ function skipReadonlyInTabOrder() {
    OVERRIDE HANDLING
 ═══════════════════════════════════════════ */
 
-function toggleSign(id) {
+export function toggleSign(id) {
   const el = g(id);
   if(!el) return;
   el.value = -(parseFloat(el.value)||0);
   calc();
 }
-function setOverride(id) {
-  overrides[id] = parseFloat(g(id)?.value)||0;
+export function setOverride(id) {
+  session.overrides[id] = parseFloat(g(id)?.value)||0;
   calc();
 }
-function applyOrOverride(id, baseVal) {
+export function applyOrOverride(id, baseVal) {
   const el  = g(id);
   const box = g(`box-${id}`);
   if(!el) return;
-  if(overrides[id] !== undefined) {
-    el.value = overrides[id];
+  if(session.overrides[id] !== undefined) {
+    el.value = session.overrides[id];
     box?.classList.add('override-on');
-  } else if(isSavedSheet) {
+  } else if(session.isSavedSheet) {
     /* this sheet was already saved — keep the hydrated snapshot value
        instead of recomputing from the (possibly since-changed) previous shift */
     box?.classList.remove('override-on');
@@ -746,10 +759,10 @@ function applyOrOverride(id, baseVal) {
 /* ═══════════════════════════════════════════
    LEDGER PAGINATION
 ═══════════════════════════════════════════ */
-function moveLedgerShift(n) {
-  if(!activeKey) return;
+export function moveLedgerShift(n) {
+  if(!session.activeKey) return;
   autoSave();
-  const parts = activeKey.split('_');
+  const parts = session.activeKey.split('_');
   const dir = n > 0 ? 1 : -1;
 
   /* ── Scan in the requested direction for the nearest slot
@@ -773,7 +786,7 @@ function moveLedgerShift(n) {
      When navigating forward (n > 0), block if the current sheet
      is not yet saved (still a draft or unsaved). */
   if(n > 0) {
-    const currSheet = db.sheets[activeKey];
+    const currSheet = db.sheets[session.activeKey];
     const currIsDraft = currSheet && currSheet.draft === true;
     const currIsUnsaved = !currSheet;
     if(currIsDraft || currIsUnsaved) {
@@ -782,20 +795,20 @@ function moveLedgerShift(n) {
     }
   }
 
-  activeKey   = found.key;
-  activeMode  = db.sheets[activeKey]?.profileMode || 'shift';
-  overrides   = db.sheets[activeKey]?.overrides || {};
-  initLedger(found.date, found.shift, activeMode);
+  session.activeKey   = found.key;
+  session.activeMode  = db.sheets[session.activeKey]?.profileMode || 'shift';
+  session.overrides   = db.sheets[session.activeKey]?.overrides || {};
+  initLedger(found.date, found.shift, session.activeMode);
 }
 
-function autoSave() {
-  try { calc(); saveSheet(true); } catch(e) {}
+export function autoSave() {
+  try { calc(); saveSheet(true); } catch(e) { /* silent — best-effort */ }
 }
 
 /* ═══════════════════════════════════════════
    POPULATE NAME DROPDOWN
 ═══════════════════════════════════════════ */
-function populateNameDropdown(num) {
+export function populateNameDropdown(num) {
   const tIdx  = g(`sel-tier-${num}`)?.value;
   const nameS = g(`sel-name-${num}`);
   if(!nameS) return;
@@ -813,10 +826,10 @@ function populateNameDropdown(num) {
 /* ═══════════════════════════════════════════
    SAVE / HYDRATE
 ═══════════════════════════════════════════ */
-function buildSheetRecord() {
+export function buildSheetRecord() {
   return {
-    profileMode: activeMode,
-    overrides:   overrides,
+    profileMode: session.activeMode,
+    overrides:   session.overrides,
     inSysCash:    val('in-sys-cash'),
     inLastBillAmt:val('in-last-bill-amt'),
     inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
@@ -896,26 +909,27 @@ function buildSheetRecord() {
 
 /* ── TOAST ───────────────────────────────────────────────── */
 
-function saveSheet(silent=false) {
+export function saveSheet(silent=false) {
   const record = buildSheetRecord();
-  record.draft  = false;
-  record.locked = true;
-  db.sheets[activeKey] = record;
-  clSaveSnapshot(activeKey, record);  /* ← credit ledger snapshot */
+  record.draft    = false;
+  record.locked   = true;
+  record.savedAt  = Date.now();
+  db.sheets[session.activeKey] = record;
+  clSaveSnapshot(session.activeKey, record);  /* ← credit ledger snapshot */
   persist();
-  isSavedSheet = true;
+  session.isSavedSheet = true;
   if(!silent) {
     setLockedState(true);
-    cascadeDownstream(activeKey);
+    cascadeDownstream(session.activeKey);
     showSaveAction(
-      activeMode === 'final' ? '🔴 Final Closing Saved' : '✅ Shift Closing Saved',
+      session.activeMode === 'final' ? '🔴 Final Closing Saved' : '✅ Shift Closing Saved',
       'Closing completed, saved and locked.',
       [{ label: 'OK', style: 'btn-green', action: goToDashboard }]
     );
   }
 }
 
-function hydrate(s) {
+export function hydrate(s) {
   const sv = (id, v) => { const el=g(id); if(el && v!==undefined) el.value=v; };
 
   sv('in-sys-cash',      s.inSysCash);
@@ -936,7 +950,7 @@ function hydrate(s) {
 
   /* HS rows */
   document.getElementById('hs-rows').innerHTML = "";
-  hsRowCount = 0;
+  session.hsRowCount = 0;
   if(s.hsRows && s.hsRows.length) {
     s.hsRows.forEach(o => addHsRow(o.lbl, o.val));
   } else if(s.hsRecords) { /* legacy */
@@ -953,7 +967,7 @@ function hydrate(s) {
   document.querySelectorAll('#ledger-strips .strip-row').forEach(r => {
     if(r.querySelector('.aux-strip-lbl')) r.remove();
   });
-  auxStripCount = 0;
+  session.auxStripCount = 0;
   if(s.auxStrips) s.auxStrips.forEach(o => addAuxStripRow(o.label||'', o.p, o.q));
 
   /* till / vault */
@@ -1007,17 +1021,17 @@ function hydrate(s) {
 
   /* aux credits */
   document.getElementById('ledger-aux-credits').innerHTML = "";
-  auxCreditCount = 0;
+  session.auxCreditCount = 0;
   if(s.auxCredits) s.auxCredits.forEach(o => addAuxCreditRow(o.lbl, o.val));
 
   /* deposits */
   document.getElementById('ledger-deposits').innerHTML = "";
-  depositCount = 0;
+  session.depositCount = 0;
   if(s.deposits) s.deposits.forEach(o => addDepositRow(o.lbl, o.val));
 
   /* misc */
   document.getElementById('ledger-misc').innerHTML = "";
-  miscCount = 0;
+  session.miscCount = 0;
   if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val));
 
   sv('out-prev-cc',     s.outPrevCC);
@@ -1029,28 +1043,28 @@ function hydrate(s) {
   sv('in-final-sys-returns', s.finalSysReturns||0);
 }
 
-function flushInputs() {
+export function flushInputs() {
   document.querySelectorAll('#page-ledger input[type="number"]').forEach(el => {
     if(!el.readOnly) el.value = 0;
   });
   /* build default HS rows */
   document.getElementById('hs-rows').innerHTML = "";
-  hsRowCount = 0;
+  session.hsRowCount = 0;
   for(let i=1;i<=3;i++) addHsRow(`Home Service ${i}`, 0);
   /* default deposit & misc rows */
   document.getElementById('ledger-deposits').innerHTML = "";
-  depositCount = 0;
+  session.depositCount = 0;
   for(let i=1;i<=3;i++) addDepositRow();
   document.getElementById('ledger-misc').innerHTML = "";
-  miscCount = 0;
+  session.miscCount = 0;
   for(let i=1;i<=5;i++) addMiscRow();
 }
 
 /* ═══════════════════════════════════════════
    CASCADE DOWNSTREAM UPDATES
 ═══════════════════════════════════════════ */
-function cascadeDownstream(originKey) {
-  /* NOTE: downstream sheets are immutable snapshots once saved (see isSavedSheet).
+export function cascadeDownstream(originKey) {
+  /* NOTE: downstream sheets are immutable snapshots once saved (see session.isSavedSheet).
      We deliberately do NOT recompute their "carried from previous" fields here —
      doing so previously caused double-counted deposits/credits when a downstream
      sheet already had its own entries plus a freshly recomputed carry-forward.
@@ -1066,7 +1080,7 @@ function cascadeDownstream(originKey) {
    DEBOUNCED CLOUD PUSH
 ═══════════════════════════════════════════ */
 let _pushTimer = null;
-function scheduleSyncPush(delay = 0) {
+export function scheduleSyncPush(delay = 0) {
   if(!syncIsReady()) return;
   clearTimeout(_pushTimer);
   if(delay === 0) {
@@ -1082,8 +1096,8 @@ function scheduleSyncPush(delay = 0) {
 let _draftTimer  = null;
 let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
 
-function scheduleAutoSave() {
-  if(!activeKey || !_draftReady || isSheetLocked) return;
+export function scheduleAutoSave() {
+  if(!session.activeKey || !_draftReady || session.isSheetLocked) return;
   if(typeof cbIsAssembling === 'function' && cbIsAssembling()) return; /* Closing Book is assembling — don't autosave every sheet it loads */
   clearTimeout(_draftTimer);
   _draftTimer = setTimeout(() => {
@@ -1091,34 +1105,47 @@ function scheduleAutoSave() {
       const record = buildSheetRecord();
       record.draft  = true;
       record.locked = false;
-      db.sheets[activeKey] = record;
+      db.sheets[session.activeKey] = record;
       persist();
     } catch(e) { /* silent — draft save is best-effort */ }
   }, 3000); /* 3 s idle after last keystroke */
 }
 
-function persist() {
-  repoPersist();
+/* Warned-once guard so a full/restricted localStorage doesn't pop an
+   alert every 3s during autosave — one warning per failure streak,
+   reset as soon as a write succeeds again. */
+let _persistFailWarned = false;
+
+export function persist() {
+  const ok = repoPersist();
+  if(!ok) {
+    if(!_persistFailWarned) {
+      _persistFailWarned = true;
+      alert('⚠️ Could not save to this device\'s storage — it may be full, or you may be in private/incognito browsing. Your last change may not be saved locally. Free up space or leave private browsing, then try saving again.');
+    }
+  } else {
+    _persistFailWarned = false; /* a future failure will warn again */
+  }
   scheduleSyncPush(0); /* immediate push on every explicit save */
 }
 
 /* Stop the debounced auto-draft (e.g. when leaving the ledger).
    Exposed so other floors don't have to reach into Actions'
    private _draftReady/_draftTimer variables directly. */
-function stopAutoDraft() {
+export function stopAutoDraft() {
   _draftReady = false;
   clearTimeout(_draftTimer);
 }
 
-function saveDraft() {
-  if(!activeKey) return;
+export function saveDraft() {
+  if(!session.activeKey) return;
   calc();
   const rec = buildSheetRecord();
   rec.draft  = true;
   rec.locked = false;
-  db.sheets[activeKey] = rec;
+  db.sheets[session.activeKey] = rec;
   persist();
-  /* NOTE: isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
+  /* NOTE: session.isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
      This ensures carry-over fields remain live (not frozen) while drafting. */
   setLockedState(false);
   const status = document.getElementById('pdf-status');
@@ -1126,18 +1153,18 @@ function saveDraft() {
   setTimeout(()=>{ status.style.display='none'; }, 1500);
 }
 
-function deleteCurrentSheet() {
-  if(!activeKey) return;
-  if(!db.sheets[activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
-  const parts = activeKey.split('_');
+export function deleteCurrentSheet() {
+  if(!session.activeKey) return;
+  if(!db.sheets[session.activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
+  const parts = session.activeKey.split('_');
   if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
-  delete db.sheets[activeKey];
+  delete db.sheets[session.activeKey];
   persist();
   goToDashboard();
 }
 
 
-function deleteSheet(key) {
+export function deleteSheet(key) {
   if(!db.sheets[key]) return;
   const parts = key.split('_');
   const sr = srLabel(parts[1]);
@@ -1146,7 +1173,7 @@ function deleteSheet(key) {
   if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
   delete db.sheets[key];
   persist();
-  if(activeKey === key) { activeKey = null; goToDashboard(); }
+  if(session.activeKey === key) { session.activeKey = null; goToDashboard(); }
   else { renderManifest(); buildCalendar(); }
 }
 
@@ -1154,7 +1181,7 @@ function deleteSheet(key) {
    re-opening a record for edit with a different mode selected).
    Floor 4 (Components) calls this instead of poking db.sheets
    directly. */
-function setSheetProfileMode(key, mode) {
+export function setSheetProfileMode(key, mode) {
   if(db.sheets[key] && db.sheets[key].profileMode !== mode) {
     db.sheets[key].profileMode = mode;
     persist();
@@ -1170,39 +1197,39 @@ function setSheetProfileMode(key, mode) {
    button) — this mirrors the original behaviour exactly.
 ═══════════════════════════════════════════ */
 
-function settingsSetBookBrandCode(code) {
+export function settingsSetBookBrandCode(code) {
   db.settings.bookBrandCode = code.trim() || 'FDPP BT';
   persist();
 }
 
-function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); }
-function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); }
-function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = v; }
+export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); }
+export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); }
+export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = v; }
 
-function settingsAddStrip() {
+export function settingsAddStrip() {
   db.settings.strips.push({name:"New Item",price:0,group:""});
   persist();
 }
-function settingsRemoveStrip(i) {
+export function settingsRemoveStrip(i) {
   db.settings.strips.splice(i,1);
   persist();
 }
-function settingsSetStripField(i, field, value) {
+export function settingsSetStripField(i, field, value) {
   if(db.settings.strips[i]) { db.settings.strips[i][field] = value; persist(); }
 }
 
-function settingsAddStripGroup() {
+export function settingsAddStripGroup() {
   db.settings.stripGroups.push("New Group");
   persist();
 }
-function settingsRenameStripGroup(i, newName) {
+export function settingsRenameStripGroup(i, newName) {
   const oldName = db.settings.stripGroups[i];
   db.settings.stripGroups[i] = newName;
   /* keep items pointed at the renamed group */
   db.settings.strips.forEach(item => { if(item.group === oldName) item.group = newName; });
   persist();
 }
-function settingsRemoveStripGroup(i) {
+export function settingsRemoveStripGroup(i) {
   const name = db.settings.stripGroups[i];
   db.settings.stripGroups.splice(i, 1);
   /* items in the removed group fall back to Ungrouped, not deleted */
@@ -1213,11 +1240,46 @@ function settingsRemoveStripGroup(i) {
 /* Commits the staged fields (finalEveryN, named-credit labels,
    sub-tiers) that pages.js's Save Settings button reads from the
    DOM, then persists once. */
-function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) {
+export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) {
   db.settings.finalEveryN = finalEveryN;
   namedCreditLabels.forEach((label, i) => {
     if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = label;
   });
   subTiersData.forEach((t, i) => { db.settings.subTiers[i] = t; });
   persist();
+}
+
+/* ═══════════════════════════════════════════
+   DATA RETENTION
+   Nothing is deleted automatically — this only runs when the
+   person explicitly clicks the button and confirms with PIN,
+   same safety level as deleteSheet(). Queries (staleRecordKeys,
+   countRecordsOlderThan) live in ledger-engine.js; this is the
+   one function that actually deletes.
+═══════════════════════════════════════════ */
+
+export function settingsSetRetentionMonths(months) {
+  db.settings.retentionMonths = Math.max(1, parseInt(months) || 6);
+  persist();
+}
+
+export function archiveOldRecords() {
+  const months = db.settings.retentionMonths || 6;
+  const staleKeys = staleRecordKeys(months);
+
+  if(!staleKeys.length) { alert(`No records older than ${months} months.`); return; }
+
+  if(!confirm(`This will permanently delete ${staleKeys.length} record(s) older than ${months} months.\nExport a backup first (Settings → Data Backup) if you want to keep them. Continue?`)) return;
+  const pin = prompt('Enter PIN to confirm deletion:');
+  if(pin !== PIN) { alert('Incorrect PIN.'); return; }
+
+  staleKeys.forEach(key => { delete db.sheets[key]; });
+  clEnsureArray();
+  db.creditLedger = db.creditLedger.filter(s => !staleKeys.includes(s.key));
+  /* Misc/Ongoing Ledger needs no separate cleanup — it's derived
+     live from db.sheets, so it's already clean now too. */
+  persist();
+
+  alert(`Archived ${staleKeys.length} record(s).`);
+  if(typeof refreshRetentionStatus === 'function') refreshRetentionStatus();
 }

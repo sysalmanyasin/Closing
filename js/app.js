@@ -1,0 +1,179 @@
+/* ═══════════════════════════════════════════════════════════════
+   APP ENTRY POINT
+   The only thing index.html loads (as <script type="module">).
+   Importing every module here is what actually builds and resolves
+   the whole dependency graph — no more manually-ordered <script>
+   tags, and no more "which file has to load before which" bugs.
+
+   Everything inside each module stays properly encapsulated:
+   internal state objects (compState, cbState, navState, clPageState,
+   dbxState) are NOT re-exported here, so they're now genuinely
+   private to their own file — not just private by convention.
+
+   The one necessary compromise: index.html's onclick/onchange
+   attributes (and the ones generated dynamically inside template
+   strings) call bare global function names, since they're plain
+   HTML attributes, not module code. ES modules don't put anything
+   on `window` automatically, so this file is the one explicit,
+   documented bridge — every function listed below is one that some
+   onclick/onchange somewhere actually calls. If you add a new
+   inline handler, add its function here too.
+═══════════════════════════════════════════════════════════════ */
+
+import * as Repository  from './repository.js';
+import * as Actions     from './actions.js';
+import * as Components  from './components.js';
+import * as Pages       from './pages.js';
+import * as LedgerNav   from './ledger-nav.js';
+import * as ClosingBook from './closing-book.js';
+import * as Sync        from './sync.js';
+/* state.js and ledger-engine.js aren't imported directly here — they
+   still load correctly since actions.js (and others) already import
+   from them, which is enough to bring them into the module graph. */
+
+Object.assign(window, {
+  // repository.js — backup/restore
+  exportDataJSON:  Repository.exportDataJSON,
+  importDataJSON:  Repository.importDataJSON,
+
+  // actions.js
+  archiveOldRecords: Actions.archiveOldRecords,
+  calc:              Actions.calc,
+  deleteCurrentSheet: Actions.deleteCurrentSheet,
+  deleteSheet:       Actions.deleteSheet,
+  moveLedgerShift:   Actions.moveLedgerShift,
+  saveDraft:         Actions.saveDraft,
+  setOverride:       Actions.setOverride,
+  settingsSetNamedCreditLabel: Actions.settingsSetNamedCreditLabel,
+  settingsSetStripField:       Actions.settingsSetStripField,
+  toggleSign:        Actions.toggleSign,
+
+  // components.js
+  addAuxCreditRow:      Components.addAuxCreditRow,
+  addAuxStripRow:       Components.addAuxStripRow,
+  addDepositRow:        Components.addDepositRow,
+  addHsRow:             Components.addHsRow,
+  addMiscRow:           Components.addMiscRow,
+  addNamedCreditEntryRow: Components.addNamedCreditEntryRow,
+  clearAllFields:       Components.clearAllFields,
+  closeEditModal:       Components.closeEditModal,
+  closeModalPicker:     Components.closeModalPicker,
+  closeNumpad:          Components.closeNumpad,
+  closePdfModal:        Components.closePdfModal,
+  confirmEditModal:     Components.confirmEditModal,
+  delRow:               Components.delRow,
+  editModalOutsideClick: Components.editModalOutsideClick,
+  editModalSelectMode:  Components.editModalSelectMode,
+  npConfirm:            Components.npConfirm,
+  npKey:                Components.npKey,
+  numpadOutsideClick:   Components.numpadOutsideClick,
+  openEditModal:        Components.openEditModal,
+  openPdfModal:         Components.openPdfModal,
+  openTierPicker:       Components.openTierPicker,
+  pdfModalAction:       Components.pdfModalAction,
+  toggleCard:           Components.toggleCard,
+  toggleMoreMenu:       Components.toggleMoreMenu,
+
+  // pages.js
+  addNamedCreditSetting: Pages.addNamedCreditSetting,
+  addStripGroup:        Pages.addStripGroup,
+  addStripRow:          Pages.addStripRow,
+  clExportTxt:          Pages.clExportTxt,
+  clOpenShift:          Pages.clOpenShift,
+  clShowMore:           Pages.clShowMore,
+  clSwitchMode:         Pages.clSwitchMode,
+  clToggleAll:          Pages.clToggleAll,
+  clToggleDateCard:     Pages.clToggleDateCard,
+  clToggleExport:       Pages.clToggleExport,
+  clearManifestFilter:  Pages.clearManifestFilter,
+  goToClosingBook:      Pages.goToClosingBook,
+  goToCreditLedger:     Pages.goToCreditLedger,
+  goToDashboard:        Pages.goToDashboard,
+  goToSettings:         Pages.goToSettings,
+  loadKey:              Pages.loadKey,
+  openSheetFromPicker:  Pages.openSheetFromPicker,
+  printThermalSnapshot: Pages.printThermalSnapshot,
+  removeNamedCredit:    Pages.removeNamedCredit,
+  removeStrip:          Pages.removeStrip,
+  removeStripGroup:     Pages.removeStripGroup,
+  renameStripGroup:     Pages.renameStripGroup,
+  renderCreditLedger:   Pages.renderCreditLedger,
+  renderManifest:       Pages.renderManifest,
+  saveSettings:         Pages.saveSettings,
+  setPickerMode:        Pages.setPickerMode,
+  shiftMonth:           Pages.shiftMonth,
+  toggleManifestFilter: Pages.toggleManifestFilter,
+  updateBookBrandCode:  Pages.updateBookBrandCode,
+  updateRetentionMonths: Pages.updateRetentionMonths,
+
+  // ledger-nav.js
+  closeSummaryModal:    LedgerNav.closeSummaryModal,
+  closeViewAll:         LedgerNav.closeViewAll,
+  confirmSummaryAndSave: LedgerNav.confirmSummaryAndSave,
+  focusStep:            LedgerNav.focusStep,
+  jumpToSection:        LedgerNav.jumpToSection,
+  openSummaryModal:     LedgerNav.openSummaryModal,
+  openViewAll:          LedgerNav.openViewAll,
+  viewAllOutsideClick:  LedgerNav.viewAllOutsideClick,
+
+  // closing-book.js
+  closeClosingBookReader: ClosingBook.closeClosingBookReader,
+  closingBookJump:      ClosingBook.closingBookJump,
+  closingBookNext:      ClosingBook.closingBookNext,
+  closingBookPrev:      ClosingBook.closingBookPrev,
+  closingBookZoom:      ClosingBook.closingBookZoom,
+  exportClosingBookPdf: ClosingBook.exportClosingBookPdf,
+  generateClosingBook:  ClosingBook.generateClosingBook,
+  setClosingBookShortcut: ClosingBook.setClosingBookShortcut,
+  setClosingBookShortcutClosings: ClosingBook.setClosingBookShortcutClosings,
+
+  // sync.js
+  dbxAuthStart:         Sync.dbxAuthStart,
+  dbxClearAppKey:       Sync.dbxClearAppKey,
+  dbxDisconnect:        Sync.dbxDisconnect,
+  dbxExportConnection:  Sync.dbxExportConnection,
+  dbxImportConnection:  Sync.dbxImportConnection,
+  dbxImportConnectionUnlinked: Sync.dbxImportConnectionUnlinked,
+  dbxSaveAppKey:        Sync.dbxSaveAppKey,
+  dbxShowConnectStep:   Sync.dbxShowConnectStep,
+  dbxShowImport:        Sync.dbxShowImport,
+  dbxShowKeyError:      Sync.dbxShowKeyError,
+  syncPullFromCloud:    Sync.syncPullFromCloud,
+  syncPushToCloud:      Sync.syncPushToCloud,
+});
+
+/* One-time boot check: if a saved db blob existed but failed to
+   parse, State (Floor 2) already fell back to a fresh empty db so
+   the app can still run — but the person needs to know their data
+   didn't just vanish on its own. The raw corrupted text is preserved
+   under a backup key (see repository.js) in case it's recoverable. */
+if(Repository.repoLoadHadCorruption()) {
+  alert('⚠️ Your saved closing data could not be read (it appears corrupted) and this device is starting fresh. The original data was NOT deleted — it\'s preserved in this browser\'s storage under a backup key. If you have Dropbox sync connected, reconnect it to restore your records from the cloud.');
+}
+
+/* ── Escape-to-close for modals ──────────────────────────────
+   Keyboard parity for the modals that already support dismissing
+   via a backdrop click — a keyboard-only user has no mouse to
+   click that backdrop with, so Escape needs to do the same job.
+   save-action-overlay is deliberately excluded: it requires an
+   explicit button choice and was never backdrop-dismissible either,
+   so leaving it out preserves that existing design intent. ── */
+const ESCAPE_CLOSABLE_MODALS = [
+  { id: 'numpad-overlay',       close: Components.closeNumpad },
+  { id: 'modal-picker-overlay', close: Components.closeModalPicker },
+  { id: 'pdf-modal-overlay',    close: Components.closePdfModal },
+  { id: 'edit-modal-overlay',   close: Components.closeEditModal },
+  { id: 'summary-modal-overlay', close: LedgerNav.closeSummaryModal },
+  { id: 'viewall-overlay',      close: LedgerNav.closeViewAll },
+];
+
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Escape') return;
+  for(const modal of ESCAPE_CLOSABLE_MODALS) {
+    const el = document.getElementById(modal.id);
+    if(el && !el.classList.contains('hidden')) {
+      modal.close();
+      return; /* close only the top-most open one per press */
+    }
+  }
+});
