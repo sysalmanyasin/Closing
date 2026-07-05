@@ -9,7 +9,7 @@ import {
   calc, flushInputs, initLedger, populateNameDropdown,
   pullPreviousShift, setLockedState, setSheetProfileMode
 } from './actions.js';
-import { buildCalendar, goToDashboard, renderManifest } from './pages.js';
+import { buildCalendar, goToDashboard, renderManifest, sheetSortKey } from './pages.js';
 import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
 import { dbxInit } from './sync.js';
 
@@ -762,11 +762,14 @@ export function closePdfModal() {
   compState.pdfModalKey = null;
 }
 
-export async function pdfModalAction(type) {
+/* Print/Save PDF only now — WhatsApp export moved to the image
+   pipeline (pdfModalShareImage / imageViewerShareCurrent below),
+   since the Export modal now shares a PNG instead of a PDF. */
+export async function pdfModalAction() {
   const key = compState.pdfModalKey;
   if(!key) return;
   const statusEl = document.getElementById('pdf-modal-status');
-  statusEl.textContent = type === 'whatsapp' ? 'Preparing PDF…' : 'Generating PDF…';
+  statusEl.textContent = 'Generating PDF…';
 
   /* Temporarily load the sheet into the ledger (hidden) so buildPrintSheet can read DOM */
   const prevKey  = session.activeKey;
@@ -780,26 +783,12 @@ export async function pdfModalAction(type) {
   try {
     const pdf  = await renderPDF();
     const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.pdf`;
-
-    if(type === 'print') {
-      pdf.save(fname);
-      buildPrintSheet();
-      const sheet = document.getElementById('print-sheet');
-      sheet.classList.add('show');
-      setTimeout(() => { window.print(); sheet.classList.remove('show'); }, 200);
-      closePdfModal();
-    } else {
-      const blob = pdf.output('blob');
-      const file = new File([blob], fname, {type:'application/pdf'});
-      if(navigator.canShare && navigator.canShare({files:[file]})) {
-        await navigator.share({ files:[file], title:`Closing — ${parts[0]} ${srLabel(parts[1])}`, text:`Closing sheet for ${parts[0]} — ${srLabel(parts[1])}` });
-      } else {
-        pdf.save(fname);
-        const msg = encodeURIComponent(`Closing — ${parts[0]} ${srLabel(parts[1])}. PDF downloaded — please attach it here.`);
-        window.open(`https://wa.me/923028496090?text=${msg}`, '_blank');
-      }
-      closePdfModal();
-    }
+    pdf.save(fname);
+    buildPrintSheet();
+    const sheet = document.getElementById('print-sheet');
+    sheet.classList.add('show');
+    setTimeout(() => { window.print(); sheet.classList.remove('show'); }, 200);
+    closePdfModal();
   } catch(e) {
     statusEl.textContent = 'Failed: ' + e.message;
   }
@@ -810,6 +799,226 @@ export async function pdfModalAction(type) {
   if(prevKey) { const p = prevKey.split('_'); initLedger(p[0], p[1], prevMode); }
   else goToDashboard();
 }
+
+
+/* ── CLOSING IMAGE VIEWER (View as Image / Send Image to WhatsApp) ──
+   Rasterizes ONLY the shift-closing page (.ps-page-shift, page 1) —
+   never the Final Closing period-aggregation page 2 — reusing the
+   exact same buildPrintSheet()+html2canvas pipeline as renderPDF().
+   The fullscreen viewer swipes across the 10 most recently SAVED
+   (non-draft) records, newest first — same ordering as the dashboard
+   list (sheetSortKey, Floor 5). Every rendered image is cached in
+   memory for the life of the page so re-visiting is instant, and
+   renders are serialized through imgState.chain since they all share
+   the one hidden #print-sheet DOM node — running two at once would
+   have them clobber each other mid-render. ── */
+const imgState = {
+  keys:  [],              /* ordered record keys for this viewer session, newest first */
+  index: 0,
+  cache: new Map(),       /* key -> PNG dataURL */
+  chain: Promise.resolve() /* serializes access to the shared #print-sheet DOM */
+};
+
+function imgRecentKeys(aroundKey) {
+  const all = Object.keys(db.sheets)
+    .filter(k => db.sheets[k] && !db.sheets[k].draft)
+    .sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a))); /* newest first */
+  let list = all.slice(0, 10);
+  if(aroundKey && !list.includes(aroundKey)) list = [aroundKey, ...list].slice(0, 10);
+  return list;
+}
+
+/* Actually rasterizes one record's page-1 into a PNG dataURL.
+   Not exported — always go through renderClosingImage() so calls
+   stay serialized against the shared hidden DOM. */
+async function _imgRenderKey(key) {
+  if(imgState.cache.has(key)) return imgState.cache.get(key);
+  const rec = getRealSheet(key);
+  if(!rec) return null;
+
+  /* Same temporary-load-into-hidden-ledger trick pdfModalAction uses,
+     but silent:true so it never flips the visible page out from under
+     the fullscreen viewer sitting on top of it. */
+  const prevKey  = session.activeKey;
+  const prevMode = session.activeMode;
+  const parts = key.split('_');
+  session.activeKey  = key;
+  session.activeMode = rec.profileMode || 'shift';
+  initLedger(parts[0], parts[1], session.activeMode, {silent:true});
+  await new Promise(r => setTimeout(r, 120)); /* let DOM settle */
+
+  buildPrintSheet();
+  const sheet = document.getElementById('print-sheet');
+  sheet.classList.add('show');
+  await new Promise(r => setTimeout(r, 60));
+
+  let dataURL = null;
+  const page1 = sheet.querySelector('.ps-page-shift');
+  if(page1) {
+    const canvas = await html2canvas(page1, { scale: 2, useCORS: true, width: 794, height: 1123, windowWidth: 794 });
+    dataURL = canvas.toDataURL('image/png');
+    imgState.cache.set(key, dataURL);
+  }
+  sheet.classList.remove('show');
+
+  /* Restore whatever was actually open before this background render */
+  session.activeKey  = prevKey;
+  session.activeMode = prevMode;
+  if(prevKey) { const p = prevKey.split('_'); initLedger(p[0], p[1], prevMode, {silent:true}); }
+
+  return dataURL;
+}
+
+function renderClosingImage(key) {
+  const result = imgState.chain.then(() => _imgRenderKey(key));
+  imgState.chain = result.catch(() => null); /* keep the chain alive even if one render fails */
+  return result;
+}
+
+export function openImageViewer(startKey) {
+  imgState.keys  = imgRecentKeys(startKey);
+  imgState.index = Math.max(0, imgState.keys.indexOf(startKey));
+  closePdfModal();
+  document.getElementById('image-reader').classList.remove('hidden');
+  imageViewerShow();
+}
+
+export function closeImageViewer() {
+  document.getElementById('image-reader').classList.add('hidden');
+}
+
+async function imageViewerShow() {
+  const key = imgState.keys[imgState.index];
+  if(!key) return;
+  const img     = document.getElementById('img-reader-img');
+  const status  = document.getElementById('img-reader-status');
+  const counter = document.getElementById('img-reader-counter');
+  const label   = document.getElementById('img-reader-label');
+  const btnPrev = document.querySelector('.img-reader-nav-prev');
+  const btnNext = document.querySelector('.img-reader-nav-next');
+
+  const parts = key.split('_');
+  counter.textContent = `${imgState.index + 1} / ${imgState.keys.length}`;
+  label.textContent   = `${parts[0]} — ${srLabel(parts[1])}`;
+  btnPrev.disabled = (imgState.index === 0);
+  btnNext.disabled = (imgState.index === imgState.keys.length - 1);
+
+  const cached = imgState.cache.get(key);
+  if(cached) {
+    img.src = cached; img.classList.remove('hidden'); status.classList.add('hidden');
+  } else {
+    img.classList.add('hidden'); status.classList.remove('hidden'); status.textContent = 'Rendering…';
+  }
+
+  const dataURL = await renderClosingImage(key);
+  if(imgState.keys[imgState.index] !== key) return; /* user already swiped away */
+  if(dataURL) {
+    img.src = dataURL; img.classList.remove('hidden'); status.classList.add('hidden');
+  } else {
+    status.textContent = 'Could not render this record.';
+  }
+
+  /* Prefetch neighbors quietly so the next swipe feels instant */
+  const nextKey = imgState.keys[imgState.index + 1];
+  const prevKeyN = imgState.keys[imgState.index - 1];
+  if(nextKey && !imgState.cache.has(nextKey)) renderClosingImage(nextKey);
+  if(prevKeyN && !imgState.cache.has(prevKeyN)) renderClosingImage(prevKeyN);
+}
+
+export function imageViewerNext() {
+  if(imgState.index < imgState.keys.length - 1) { imgState.index++; imageViewerShow(); }
+}
+export function imageViewerPrev() {
+  if(imgState.index > 0) { imgState.index--; imageViewerShow(); }
+}
+
+async function shareClosingImage(key) {
+  const dataURL = await renderClosingImage(key);
+  if(!dataURL) { alert('Could not generate an image for this record.'); return; }
+  const parts = key.split('_');
+  const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.png`;
+  const blob  = await (await fetch(dataURL)).blob();
+  const file  = new File([blob], fname, {type:'image/png'});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})) {
+    await navigator.share({ files:[file], title:`Closing — ${parts[0]} ${srLabel(parts[1])}`, text:`Closing sheet for ${parts[0]} — ${srLabel(parts[1])}` });
+  } else {
+    const a = document.createElement('a'); a.href = dataURL; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    const msg = encodeURIComponent(`Closing — ${parts[0]} ${srLabel(parts[1])}. Image downloaded — please attach it here.`);
+    window.open(`https://wa.me/923028496090?text=${msg}`, '_blank');
+  }
+}
+
+/* "Send Image to WhatsApp" from within the fullscreen viewer —
+   shares whichever record is currently on screen. */
+export async function imageViewerShareCurrent() {
+  const key = imgState.keys[imgState.index];
+  if(key) await shareClosingImage(key);
+}
+
+/* "View as Image" from the Export Closing modal */
+export function pdfModalViewImage() {
+  const key = compState.pdfModalKey;
+  if(key) openImageViewer(key);
+}
+
+/* "Send Image to WhatsApp" from the Export Closing modal — shares
+   immediately without opening the fullscreen viewer. */
+export async function pdfModalShareImage() {
+  const key = compState.pdfModalKey;
+  if(!key) return;
+  const statusEl = document.getElementById('pdf-modal-status');
+  statusEl.textContent = 'Preparing image…';
+  try {
+    await shareClosingImage(key);
+    statusEl.textContent = '';
+    closePdfModal();
+  } catch(e) {
+    statusEl.textContent = 'Failed: ' + e.message;
+  }
+}
+
+/* ── Swipe to move between records, scoped to #img-reader-viewport,
+   same touchstart/move/end shape as the Closing Book reader's own
+   gesture handling in closing-book.js — kept independent (this file
+   never imports from closing-book.js, and vice versa) so each
+   reader's internal state stays genuinely private to its own file. ── */
+(function initImageViewerGestures() {
+  const vp = document.getElementById('img-reader-viewport');
+  if(!vp) return;
+  let startX = 0, startY = 0, swiping = false;
+
+  vp.addEventListener('touchstart', (e) => {
+    if(e.touches.length === 1) {
+      swiping = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    } else {
+      swiping = false;
+    }
+  }, { passive: true });
+
+  vp.addEventListener('touchend', (e) => {
+    if(!swiping || e.changedTouches.length !== 1) { swiping = false; return; }
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if(dx < 0) imageViewerNext(); else imageViewerPrev();
+    }
+    swiping = false;
+  }, { passive: true });
+})();
+
+/* Escape-to-close for this reader is centralized in app.js's
+   ESCAPE_CLOSABLE_MODALS list alongside every other modal — only
+   the arrow-key paging (viewer-specific) lives here. */
+document.addEventListener('keydown', (e) => {
+  const reader = document.getElementById('image-reader');
+  if(!reader || reader.classList.contains('hidden')) return;
+  if(e.key === 'ArrowRight') imageViewerNext();
+  else if(e.key === 'ArrowLeft') imageViewerPrev();
+});
 
 
 export function openEditModal(key) {

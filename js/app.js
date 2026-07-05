@@ -74,6 +74,14 @@ Object.assign(window, {
   toggleCard:           Components.toggleCard,
   toggleMoreMenu:       Components.toggleMoreMenu,
 
+  // components.js — closing image viewer (View as Image / Send Image to WhatsApp)
+  pdfModalViewImage:       Components.pdfModalViewImage,
+  pdfModalShareImage:      Components.pdfModalShareImage,
+  closeImageViewer:        Components.closeImageViewer,
+  imageViewerNext:         Components.imageViewerNext,
+  imageViewerPrev:         Components.imageViewerPrev,
+  imageViewerShareCurrent: Components.imageViewerShareCurrent,
+
   // pages.js
   addNamedCreditSetting: Pages.addNamedCreditSetting,
   addStripGroup:        Pages.addStripGroup,
@@ -162,6 +170,7 @@ const ESCAPE_CLOSABLE_MODALS = [
   { id: 'numpad-overlay',       close: Components.closeNumpad },
   { id: 'modal-picker-overlay', close: Components.closeModalPicker },
   { id: 'pdf-modal-overlay',    close: Components.closePdfModal },
+  { id: 'image-reader',         close: Components.closeImageViewer },
   { id: 'edit-modal-overlay',   close: Components.closeEditModal },
   { id: 'summary-modal-overlay', close: LedgerNav.closeSummaryModal },
   { id: 'viewall-overlay',      close: LedgerNav.closeViewAll },
