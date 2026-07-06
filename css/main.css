@@ -959,8 +959,12 @@
     display: flex; justify-content: space-between; align-items: center;
     font-size: 0.78rem; padding: 3px 0; color: var(--slate);
   }
-  .cl-line .cl-lbl { color: var(--muted); font-size: 0.73rem; }
+  .cl-line .cl-lbl { color: var(--navy); font-weight: 700; font-size: 0.73rem; }
   .cl-line .cl-val { font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+  @media print {
+    .cl-line .cl-lbl { color: #000 !important; font-weight: 700 !important; }
+    .cl-line .cl-val { color: #000 !important; }
+  }
   .cl-adj-row .cl-lbl { color: #92400e; }
   .cl-adj-row .cl-val { color: #92400e; }
   .cl-total-row {
