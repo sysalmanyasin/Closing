@@ -1217,6 +1217,14 @@ export function scheduleAutoSave() {
 let _persistFailWarned = false;
 
 export function persist() {
+  /* Stamp *when* this device last wrote settings to storage. Used by
+     sync.js to decide whether a cloud pull is allowed to overwrite
+     local settings (Admin/staff PINs, inventory, named credits, etc).
+     Bumped on every persist (not just settings edits) because the
+     settings object as currently held in memory is, by definition,
+     up to date as of this write — this is a "last confirmed good
+     locally" heartbeat, not a per-field dirty flag. */
+  db.settings._updatedAt = Date.now();
   const ok = repoPersist();
   if(!ok) {
     if(!_persistFailWarned) {

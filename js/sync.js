@@ -449,13 +449,27 @@ export async function syncPullFromCloud(manual = false) {
     const cloudSheetCount = Object.keys(cloudDb.sheets || {}).length;
 
     if(cloudSheetCount >= localSheetCount) {
-      /* Cloud is equal or ahead — adopt cloud state */
+      /* Cloud is equal or ahead on records — adopt cloud sheets, but
+         settings are a SEPARATE clock. A pull can be triggered any
+         time this tab regains focus (see visibilitychange below), so
+         if it fires in the few seconds between a local settings edit
+         and that edit's push actually landing in Dropbox, blindly
+         adopting the cloud file would silently erase the edit (Admin
+         PIN, staff, inventory items, named credits, etc) with the
+         older copy still sitting there. Only take cloud's settings if
+         cloud's settings are truly newer than what's already local. */
+      let keptLocalSettings = false;
+      if(localUpdatedAt > cloudUpdatedAt) {
+        cloudDb.settings = db.settings; /* keep the newer local settings, take cloud's sheets */
+        keptLocalSettings = true;
+      }
       repoReplaceDB(cloudDb);
       /* Refresh live UI */
       buildCalendar();
       renderManifest();
       const ts = new Date().toLocaleTimeString('en-PK');
       dbxSetStatus(`Pulled from cloud at ${ts} (${cloudSheetCount} records)`, 'ok');
+      if(keptLocalSettings) syncPushToCloud(false); /* cloud's settings were stale — push the corrected copy back up */
     } else {
       /* Local is ahead — push local up to cloud */
       dbxSetStatus('Local data is newer — uploading…', 'busy', true);
