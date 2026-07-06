@@ -459,6 +459,8 @@ export async function syncPullFromCloud(manual = false) {
          older copy still sitting there. Only take cloud's settings if
          cloud's settings are truly newer than what's already local. */
       let keptLocalSettings = false;
+      const localUpdatedAt = db.settings?._updatedAt || 0;
+      const cloudUpdatedAt = cloudDb.settings?._updatedAt || 0;
       if(localUpdatedAt > cloudUpdatedAt) {
         cloudDb.settings = db.settings; /* keep the newer local settings, take cloud's sheets */
         keptLocalSettings = true;
