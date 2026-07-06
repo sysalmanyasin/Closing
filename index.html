@@ -249,6 +249,28 @@
       </div>
 
       <div class="card">
+        <div class="card-head" style="cursor:default;"><h3>Access PINs</h3></div>
+        <div style="padding:14px 16px;">
+          <p class="text-muted text-sm" style="margin-bottom:12px;">
+            Whichever PIN is typed to unlock an action (Edit, Delete, Archive, Settings) identifies
+            who did it. The Admin PIN works everywhere as a fallback; each staff member below has
+            their own.
+          </p>
+          <div class="form-field">
+            <label for="cfg-admin-pin">Admin PIN</label>
+            <input type="text" id="cfg-admin-pin" inputmode="numeric" maxlength="4" style="width:100px;"
+              onchange="updateAdminPin(this.value)">
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="goToActivityLog()">📜 View Activity Log</button>
+        </div>
+        <div class="card-head" style="cursor:default;border-top:1px solid var(--border);">
+          <h3 style="font-size:0.85rem;">Staff PINs</h3>
+          <button class="btn btn-teal btn-sm" onclick="addStaffSetting()">+ Add Staff</button>
+        </div>
+        <div id="settings-staff"></div>
+      </div>
+
+      <div class="card">
         <div class="card-head" style="cursor:default;"><h3>Data Backup</h3></div>
         <div class="card-body">
           <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
@@ -796,6 +818,42 @@
     </div>
   </div>
   <!-- /PAGE 5 -->
+
+  <!-- ══ PAGE 6 — ACTIVITY LOG ══ -->
+  <div id="page-activity-log" class="view-pane hidden">
+    <div class="page-body">
+      <div class="btn-row" style="margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
+      </div>
+      <div class="cl-toolbar">
+        <div>
+          <div class="cl-toolbar-title">📜 Activity Log</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Who created, saved, edited, or deleted each closing — and what changed</div>
+        </div>
+      </div>
+      <div id="al-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <select id="al-filter-actor" onchange="renderActivityLog()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);min-width:110px;">
+          <option value="">Everyone</option>
+        </select>
+        <select id="al-filter-action" onchange="renderActivityLog()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);min-width:130px;">
+          <option value="">All Actions</option>
+          <option value="create">Created</option>
+          <option value="save-draft">Saved Draft</option>
+          <option value="save">Saved / Closed</option>
+          <option value="save-final">Final Closing</option>
+          <option value="edit-open">Reopened for Edit</option>
+          <option value="delete">Deleted</option>
+          <option value="archive">Archived</option>
+        </select>
+        <input type="text" id="al-filter-search" placeholder="Search date or shift…" oninput="renderActivityLog()"
+          style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);flex:1;min-width:130px;">
+        <span id="al-count-badge" style="font-size:0.72rem;color:var(--muted);white-space:nowrap;"></span>
+      </div>
+      <div id="al-entries-container"></div>
+      <button class="cl-show-more hidden" id="al-show-more-btn" onclick="alShowMore()">Show more entries ▼</button>
+    </div>
+  </div>
+  <!-- /PAGE 6 -->
 
 </div><!-- /shell -->
 

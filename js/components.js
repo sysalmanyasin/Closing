@@ -4,7 +4,8 @@
    toast, print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
-import { DENOMS, PIN, SHIFTS, db, srLabel, session } from './state.js';
+import { DENOMS, checkPin, daySlots, db, genRowId, srLabel, session } from './state.js';
+import { alLog } from './activity-log.js';
 import {
   calc, flushInputs, initLedger, populateNameDropdown,
   pullPreviousShift, setLockedState, setSheetProfileMode
@@ -185,11 +186,13 @@ export function buildDenomRows() {
 /* ═══════════════════════════════════════════
    DYNAMIC ROW BUILDERS
 ═══════════════════════════════════════════ */
-export function addHsRow(lbl='', val='') {
+export function addHsRow(lbl='', val='', rid=null) {
   session.hsRowCount++;
   const id = `hs-row-${session.hsRowCount}`;
+  const stableId = rid || genRowId();
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
+  row.dataset.rid = stableId;
   row.innerHTML = `
     <input type="text" class="lbl-input hs-lbl" placeholder="Home Service ${session.hsRowCount}" value="${lbl}">
     <input type="number" class="hs-val" value="${val||0}" oninput="calc()">
@@ -200,12 +203,14 @@ export function addHsRow(lbl='', val='') {
   calc();
 }
 
-export function addAuxStripRow(lbl='', price='', qty='') {
+export function addAuxStripRow(lbl='', price='', qty='', rid=null) {
   session.auxStripCount++;
   const id = `aux-strip-row-${session.auxStripCount}`;
+  const stableId = rid || genRowId();
   const sc = document.getElementById('ledger-strips');
   const row = document.createElement('div');
   row.className = "row strip-row"; row.id = id;
+  row.dataset.rid = stableId;
   row.innerHTML = `
     <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" value="${lbl}" style="flex:1;">
     <input type="number" class="aux-strip-price" value="${price||0}" oninput="calc()" style="width:80px;">
@@ -237,7 +242,7 @@ export function addNamedAccountBlock(accountIdx, lbl) {
   compState.namedEntrySeq[accountIdx] = 0;
 }
 
-export function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
+export function addNamedCreditEntryRow(accountIdx, desc='', val=0, rid=null) {
   const block = document.getElementById(`named-account-${accountIdx}`);
   if(!block) return;
   const rowsBox = block.querySelector('.named-account-rows');
@@ -245,9 +250,11 @@ export function addNamedCreditEntryRow(accountIdx, desc='', val=0) {
   const seq   = compState.namedEntrySeq[accountIdx];
   const rowId = `named-entry-row-${accountIdx}-${seq}`;
   const valId = `named-entry-val-${accountIdx}-${seq}`;
+  const stableId = rid || genRowId();
   const row = document.createElement('div');
   row.className = "row named-entry-row"; row.id = rowId;
   row.dataset.accountIdx = accountIdx;
+  row.dataset.rid = stableId;
   row.innerHTML = `
     <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" value="${desc||''}">
     <div style="display:flex;gap:4px;align-items:center;">
@@ -311,12 +318,14 @@ export function addTierCreditRow(num) {
   attachNumpad(inp, 'Amount');
 }
 
-export function addAuxCreditRow(lbl='', val='') {
+export function addAuxCreditRow(lbl='', val='', rid=null) {
   session.auxCreditCount++;
   const id = `aux-cred-row-${session.auxCreditCount}`;
   const valId = `aux-cred-val-${session.auxCreditCount}`;
+  const stableId = rid || genRowId();
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
+  row.dataset.rid = stableId;
   row.innerHTML = `
     <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" value="${lbl}">
     <div style="display:flex;gap:4px;align-items:center;">
@@ -329,11 +338,13 @@ export function addAuxCreditRow(lbl='', val='') {
   calc();
 }
 
-export function addDepositRow(lbl='', val='') {
+export function addDepositRow(lbl='', val='', rid=null) {
   session.depositCount++;
   const id = `dep-row-${session.depositCount}`;
+  const stableId = rid || genRowId();
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
+  row.dataset.rid = stableId;
   row.innerHTML = `
     <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" value="${lbl}">
     <input type="number" class="dep-val" value="${val||0}" oninput="calc()">
@@ -343,11 +354,13 @@ export function addDepositRow(lbl='', val='') {
   calc();
 }
 
-export function addMiscRow(lbl='', val='') {
+export function addMiscRow(lbl='', val='', rid=null) {
   session.miscCount++;
   const id = `misc-row-${session.miscCount}`;
+  const stableId = rid || genRowId();
   const row = document.createElement('div');
   row.className = "row misc-row"; row.id = id;
+  row.dataset.rid = stableId;
   row.innerHTML = `
     <input type="text"   id="misc-lbl-${session.miscCount}" class="lbl-input" placeholder="Charge / note" value="${lbl}">
     <input type="number" id="misc-val-${session.miscCount}" value="${val||0}" style="width:90px;" oninput="calc()">
@@ -406,18 +419,42 @@ export function getRealSheet(key) {
   return isRealSheet(rec) ? rec : null;
 }
 
-export function timelineStep(ds, shift, n) {
-  let d   = new Date(ds);
-  let idx = SHIFTS.indexOf(shift) + n;
-  if(idx >= SHIFTS.length) {
-    d.setDate(d.getDate() + Math.floor(idx/SHIFTS.length)); idx = idx % SHIFTS.length;
-  } else if(idx < 0) {
-    const steps = Math.ceil(Math.abs(idx)/SHIFTS.length);
-    d.setDate(d.getDate() - steps);
-    idx = (SHIFTS.length + (idx % SHIFTS.length)) % SHIFTS.length;
+/* Steps ONE slot forward (dir=+1) or backward (dir=-1) from (ds,shift)
+   within that date's actual slot list (daySlots — Night/Evening always
+   addressable, plus whatever's really saved: Morning and/or Handover*).
+   Crossing past either end of the list rolls over to the neighboring
+   date's fixed anchor — always Night going forward, always Evening
+   going backward — which stays trivial regardless of how many
+   Handovers a day has, precisely because Night/Evening are fixed
+   sentinels (seq 10 / 9999) that are always first/last by construction. */
+function stepOneSlot(ds, shift, dir) {
+  const slots = daySlots(ds);
+  const idx = slots.findIndex(s => s.shift === shift);
+  const curIdx = idx === -1 ? (dir > 0 ? -1 : slots.length) : idx;
+  const nextIdx = curIdx + dir;
+  if(nextIdx >= 0 && nextIdx < slots.length) {
+    return { date: ds, shift: slots[nextIdx].shift };
   }
+  const d = new Date(ds);
+  d.setDate(d.getDate() + dir);
   const outDs = d.toISOString().split('T')[0];
-  return {key:`${outDs}_${SHIFTS[idx]}`, date:outDs, shift:SHIFTS[idx]};
+  return dir > 0 ? { date: outDs, shift: 'Night' } : { date: outDs, shift: 'Evening' };
+}
+
+/* Was pure calendar math on a fixed 3-name array (Night/Morning/
+   Evening) — now walks the actual per-date slot list so a Handover
+   closing is a real, addressable stop in the sequence. For any date
+   with no Handovers, daySlots() always yields exactly the same
+   3 slots in the same order today's fixed array did, so this
+   produces byte-identical results to the old implementation for
+   every existing (Handover-free) record — see
+   tests/timeline-step.test.mjs for the regression proof. */
+export function timelineStep(ds, shift, n) {
+  const dir = n >= 0 ? 1 : -1;
+  const steps = Math.abs(n);
+  let cur = { date: ds, shift };
+  for(let i = 0; i < steps; i++) cur = stepOneSlot(cur.date, cur.shift, dir);
+  return { key: `${cur.date}_${cur.shift}`, date: cur.date, shift: cur.shift };
 }
 
 export function buildPrintSheet() {
@@ -1055,7 +1092,7 @@ export function getEditModalMode() {
 export function confirmEditModal() {
   const pin = document.getElementById('edit-modal-pin').value;
   const errEl = document.getElementById('edit-modal-err');
-  if(pin !== PIN) {
+  if(!checkPin(pin)) {
     errEl.textContent = 'Incorrect PIN — try again.';
     document.getElementById('edit-modal-pin').value = '';
     document.getElementById('edit-modal-pin').focus();
@@ -1064,6 +1101,7 @@ export function confirmEditModal() {
   const key     = compState.editModalKey;
   const newMode = getEditModalMode();
   closeEditModal();
+  alLog('edit-open', key);
   /* Apply mode change to saved record before opening */
   setSheetProfileMode(key, newMode);
   session.activeKey  = key;

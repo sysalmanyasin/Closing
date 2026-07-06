@@ -1250,7 +1250,33 @@
   .cb-shortcut-row .btn { min-width: 0; }
 }
 
-/* ── CLOSING IMAGE VIEWER ── */
+/* ── ACTIVITY LOG ── */
+.al-entry {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 10px 14px; margin-bottom: 8px;
+}
+.al-entry-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.al-entry-main { display: flex; flex-direction: column; gap: 2px; }
+.al-entry-title { font-size: 0.85rem; font-weight: 700; color: var(--slate); }
+.al-entry-sub   { font-size: 0.72rem; color: var(--muted); }
+.al-entry-badge {
+  font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  white-space: nowrap; text-transform: uppercase; letter-spacing: 0.02em;
+}
+.al-badge-create     { background: #dbeafe; color: #1e40af; }
+.al-badge-save-draft { background: #fef3c7; color: #92400e; }
+.al-badge-save       { background: #dcfce7; color: #166534; }
+.al-badge-save-final { background: #ede9fe; color: #5b21b6; }
+.al-badge-edit-open  { background: #fee2e2; color: #991b1b; }
+.al-badge-delete     { background: #fecaca; color: #7f1d1d; }
+.al-badge-archive    { background: #e5e7eb; color: #374151; }
+.al-entry-changes { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; }
+.al-change-row {
+  display: flex; justify-content: space-between; gap: 10px; font-size: 0.76rem; padding: 3px 0;
+}
+.al-change-label { color: var(--muted); flex: 1.3; }
+.al-change-vals   { font-family: 'JetBrains Mono', monospace; color: var(--slate); text-align: right; flex: 1; }
+.al-entry-empty { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 30px 10px; }
 #image-reader.hidden { display: none; }
 #image-reader {
   position: fixed; inset: 0; z-index: 950;

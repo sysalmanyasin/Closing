@@ -14,12 +14,10 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal, repoSetLocal } from './repository.js';
-import { db, srLabel, session } from './state.js';
+import { daySlots, db, getSeq, srLabel, session } from './state.js';
 import { initLedger, setLockedState } from './actions.js';
 import { buildPrintSheet, timelineStep } from './components.js';
 import { sheetSortKey } from './pages.js';
-
-const BOOK_SHIFT_ORDER = ['Night', 'Morning', 'Evening'];
 
 /* CRITICAL: never use Date#toISOString() to derive a "date string" here.
    toISOString() always converts to UTC — for any timezone AHEAD of UTC
@@ -96,23 +94,29 @@ export function setClosingBookShortcutClosings(n) {
   document.getElementById('cb-to-shift').value   = toShift;
 }
 
-/* ── Range enumeration: Night → Morning → Evening per calendar
-   day (Night = start of day), inclusive of both endpoints ─────── */
+/* ── Range enumeration: walks calendar day-by-day, and for EACH day
+   asks state.js's daySlots() what actually exists that day — Night
+   and Evening always, plus whatever real middle closings/Handovers
+   are saved — rather than assuming a fixed 3-name array. For a date
+   with no Handovers this produces exactly Night→Morning→Evening,
+   same as before; a date with a Handover includes it in the right
+   spot automatically. ─────────────────────────────────────────── */
 export function enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift) {
   const entries = [];
   let d = new Date(fromDs + 'T00:00:00');
   const end = new Date(toDs + 'T00:00:00');
-  const fromIdx = BOOK_SHIFT_ORDER.indexOf(fromShift);
-  const toIdx   = BOOK_SHIFT_ORDER.indexOf(toShift);
 
   while(d <= end) {
     const ds = _cbLocalDateStr(d);
     const isFirstDay = (ds === fromDs);
     const isLastDay  = (ds === toDs);
-    BOOK_SHIFT_ORDER.forEach((shift, idx) => {
-      if(isFirstDay && idx < fromIdx) return;
-      if(isLastDay  && idx > toIdx)   return;
-      entries.push({ date: ds, shift, key: `${ds}_${shift}` });
+    const slots   = daySlots(ds); /* [{shift, seq}, ...] already in seq order */
+    const fromIdx = isFirstDay ? slots.findIndex(s => s.shift === fromShift) : -1;
+    const toIdx   = isLastDay  ? slots.findIndex(s => s.shift === toShift)   : -1;
+    slots.forEach((s, idx) => {
+      if(isFirstDay && fromIdx !== -1 && idx < fromIdx) return;
+      if(isLastDay  && toIdx   !== -1 && idx > toIdx)   return;
+      entries.push({ date: ds, shift: s.shift, key: `${ds}_${s.shift}` });
     });
     d.setDate(d.getDate() + 1);
   }
@@ -193,8 +197,8 @@ export async function generateClosingBook() {
 
   if(!fromDs || !toDs) { alert('Pick both a "From" and "To" date.'); return; }
 
-  const fromCmp = fromDs + '_' + String(BOOK_SHIFT_ORDER.indexOf(fromShift)).padStart(2,'0');
-  const toCmp   = toDs   + '_' + String(BOOK_SHIFT_ORDER.indexOf(toShift)).padStart(2,'0');
+  const fromCmp = fromDs + '_' + String(getSeq(fromDs, fromShift)).padStart(6,'0');
+  const toCmp   = toDs   + '_' + String(getSeq(toDs, toShift)).padStart(6,'0');
   if(fromCmp > toCmp) { alert('The "From" point must be before or equal to the "To" point.'); return; }
 
   const entries = enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift);

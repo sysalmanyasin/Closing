@@ -13,7 +13,7 @@
    the sheet record itself.
 ═══════════════════════════════════════════════════════════════ */
 
-import { db } from './state.js';
+import { db, getSeq } from './state.js';
 import { persist } from './actions.js';
 
 export function clEnsureArray() {
@@ -99,12 +99,14 @@ export function clAllLabels() {
 }
 
 /* Sort snapshots newest-first, group by date. Shared by both
-   Credit and Misc rendering — pure data shape, no DOM. */
+   Credit and Misc rendering — pure data shape, no DOM.
+   Shift ordering was a fixed {Night:0, Morning:1, Evening:2} map;
+   now reads each slot's actual seq (state.js's getSeq) so a
+   Handover closing sorts correctly among same-date snapshots too. */
 export function clGroupByDate(snapshots) {
-  const order = { Night: 0, Morning: 1, Evening: 2 };
   const sorted = [...snapshots].sort((a, b) => {
     if(b.date !== a.date) return b.date.localeCompare(a.date);
-    return (order[b.shift] ?? 99) - (order[a.shift] ?? 99);
+    return getSeq(b.date, b.shift) - getSeq(a.date, a.shift);
   });
   const groups = [];
   const seen   = {};

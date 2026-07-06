@@ -70,15 +70,25 @@ locked: true` — written by `saveSheet()`).
 | `draft` | boolean | `true` = autosave, not yet explicitly saved |
 | `locked` | boolean | `true` = view-only snapshot |
 | `in*` / `out*` / `pos*` / `final*` | number | Raw numeric fields entered/calculated in the ledger form — see `hydrate()` in actions.js for the full field-by-field list, it's long and self-explanatory from the ids |
-| `hsRows` | `{lbl, val}[]` | "HS" (household/misc sundry?) line items |
+| `hsRows` | `{id, lbl, val}[]` | "HS" (household/misc sundry?) line items |
 | `stripQtys` / `stripPrices` | `number[]` | Parallel arrays, index-matched to `db.settings.strips` |
-| `auxStrips` | `{label, p, q}[]` | Extra ad-hoc strip line items not in the main strips list |
+| `auxStrips` | `{id, label, p, q}[]` | Extra ad-hoc strip line items not in the main strips list |
 | `tillValues` / `vaultValues` | `number[]` | Cash-count grid values |
-| `namedCredits` | `{idx, lbl, desc, val}[]` | Entries against `db.settings.namedCredits[idx]` |
-| `tierCredits` | `{tIdx, name, val}[]` (length 3) | One per sub-tier dropdown |
-| `auxCredits` | `{lbl, val}[]` | Free-label credit entries |
-| `deposits` | `{lbl, val}[]` | Deposit line items |
-| `miscRows` | `{label, val}[]` | **Misc/Ongoing Ledger source** — this is what the Misc Ledger tab reads live, no separate storage |
+| `namedCredits` | `{id, idx, lbl, desc, val}[]` | Entries against `db.settings.namedCredits[idx]` |
+| `tierCredits` | `{tIdx, name, val}[]` (length 3) | One per sub-tier dropdown — fixed 3 slots, no `id` needed (nothing to add/remove/reorder) |
+| `auxCredits` | `{id, lbl, val}[]` | Free-label credit entries |
+| `deposits` | `{id, lbl, val}[]` | Deposit line items |
+| `miscRows` | `{id, label, val}[]` | **Misc/Ongoing Ledger source** — this is what the Misc Ledger tab reads live, no separate storage |
+
+**On `id`:** every free-form row array above carries a stable `id` (from
+`genRowId()` in state.js), assigned once when the row is first created
+and preserved through every hydrate → edit → re-save cycle — it's how
+the row survives being reopened for editing, not just a fresh row on
+each load. This matters because array *position* isn't stable (deleting
+row 2 of 4 shifts everything below it up), so anything that needs to
+say "this specific row changed" — the Activity Log's field-diffing,
+in particular — needs `id` to match old and new correctly instead of
+comparing by position.
 
 **Note:** `savedAt` is written by `saveSheet()` at final-save time (as of
 this doc). Draft/autosaved records don't get a `savedAt` — only an

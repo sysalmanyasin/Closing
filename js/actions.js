@@ -4,7 +4,8 @@
    save/delete sheets, auto-save scheduling.
 ═══════════════════════════════════════════════════════════════ */
 
-import { PIN, db, srLabel, session } from './state.js';
+import { alBeginSession, alCommit, alLog } from './activity-log.js';
+import { checkPin, db, genRowId, getSeq, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
 import {
@@ -138,6 +139,11 @@ export function initLedger(ds, shift, mode, opts = {}) {
        documented in saveDraft(). */
     session.isSavedSheet = (db.sheets[session.activeKey].draft !== true);
     hydrate(db.sheets[session.activeKey]);
+    /* Snapshot for the Activity Log's diffing — only for genuine
+       opens, not the silent background loads pdfModalAction/
+       renderClosingImage/Closing Book use (those pass silent:true)
+       to temporarily borrow this same hidden ledger DOM. */
+    if(!opts.silent) alBeginSession(session.activeKey, db.sheets[session.activeKey]);
     /* Re-sync the "carried forward" fields (CC, Credit, Deposits, Cash
        Position) from whatever the previous shift's record looks like
        RIGHT NOW — not the snapshot frozen into this sheet the last time
@@ -318,6 +324,81 @@ export function pullPreviousShift(ds, shift, mode) {
     session.miscCount = 0;
     hs.miscRows.forEach(m => addMiscRow(m.label || "", m.val || 0));
   }
+}
+
+/* Pure — no DOM, no db writes. Figures out what the next Handover
+   slot for a date WOULD be: its key, shift name, and seq — or a
+   {error} reason if one can't be created right now. Split out from
+   insertHandoverClosing() below specifically so this math (the part
+   that's actually easy to get subtly wrong — off-by-one seq gaps,
+   colliding Handover numbers) can be unit-tested directly, the same
+   way timelineStep/daySlots were, without needing a real DOM. */
+export function computeNextHandoverSlot(ds) {
+  const prefix = `${ds}_`;
+  if(!db.sheets[`${prefix}Night`]) {
+    return { error: `Save at least the Night closing for ${ds} before inserting a Handover.` };
+  }
+
+  /* Evening is always last (seq 9999, state.js's getSeq) — a Handover
+     always inserts immediately before it, never after, even if
+     Evening already happens to be saved. Evening is deliberately
+     excluded from this max: otherwise a Handover created after
+     Evening was already saved would compute a seq bigger than 9999
+     and incorrectly sort AFTER it, breaking "Evening is always last". */
+  const existingForDate = Object.keys(db.sheets).filter(k => k.startsWith(prefix) && db.sheets[k]);
+  const nonEvening = existingForDate.filter(k => k.slice(prefix.length) !== 'Evening');
+  const maxSeq  = Math.max(...nonEvening.map(k => getSeq(ds, k.slice(prefix.length))));
+  const nextSeq = maxSeq + 10;
+  if(nextSeq >= 9999) {
+    return { error: 'This date already has as many closings as it can hold.' };
+  }
+
+  let n = 1;
+  while(db.sheets[`${prefix}Handover${n}`]) n++;
+  const shift = `Handover${n}`;
+  return { key: `${prefix}${shift}`, shift, seq: nextSeq };
+}
+
+/* ── Insert a Handover closing ─────────────────────────────────────
+   Creates a new mid-day closing after whatever the last real record
+   for this date currently is — for when a cashier leaves early and
+   someone else needs to close out and reopen. Night is always first
+   and Evening is always last (state.js's daySlots/getSeq) — a
+   Handover only ever slots in between them.
+
+   WHY the placeholder comes first: timelineStep/daySlots (state.js)
+   only know about a slot once it exists in db.sheets. If we called
+   initLedger() for a brand-new key straight away, its own internal
+   pullPreviousShift() would ask timelineStep for "the previous slot"
+   before this one is registered anywhere — and since it wouldn't be
+   found in daySlots' list yet, the step would incorrectly resolve to
+   the wrong neighbor. Registering a minimal placeholder record FIRST
+   (with its real `seq`) makes it immediately visible to daySlots, so
+   every ordering lookup from that point on — including the explicit
+   pullPreviousShift() call below — resolves correctly. */
+export function insertHandoverClosing(ds) {
+  const slot = computeNextHandoverSlot(ds);
+  if(slot.error) { alert(slot.error); return; }
+  const { key, shift, seq } = slot;
+
+  db.sheets[key] = { seq, shiftLabel: 'Handover', draft: true, profileMode: 'shift' };
+  persist();
+
+  session.activeKey  = key;
+  session.activeMode = 'shift';
+  session.overrides  = {};
+  initLedger(ds, shift, 'shift');
+  /* Explicitly re-seed carry-forward — see comment above on why the
+     placeholder alone isn't enough: initLedger's existing-record
+     branch only auto-refreshes the 4 carried numeric fields, not
+     misc-row carry-forward (that's deliberately skip on REOPENING an
+     existing draft — see refreshCarryForwardFromPrevious's own
+     comment — but this is genuinely a brand-new closing, which
+     should get the full brand-new-sheet treatment, misc rows
+     included, same as Night/Morning/Evening always have). */
+  pullPreviousShift(ds, shift, 'shift');
+  zeroCreditEntries();
+  calc();
 }
 
 /* Re-sync ONLY the 4 "carried forward" fields (CC, Credit, Deposits,
@@ -865,15 +946,20 @@ export function buildSheetRecord() {
     finalDiffLabel:  document.getElementById('out-final-diff-label')?.textContent || '',
     finalPrevSale:   val('out-final-prev-sale'),
     hsRows: Array.from(document.querySelectorAll('#hs-rows .row')).map(r=>({
+      id:  r.dataset.rid || genRowId(),
       lbl: r.querySelector('.hs-lbl')?.value||'',
       val: parseFloat(r.querySelector('.hs-val')?.value)||0
     })),
     stripQtys:  Array.from(document.querySelectorAll('.strip-qty')).map(e=>parseFloat(e.value)||0),
     stripPrices:Array.from(document.querySelectorAll('.strip-price')).map(e=>parseFloat(e.value)||0),
-    auxStrips:  Array.from(document.querySelectorAll('#ledger-strips .strip-row .aux-strip-lbl')).map((el,i)=>({
-      label: el.value,
-      p:     parseFloat(document.querySelectorAll('.aux-strip-price')[i]?.value)||0,
-      q:     parseFloat(document.querySelectorAll('.aux-strip-qty')[i]?.value)||0
+    /* Reads each row as a whole (not three separately-zipped NodeLists
+       by position) so a stable id travels with its own row, and nothing
+       shifts out of alignment if rows are ever reordered. */
+    auxStrips: Array.from(document.querySelectorAll('#ledger-strips .strip-row')).map(row => ({
+      id:    row.dataset.rid || genRowId(),
+      label: row.querySelector('.aux-strip-lbl')?.value || '',
+      p:     parseFloat(row.querySelector('.aux-strip-price')?.value) || 0,
+      q:     parseFloat(row.querySelector('.aux-strip-qty')?.value) || 0
     })),
     tillValues:  Array.from(document.querySelectorAll('.till-cell')).map(e=>parseFloat(e.value)||0),
     vaultValues: Array.from(document.querySelectorAll('.vault-cell')).map(e=>parseFloat(e.value)||0),
@@ -881,6 +967,7 @@ export function buildSheetRecord() {
       const idx = parseInt(block.dataset.accountIdx);
       const lbl = db.settings.namedCredits[idx]?.label || '';
       return Array.from(block.querySelectorAll('.named-entry-row')).map(row => ({
+        id:   row.dataset.rid || genRowId(),
         idx,
         lbl,
         desc: row.querySelector('.named-entry-desc')?.value || '',
@@ -893,14 +980,17 @@ export function buildSheetRecord() {
       val:   val(`in-nested-${i}`)
     })),
     auxCredits: Array.from(document.querySelectorAll('#ledger-aux-credits .row')).map(r=>({
+      id:  r.dataset.rid || genRowId(),
       lbl: r.querySelector('.aux-cred-lbl')?.value||'',
       val: parseFloat(r.querySelector('.aux-cred-val')?.value)||0
     })),
     deposits: Array.from(document.querySelectorAll('#ledger-deposits .row')).map(r=>({
+      id:  r.dataset.rid || genRowId(),
       lbl: r.querySelector('.dep-lbl')?.value||'',
       val: parseFloat(r.querySelector('.dep-val')?.value)||0
     })),
     miscRows: Array.from(document.querySelectorAll('#ledger-misc .misc-row')).map(r => ({
+      id:    r.dataset.rid || genRowId(),
       label: r.querySelector('.lbl-input')?.value||'',
       val:   parseFloat(r.querySelector('input[type="number"]')?.value)||0
     }))
@@ -914,8 +1004,18 @@ export function saveSheet(silent=false) {
   record.draft    = false;
   record.locked   = true;
   record.savedAt  = Date.now();
+  /* seq/shiftLabel are slot-identity metadata (which Handover number
+     this is, its assigned order) — not something buildSheetRecord()
+     can derive from the DOM, so they'd otherwise be silently wiped
+     out by this save. Carry them forward from whatever's already
+     stored at this key, same as draft/locked/savedAt are explicitly
+     set here rather than left to buildSheetRecord(). */
+  const existing = db.sheets[session.activeKey];
+  if(existing && typeof existing.seq === 'number') record.seq = existing.seq;
+  if(existing && existing.shiftLabel) record.shiftLabel = existing.shiftLabel;
   db.sheets[session.activeKey] = record;
   clSaveSnapshot(session.activeKey, record);  /* ← credit ledger snapshot */
+  alCommit(session.activeMode === 'final' ? 'save-final' : 'save', session.activeKey, record);
   persist();
   session.isSavedSheet = true;
   if(!silent) {
@@ -952,7 +1052,7 @@ export function hydrate(s) {
   document.getElementById('hs-rows').innerHTML = "";
   session.hsRowCount = 0;
   if(s.hsRows && s.hsRows.length) {
-    s.hsRows.forEach(o => addHsRow(o.lbl, o.val));
+    s.hsRows.forEach(o => addHsRow(o.lbl, o.val, o.id));
   } else if(s.hsRecords) { /* legacy */
     s.hsRecords.forEach(o => addHsRow(o.lbl, o.val));
   } else {
@@ -968,7 +1068,7 @@ export function hydrate(s) {
     if(r.querySelector('.aux-strip-lbl')) r.remove();
   });
   session.auxStripCount = 0;
-  if(s.auxStrips) s.auxStrips.forEach(o => addAuxStripRow(o.label||'', o.p, o.q));
+  if(s.auxStrips) s.auxStrips.forEach(o => addAuxStripRow(o.label||'', o.p, o.q, o.id));
 
   /* till / vault */
   if(s.tillValues)  document.querySelectorAll('.till-cell').forEach((el,i) => el.value=s.tillValues[i]||0);
@@ -988,7 +1088,7 @@ export function hydrate(s) {
     if(hasIdx) {
       db.settings.namedCredits.forEach((nc, idx) => {
         s.namedCredits.filter(o => o.idx === idx && hasContent(o))
-          .forEach(o => addNamedCreditEntryRow(idx, o.desc||'', o.val||0));
+          .forEach(o => addNamedCreditEntryRow(idx, o.desc||'', o.val||0, o.id));
       });
     } else {
       /* legacy: one entry per account, positional, no description */
@@ -1022,17 +1122,17 @@ export function hydrate(s) {
   /* aux credits */
   document.getElementById('ledger-aux-credits').innerHTML = "";
   session.auxCreditCount = 0;
-  if(s.auxCredits) s.auxCredits.forEach(o => addAuxCreditRow(o.lbl, o.val));
+  if(s.auxCredits) s.auxCredits.forEach(o => addAuxCreditRow(o.lbl, o.val, o.id));
 
   /* deposits */
   document.getElementById('ledger-deposits').innerHTML = "";
   session.depositCount = 0;
-  if(s.deposits) s.deposits.forEach(o => addDepositRow(o.lbl, o.val));
+  if(s.deposits) s.deposits.forEach(o => addDepositRow(o.lbl, o.val, o.id));
 
   /* misc */
   document.getElementById('ledger-misc').innerHTML = "";
   session.miscCount = 0;
-  if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val));
+  if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val, o.id));
 
   sv('out-prev-cc',     s.outPrevCC);
   sv('out-prev-credit', s.outPrevCredit ?? s.outTotalE);
@@ -1143,7 +1243,13 @@ export function saveDraft() {
   const rec = buildSheetRecord();
   rec.draft  = true;
   rec.locked = false;
+  /* Same seq/shiftLabel preservation as saveSheet() above — see its
+     comment for why buildSheetRecord() alone can't carry these. */
+  const existing = db.sheets[session.activeKey];
+  if(existing && typeof existing.seq === 'number') rec.seq = existing.seq;
+  if(existing && existing.shiftLabel) rec.shiftLabel = existing.shiftLabel;
   db.sheets[session.activeKey] = rec;
+  alCommit('save-draft', session.activeKey, rec);
   persist();
   /* NOTE: session.isSavedSheet stays false for drafts — only a full saveSheet() makes it "real".
      This ensures carry-over fields remain live (not frozen) while drafting. */
@@ -1158,6 +1264,7 @@ export function deleteCurrentSheet() {
   if(!db.sheets[session.activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = session.activeKey.split('_');
   if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
+  alLog('delete', session.activeKey);
   delete db.sheets[session.activeKey];
   persist();
   goToDashboard();
@@ -1169,8 +1276,9 @@ export function deleteSheet(key) {
   const parts = key.split('_');
   const sr = srLabel(parts[1]);
   const pin = prompt(`Enter PIN to delete ${parts[0]} — ${sr}:`);
-  if(pin !== PIN) { alert('Incorrect PIN.'); return; }
+  if(!checkPin(pin)) { alert('Incorrect PIN.'); return; }
   if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
+  alLog('delete', key);
   delete db.sheets[key];
   persist();
   if(session.activeKey === key) { session.activeKey = null; goToDashboard(); }
@@ -1200,6 +1308,44 @@ export function setSheetProfileMode(key, mode) {
 export function settingsSetBookBrandCode(code) {
   db.settings.bookBrandCode = code.trim() || 'FDPP BT';
   persist();
+}
+
+/* ── Access PINs (Admin + per-staff) ──────────────────────────
+   Whichever PIN a person types elsewhere in the app (checkPin() in
+   state.js) is how they're identified for the Activity Log — no
+   separate login. These setters just guard against two identities
+   sharing one PIN by accident; each returns false (and changes
+   nothing) on a collision so the Settings UI can tell the person why
+   it didn't take, instead of silently corrupting who a PIN belongs to. */
+export function settingsSetAdminPin(newPin) {
+  const clean = (newPin || '').trim();
+  if(!clean) return false;
+  if(db.settings.staff.some(s => s.pin === clean)) return false; /* collides with a staff PIN */
+  db.settings.adminPin = clean;
+  persist();
+  return true;
+}
+
+export function settingsAddStaff() {
+  db.settings.staff.push({name:"New Staff", pin:""});
+  persist();
+}
+export function settingsRemoveStaff(i) {
+  db.settings.staff.splice(i,1);
+  persist();
+}
+export function settingsSetStaffName(i, name) {
+  if(!db.settings.staff[i]) return;
+  db.settings.staff[i].name = (name || '').trim() || 'New Staff';
+  persist();
+}
+export function settingsSetStaffPin(i, pin) {
+  if(!db.settings.staff[i]) return false;
+  const clean = (pin || '').trim();
+  if(clean && isPinTaken(clean, i)) return false; /* collides with Admin PIN or another staff member */
+  db.settings.staff[i].pin = clean;
+  persist();
+  return true;
 }
 
 export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); }
@@ -1271,9 +1417,9 @@ export function archiveOldRecords() {
 
   if(!confirm(`This will permanently delete ${staleKeys.length} record(s) older than ${months} months.\nExport a backup first (Settings → Data Backup) if you want to keep them. Continue?`)) return;
   const pin = prompt('Enter PIN to confirm deletion:');
-  if(pin !== PIN) { alert('Incorrect PIN.'); return; }
+  if(!checkPin(pin)) { alert('Incorrect PIN.'); return; }
 
-  staleKeys.forEach(key => { delete db.sheets[key]; });
+  staleKeys.forEach(key => { alLog('archive', key); delete db.sheets[key]; });
   clEnsureArray();
   db.creditLedger = db.creditLedger.filter(s => !staleKeys.includes(s.key));
   /* Misc/Ongoing Ledger needs no separate cleanup — it's derived

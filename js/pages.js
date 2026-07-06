@@ -5,13 +5,16 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-import { PIN, SHIFTS, db, srLabel, session } from './state.js';
+import { SHIFTS, checkPin, db, getSeq, srLabel, session } from './state.js';
 import {
-  initLedger, settingsAddNamedCredit, settingsAddStrip,
+  initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
   settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
-  settingsRemoveStrip, settingsRemoveStripGroup, settingsRenameStripGroup,
-  settingsSetBookBrandCode, settingsSetRetentionMonths, stopAutoDraft
+  settingsRemoveStaff, settingsRemoveStrip, settingsRemoveStripGroup,
+  settingsRenameStripGroup, settingsSetAdminPin, settingsSetBookBrandCode,
+  settingsSetRetentionMonths, settingsSetStaffName, settingsSetStaffPin,
+  stopAutoDraft
 } from './actions.js';
+import { alAllEntries } from './activity-log.js';
 import {
   clAllLabels, clBackfillSnapshots, clEnsureArray, clGroupByDate,
   countRecordsOlderThan, mlAllSnapshots
@@ -35,7 +38,7 @@ export function goToClosingBook() {
 }
 export function goToSettings()  {
   let pin = prompt("Enter settings PIN:");
-  if(pin !== PIN) { alert("Incorrect PIN."); return; }
+  if(!checkPin(pin)) { alert("Incorrect PIN."); return; }
   showPage('page-settings');
   buildSettingsUI();
 }
@@ -43,6 +46,14 @@ export function goToCreditLedger() {
   showPage('page-credit-ledger');
   clBackfillSnapshots();
   clSwitchMode('credit');
+}
+export function goToActivityLog() {
+  let pin = prompt("Enter PIN to view the Activity Log:");
+  if(!checkPin(pin)) { alert("Incorrect PIN."); return; }
+  showPage('page-activity-log');
+  populateActivityLogFilters();
+  alShown = 25;
+  renderActivityLog();
 }
 
 /* ═══════════════════════════════════════════
@@ -716,7 +727,9 @@ export function openDatePicker(ds) {
   /* Check if suggested shift already has a draft (allow reopening) */
   const body = document.getElementById('shift-picker-body');
   if(!suggestedShift) {
-    body.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:8px 0;">All shifts for ${ds} are already saved.</p>`;
+    body.innerHTML = `
+      <p style="color:var(--muted);font-size:0.85rem;padding:8px 0;">All shifts for ${ds} are already saved.</p>
+      <button class="btn btn-ghost btn-sm" style="width:100%;" onclick="insertHandoverClosing('${ds}')">↪ Insert Handover Closing</button>`;
     document.getElementById('shift-picker-btns').style.display = 'none';
     panel.dataset.shift = '';
     panel.dataset.mode  = '';
@@ -762,7 +775,8 @@ export function openDatePicker(ds) {
         </div>
       </div>
     </div>
-    ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}`;
+    ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}
+  ${savedToday.length ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;" onclick="insertHandoverClosing('${ds}')">↪ Insert Handover Closing</button>` : ''}`;
 
   /* Reflect the auto-suggested mode in the toggle buttons' visuals
      (the innerHTML above always paints "Shift" active by default). */
@@ -870,13 +884,20 @@ export function clearManifestFilter() {
 
 /* ═══════════════════════════════════════════
    SHIFT SORT KEY — chronological
-   Day cycle: Night (start) → Morning → Evening
-   So within a date: Night=0, Morning=1, Evening=2
+   Was a fixed {Night:0, Morning:1, Evening:2} map (name→position);
+   now reads each slot's actual seq (state.js's getSeq — Night=10,
+   Evening=9999 sentinel, middle slots in between) so a Handover
+   closing sorts correctly among real records. Only ever used for
+   RELATIVE ordering via localeCompare (never compared against a
+   literal expected string anywhere in the app), so changing the
+   internal string format here is safe — zero-padding to a fixed
+   width keeps lexicographic string comparison equivalent to numeric
+   comparison, the same way the old 0/1/2 single digits did.
 ═══════════════════════════════════════════ */
-const SHIFT_CHRONO = {Night: 0, Morning: 1, Evening: 2};
 export function sheetSortKey(k) {
   const parts = k.split('_');
-  return parts[0] + '_' + (SHIFT_CHRONO[parts[1]] ?? 9);
+  const seq = getSeq(parts[0], parts[1]);
+  return parts[0] + '_' + String(seq).padStart(6, '0');
 }
 
 /* ═══════════════════════════════════════════
@@ -1018,6 +1039,9 @@ export function buildSettingsUI() {
   const retentionEl = document.getElementById('set-retention-months');
   if(retentionEl) retentionEl.value = db.settings.retentionMonths || 6;
   refreshRetentionStatus();
+  const adminPinEl = document.getElementById('cfg-admin-pin');
+  if(adminPinEl) adminPinEl.value = db.settings.adminPin || '';
+  renderSettingsStaff();
   const brandCodeEl = document.getElementById('cfg-book-brand-code');
   if(brandCodeEl) {
     brandCodeEl.value = db.settings.bookBrandCode || 'FDPP BT';
@@ -1061,6 +1085,56 @@ export function addNamedCreditSetting() {
 export function removeNamedCredit(i) {
   settingsRemoveNamedCredit(i);
   renderSettingsNamedCredits();
+}
+
+/* ── Access PINs (Admin + per-staff) — Settings UI ──────────────
+   Mirrors renderSettingsNamedCredits() above. Collision feedback:
+   settingsSetAdminPin()/settingsSetStaffPin() return false (leaving
+   the stored PIN unchanged) if the new value collides with another
+   identity's PIN — this just alerts and re-renders from the
+   still-unchanged stored value, so the field snaps back to what's
+   actually saved rather than showing a PIN that didn't take. */
+export function updateAdminPin(value) {
+  if(!settingsSetAdminPin(value)) {
+    alert('That PIN is already used by a staff member. Choose a different one.');
+  }
+  buildSettingsUI(); /* re-sync every PIN field to what's actually stored */
+}
+
+export function renderSettingsStaff() {
+  const box = document.getElementById('settings-staff');
+  if(!box) return;
+  box.innerHTML = "";
+  db.settings.staff.forEach((s, idx) => {
+    const div = document.createElement('div');
+    div.className = "settings-item";
+    div.innerHTML = `
+      <input type="text" value="${s.name}" placeholder="Staff name" onchange="updateStaffName(${idx}, this.value)">
+      <input type="text" inputmode="numeric" maxlength="4" style="width:70px;" value="${s.pin}" placeholder="PIN" onchange="updateStaffPin(${idx}, this.value)">
+      <button class="btn btn-red btn-sm" onclick="removeStaff(${idx})" aria-label="Remove staff member">✕</button>`;
+    box.appendChild(div);
+  });
+}
+
+export function addStaffSetting() {
+  settingsAddStaff();
+  renderSettingsStaff();
+}
+
+export function removeStaff(i) {
+  settingsRemoveStaff(i);
+  renderSettingsStaff();
+}
+
+export function updateStaffName(i, name) {
+  settingsSetStaffName(i, name);
+}
+
+export function updateStaffPin(i, pin) {
+  if(!settingsSetStaffPin(i, pin)) {
+    alert('That PIN is already in use (Admin PIN or another staff member). Choose a different one.');
+  }
+  renderSettingsStaff(); /* re-sync every PIN field to what's actually stored */
 }
 
 export function renderSettingsStrips() {
@@ -1158,4 +1232,91 @@ export function loadKey(key) {
 /* ═══════════════════════════════════════════
    MORE MENU (ledger toolbar)
 ═══════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   ACTIVITY LOG — read-only view over activity-log.js's data.
+   Filters by staff, action type, and a free-text search against the
+   record's date/shift. Paginated the same way Credit Ledger's date
+   list is (alShown grows by 25 on "Show more"), since a busy pharmacy
+   could accumulate thousands of entries over time.
+═══════════════════════════════════════════ */
+const AL_ACTION_LABELS = {
+  'create':      'Created',
+  'save-draft':  'Saved Draft',
+  'save':        'Saved / Closed',
+  'save-final':  'Final Closing Saved',
+  'edit-open':   'Reopened for Edit',
+  'delete':      'Deleted',
+  'archive':     'Archived (Retention)'
+};
+let alShown = 25;
+
+export function populateActivityLogFilters() {
+  const sel = document.getElementById('al-filter-actor');
+  const current = sel.value;
+  const actors = new Set(['Admin']);
+  (db.settings.staff || []).forEach(s => { if(s.name) actors.add(s.name); });
+  alAllEntries().forEach(e => actors.add(e.actor));
+  sel.innerHTML = '<option value="">Everyone</option>' +
+    Array.from(actors).sort().map(a => `<option value="${a}">${a}</option>`).join('');
+  sel.value = current;
+}
+
+export function alShowMore() {
+  alShown += 25;
+  renderActivityLog();
+}
+
+function alKeyLabel(key) {
+  if(!key) return '(no record)';
+  const parts = key.split('_');
+  return `${parts[0]} — ${srLabel(parts[1])}`;
+}
+
+export function renderActivityLog() {
+  const actorFilter  = document.getElementById('al-filter-actor').value;
+  const actionFilter = document.getElementById('al-filter-action').value;
+  const search       = (document.getElementById('al-filter-search').value || '').toLowerCase().trim();
+
+  let entries = alAllEntries();
+  if(actorFilter)  entries = entries.filter(e => e.actor === actorFilter);
+  if(actionFilter) entries = entries.filter(e => e.action === actionFilter);
+  if(search)       entries = entries.filter(e => alKeyLabel(e.key).toLowerCase().includes(search));
+
+  document.getElementById('al-count-badge').textContent = `${entries.length} entr${entries.length===1?'y':'ies'}`;
+
+  const box = document.getElementById('al-entries-container');
+  const shown = entries.slice(0, alShown);
+
+  if(!shown.length) {
+    box.innerHTML = '<div class="al-entry-empty">No activity matches these filters.</div>';
+  } else {
+    box.innerHTML = shown.map(e => {
+      const badgeClass = `al-badge-${e.action}`;
+      const badgeLabel = AL_ACTION_LABELS[e.action] || e.action;
+      const when = new Date(e.ts).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const changesHtml = (e.changes && e.changes.length)
+        ? `<div class="al-entry-changes">${e.changes.map(c => `
+            <div class="al-change-row">
+              <span class="al-change-label">${c.label}</span>
+              <span class="al-change-vals">${c.from} → ${c.to}</span>
+            </div>`).join('')}</div>`
+        : '';
+      return `
+        <div class="al-entry">
+          <div class="al-entry-head">
+            <div class="al-entry-main">
+              <span class="al-entry-title">${alKeyLabel(e.key)}</span>
+              <span class="al-entry-sub">${e.actor} · ${when}</span>
+            </div>
+            <span class="al-entry-badge ${badgeClass}">${badgeLabel}</span>
+          </div>
+          ${changesHtml}
+        </div>`;
+    }).join('');
+  }
+
+  const moreBtn = document.getElementById('al-show-more-btn');
+  moreBtn.classList.toggle('hidden', entries.length <= alShown);
+}
 
