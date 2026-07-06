@@ -598,7 +598,7 @@ export function _printThermalHtml(bodyHtml) {
       .tp-footer { font-size: 9px; color: #555; margin-top: 6px; }
       .tp-rule   { border-top: 1px dashed #000; margin: 4px 0; }
       .tp-row    { display: flex; justify-content: space-between; gap: 6px; padding: 1px 0; font-size: 11.5px; }
-      .tp-row span:first-child { word-break: break-word; padding-right: 4px; }
+      .tp-row span:first-child { word-break: break-word; padding-right: 4px; font-weight: 700; }
       .tp-row span:last-child  { white-space: nowrap; font-weight: 600; }
       .tp-cat    { font-size: 10px; font-weight: 700; text-transform: uppercase; margin-top: 4px; }
       .tp-total  { font-size: 13px; font-weight: 800; }
