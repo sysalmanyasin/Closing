@@ -112,7 +112,42 @@ export const DENOMS = [
 /* ═══════════════════════════════════════════
    THE DATA — db
 ═══════════════════════════════════════════ */
-export let db = repoLoad() || {
+/* Ensures a db object has every settings field the app expects,
+   filling in safe defaults for anything missing. Run once below at
+   load time, AND every time setDB() wholesale-replaces `db` (cloud
+   pull adopt, backup import) — a replacement can bring in an
+   older-shaped settings object (e.g. from before the PIN/staff
+   feature existed), and unlike the very first app load, nothing else
+   would ever re-apply these defaults to it otherwise. */
+function applySettingsDefaults(dbObj) {
+  if(!dbObj.settings) dbObj.settings = {};
+  if(!dbObj.sheets) dbObj.sheets = {};
+  if(!dbObj.settings.namedCredits && dbObj.settings.creditLabels) {
+    dbObj.settings.namedCredits = dbObj.settings.creditLabels.map(l=>({label:l}));
+  }
+  if(!Array.isArray(dbObj.settings.namedCredits)) dbObj.settings.namedCredits = [
+    {label:"Corporate Account"}, {label:"Wholesale Ledger"}, {label:"Third Party Tab"}
+  ];
+  if(!Array.isArray(dbObj.settings.subTiers)) dbObj.settings.subTiers = [
+    {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
+    {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
+    {type:"Branch Tabs",    names:["Johar Town","DHA Branch","Bahria Pool"]}
+  ];
+  if(!Array.isArray(dbObj.settings.strips)) dbObj.settings.strips = [];
+  if(!dbObj.settings.stripGroups) dbObj.settings.stripGroups = ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"];
+  dbObj.settings.strips.forEach(item => { if(item.group === undefined) item.group = ""; });
+  if(!dbObj.settings.bookBrandCode) dbObj.settings.bookBrandCode = "FDPP BT";
+  if(!dbObj.settings.retentionMonths) dbObj.settings.retentionMonths = 6;
+  /* migrate: individual staff PINs — every install used to share one
+     hardcoded PIN ("1218"). That value now lives here as the editable
+     Admin PIN (same default, no behavior change for anyone who hasn't
+     touched Settings yet), plus an empty staff list ready to grow. */
+  if(!dbObj.settings.adminPin) dbObj.settings.adminPin = "1218";
+  if(!Array.isArray(dbObj.settings.staff)) dbObj.settings.staff = [];
+  return dbObj;
+}
+
+export let db = applySettingsDefaults(repoLoad() || {
   settings: {
     bookBrandCode: "FDPP BT",
     namedCredits: [
@@ -141,28 +176,14 @@ export let db = repoLoad() || {
     stripGroups: ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"]
   },
   sheets: {}
-};
-
-/* migrate legacy data */
-if(!db.settings.namedCredits && db.settings.creditLabels) {
-  db.settings.namedCredits = db.settings.creditLabels.map(l=>({label:l}));
-}
-/* migrate: item groups feature — older saved settings won't have these yet */
-if(!db.settings.stripGroups) db.settings.stripGroups = ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"];
-if(db.settings.strips) db.settings.strips.forEach(item => { if(item.group === undefined) item.group = ""; });
-if(!db.settings.bookBrandCode) db.settings.bookBrandCode = "FDPP BT";
-if(!db.settings.retentionMonths) db.settings.retentionMonths = 6;
-/* migrate: individual staff PINs — every install used to share one
-   hardcoded PIN ("1218"). That value now lives here as the editable
-   Admin PIN (same default, no behavior change for anyone who hasn't
-   touched Settings yet), plus an empty staff list ready to grow. */
-if(!db.settings.adminPin) db.settings.adminPin = "1218";
-if(!Array.isArray(db.settings.staff)) db.settings.staff = [];
+});
 
 /* The ONLY sanctioned way to wholesale-replace the db reference.
    Repository (import/restore) and Sync (cloud-adopt) call this
-   instead of reassigning `db` themselves. */
-export function setDB(newDb) { db = newDb; }
+   instead of reassigning `db` themselves. Always re-applies settings
+   defaults, so a replacement can never leave adminPin/staff/etc
+   missing the way a raw reassignment could. */
+export function setDB(newDb) { db = applySettingsDefaults(newDb); }
 
 /* Stable identity for rows in free-form arrays (hsRows, auxStrips,
    auxCredits, deposits, miscRows, namedCredits entries) — assigned
