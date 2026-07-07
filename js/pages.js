@@ -31,28 +31,37 @@ export function goToDashboard() {
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
-  renderFinalSummaryCard();
 }
 
 /* ═══════════════════════════════════════════
    FINAL CLOSING SUMMARY CARD (swipeable carousel)
-   Shows the last 10 saved Final Closings (profileMode === 'final'),
-   newest first. Swipe left/right to move between them; tapping the
-   card opens that record directly (same as Manifest's Open button).
-   Always jumps back to the newest Final whenever it refreshes —
-   so a freshly-saved Final Closing shows up front and center the
-   next time the dashboard is shown. ═══════════════════════════════ */
+   Shows the last 10 saved closings — any mode, newest first — not
+   just ones marked Final. Swipe left/right to move between them;
+   tapping the card opens that record directly (same as Manifest's
+   Open button).
+
+   Carried CC / Total Deposits / Book Bills / Manual Returns are all
+   read straight off whichever record is newest. The Final-aggregation
+   fields (Book Bills, Manual Returns) are computed by calc() in every
+   mode — not only when a closing is marked Final — so they're always
+   present and up to date on the latest saved closing, same as Carried
+   CC and Total Deposits. Restricting the lookup to profileMode ===
+   'final' meant the card could show a stale, older Final closing even
+   after newer shift closings had already carried the numbers forward.
+   Always jumps back to the newest closing whenever it refreshes — so
+   a freshly-saved closing shows up front and center the next time the
+   Closing Book page is opened. ═══════════════════════════════ */
 const fcsState = { keys: [], index: 0 };
 
-function fcsRecentFinalKeys() {
+function fcsRecentClosingKeys() {
   return Object.keys(db.sheets)
-    .filter(k => { const r = db.sheets[k]; return r && r.draft !== true && r.profileMode === 'final'; })
+    .filter(k => { const r = db.sheets[k]; return r && r.draft !== true; })
     .sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)))
     .slice(0, 10);
 }
 
 export function renderFinalSummaryCard() {
-  fcsState.keys  = fcsRecentFinalKeys();
+  fcsState.keys  = fcsRecentClosingKeys();
   fcsState.index = 0;
   fcsShow();
 }
@@ -75,11 +84,15 @@ function fcsShow() {
   const parts = key.split('_');
 
   document.getElementById('fcs-date').textContent = `${parts[0]} — ${srLabel(parts[1])}`;
+  /* Carried CC (Card tab) and Total Deposits (Deposit tab) are saved
+     on every closing, so read them straight off the latest one. */
   document.getElementById('fcs-val-cc').textContent     = clFmt(parseFloat(rec.outPrevCC)  || 0);
   document.getElementById('fcs-val-dep').textContent    = clFmt(parseFloat(rec.outTotalF)  || 0);
-  /* outFinalBooks / outFinalManRet were only added to saved records
-     going forward — older Final Closings saved before this feature
-     won't have them, so show a dash rather than a misleading 0. */
+  /* Book Bills / Manual Returns come from the same latest closing's
+     Final-aggregation card — those fields are computed by calc() in
+     every mode, not only when a closing is marked Final. Older
+     closings saved before this feature existed won't have them, so
+     show a dash rather than a misleading 0. */
   document.getElementById('fcs-val-books').textContent  =
     (rec.outFinalBooks   !== undefined) ? clFmt(parseFloat(rec.outFinalBooks)  || 0) : '—';
   document.getElementById('fcs-val-manret').textContent =
@@ -131,6 +144,7 @@ export function fcsPrev() {
 
 export function goToClosingBook() {
   showPage('page-closing-book');
+  renderFinalSummaryCard();
   if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
 }
 export function goToSettings()  {

@@ -64,37 +64,6 @@
         <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
       </div>
 
-      <!-- ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── -->
-      <div class="card" id="card-final-summary">
-        <div class="fcs-empty hidden" id="fcs-empty">📭 No Final Closing yet.</div>
-        <div id="fcs-body">
-          <div class="fcs-head">
-            <span>📊 Final Closing Summary</span>
-          </div>
-          <div class="fcs-date" id="fcs-date" onclick="openFinalSummaryRecord()"></div>
-          <div class="fcs-viewport" id="fcs-viewport">
-            <div class="fcs-grid" onclick="openFinalSummaryRecord()">
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Carried CC</span>
-                <span class="fcs-stat-val" id="fcs-val-cc"></span>
-              </div>
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Total Deposits</span>
-                <span class="fcs-stat-val" id="fcs-val-dep"></span>
-              </div>
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Book Bills</span>
-                <span class="fcs-stat-val" id="fcs-val-books"></span>
-              </div>
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Manual Returns</span>
-                <span class="fcs-stat-val" id="fcs-val-manret"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- ── CLOUD SYNC CARD ── -->
       <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0f2744 0%,#0d3d2e 100%);border-radius:var(--radius-lg);overflow:hidden;">
 
@@ -775,6 +744,37 @@
         <div>
           <div class="cl-toolbar-title">📖 Closing Book</div>
           <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Every closing, laid out like a printed register</div>
+        </div>
+      </div>
+
+      <!-- ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── -->
+      <div class="card" id="card-final-summary">
+        <div class="fcs-empty hidden" id="fcs-empty">📭 No closings saved yet.</div>
+        <div id="fcs-body">
+          <div class="fcs-head">
+            <span>📊 Latest Closing Summary</span>
+          </div>
+          <div class="fcs-date" id="fcs-date" onclick="openFinalSummaryRecord()"></div>
+          <div class="fcs-viewport" id="fcs-viewport">
+            <div class="fcs-grid" onclick="openFinalSummaryRecord()">
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Carried CC</span>
+                <span class="fcs-stat-val" id="fcs-val-cc"></span>
+              </div>
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Total Deposits</span>
+                <span class="fcs-stat-val" id="fcs-val-dep"></span>
+              </div>
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Book Bills</span>
+                <span class="fcs-stat-val" id="fcs-val-books"></span>
+              </div>
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Manual Returns</span>
+                <span class="fcs-stat-val" id="fcs-val-manret"></span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
