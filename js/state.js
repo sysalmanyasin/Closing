@@ -223,6 +223,18 @@ export function checkPin(pin) {
   return false;
 }
 
+/* Stricter gate for Admin-only areas (currently: the Settings tab).
+   Unlike checkPin(), this does NOT accept a staff member's PIN — only
+   the Master override or the configurable Admin PIN unlock it. Used
+   wherever staff should be able to identify themselves elsewhere in
+   the app but must not be able to reach Settings. */
+export function checkAdminPin(pin) {
+  if(!pin) return false;
+  if(pin === MASTER_PIN) { session.currentActor = "Admin"; return true; }
+  if(pin === db.settings.adminPin) { session.currentActor = "Admin"; return true; }
+  return false;
+}
+
 /* Used by Settings when adding/editing a PIN, so two people (or a
    staff member and the Admin PIN) never end up sharing one identity.
    excludeStaffIdx lets a staff member's own current PIN pass the

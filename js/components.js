@@ -1112,6 +1112,7 @@ document.addEventListener('keydown', (e) => {
 
 
 export function openEditModal(key) {
+  key = key || session.activeKey;
   compState.editModalKey = key;
   const currentMode = db.sheets[key]?.profileMode || 'shift';
   editModalSelectMode(currentMode);

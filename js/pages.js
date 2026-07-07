@@ -5,9 +5,9 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-import { SHIFTS, checkPin, db, getSeq, srLabel, session } from './state.js';
+import { SHIFTS, checkAdminPin, checkPin, db, getSeq, srLabel, session } from './state.js';
 import {
-  initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
+  aggregateSinceLastFinal, initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
   settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
   settingsRemoveStaff, settingsRemoveStrip, settingsRemoveStripGroup,
   settingsRenameStripGroup, settingsSetAdminPin, settingsSetBookBrandCode,
@@ -88,15 +88,28 @@ function fcsShow() {
      on every closing, so read them straight off the latest one. */
   document.getElementById('fcs-val-cc').textContent     = clFmt(parseFloat(rec.outPrevCC)  || 0);
   document.getElementById('fcs-val-dep').textContent    = clFmt(parseFloat(rec.outTotalF)  || 0);
-  /* Book Bills / Manual Returns come from the same latest closing's
-     Final-aggregation card — those fields are computed by calc() in
-     every mode, not only when a closing is marked Final. Older
-     closings saved before this feature existed won't have them, so
-     show a dash rather than a misleading 0. */
-  document.getElementById('fcs-val-books').textContent  =
-    (rec.outFinalBooks   !== undefined) ? clFmt(parseFloat(rec.outFinalBooks)  || 0) : '—';
-  document.getElementById('fcs-val-manret').textContent =
-    (rec.outFinalManRet  !== undefined) ? clFmt(parseFloat(rec.outFinalManRet) || 0) : '—';
+
+  /* Book Bills / Manual Returns: don't trust rec.outFinalBooks /
+     rec.outFinalManRet — those are only as fresh as whatever was on
+     screen the moment this record was last saved, and on some saved
+     records they're missing entirely (saved before the Final card
+     existed, or saved from a view where those hidden fields hadn't
+     been computed yet). Recompute them the same way calc() does,
+     straight from stored history, so the card is always correct
+     regardless of what happened to be captured at save time. */
+  const book1 = parseFloat(rec.inBook1) || 0, book2 = parseFloat(rec.inBook2) || 0;
+  const ret1  = parseFloat(rec.posRet1) || 0, ret2  = parseFloat(rec.posRet2) || 0, ret3 = parseFloat(rec.posRet3) || 0;
+  let totalBooks, totalManRet;
+  if(rec.profileMode === 'final') {
+    totalBooks  = book1 + book2;
+    totalManRet = ret1 + ret2 + ret3;
+  } else {
+    const agg   = aggregateSinceLastFinal(parts[0], parts[1]);
+    totalBooks  = agg.totalBookBills     + book1 + book2;
+    totalManRet = agg.totalManualReturns + ret1 + ret2 + ret3;
+  }
+  document.getElementById('fcs-val-books').textContent  = clFmt(totalBooks);
+  document.getElementById('fcs-val-manret').textContent = clFmt(totalManRet);
 }
 
 /* Tapping the card (date line or the stat grid) opens that record,
@@ -148,8 +161,8 @@ export function goToClosingBook() {
   if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
 }
 export function goToSettings()  {
-  let pin = prompt("Enter settings PIN:");
-  if(!checkPin(pin)) { alert("Incorrect PIN."); return; }
+  let pin = prompt("Enter Admin PIN:");
+  if(!checkAdminPin(pin)) { alert("Incorrect PIN. Settings is Admin-only."); return; }
   showPage('page-settings');
   buildSettingsUI();
 }
