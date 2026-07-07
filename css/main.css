@@ -334,7 +334,7 @@
 
   /* ── PAGINATION STRIP ── */
   .pager {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: center;
     background: var(--surface); padding: 10px 16px; border-bottom: 1px solid var(--border);
   }
   .pager-label { font-size: 0.82rem; font-weight: 700; color: var(--slate); font-family: 'JetBrains Mono', monospace; }
