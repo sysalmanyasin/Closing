@@ -836,69 +836,6 @@ export function applyOrOverride(id, baseVal) {
 }
 
 /* ═══════════════════════════════════════════
-   LEDGER PAGINATION
-═══════════════════════════════════════════ */
-export function moveLedgerShift(n) {
-  if(!session.activeKey) return;
-  autoSave();
-  const parts = session.activeKey.split('_');
-  const dir = n > 0 ? 1 : -1;
-
-  /* ── Scan in the requested direction for the nearest slot
-     that has a real saved record. Backward navigation must
-     never land on / create an empty slot. ── */
-  let cur = {date: parts[0], shift: parts[1]};
-  let found = null;
-  for(let i = 0; i < 400; i++) {
-    cur = timelineStep(cur.date, cur.shift, dir);
-    if(getRealSheet(cur.key)) { found = cur; break; }
-  }
-
-  if(!found) {
-    alert(dir < 0
-      ? '⛔ No earlier saved shift found in history.'
-      : '⛔ No later saved shift found in history.');
-    return;
-  }
-
-  /* ── FORWARD-OPEN GUARD on pagination ──────────────────────────
-     When navigating forward (n > 0), block if the current sheet
-     is not yet saved (still a draft or unsaved). */
-  if(n > 0) {
-    const currSheet = db.sheets[session.activeKey];
-    const currIsDraft = currSheet && currSheet.draft === true;
-    const currIsUnsaved = !currSheet;
-    if(currIsDraft || currIsUnsaved) {
-      alert(`⛔ Cannot navigate forward.\n\nThe current closing "${parts[0]} — ${srLabel(parts[1])}" has not been saved yet.\n\nPress "Save & Close This Shift" first.`);
-      return;
-    }
-  }
-
-  session.activeKey   = found.key;
-  session.activeMode  = db.sheets[session.activeKey]?.profileMode || 'shift';
-  session.overrides   = db.sheets[session.activeKey]?.overrides || {};
-  initLedger(found.date, found.shift, session.activeMode);
-}
-
-export function autoSave() {
-  try {
-    calc();
-    if(!session.activeKey) return;
-    const existing = db.sheets[session.activeKey];
-    /* Bug fix: this used to call saveSheet(true), which always sets
-       draft:false + locked:true — silently promoting an in-progress
-       closing to "saved & final" just because Prev/Next Shift was
-       clicked. That also defeated the forward-navigation guard below,
-       since it reads the draft flag *after* autoSave had already
-       flipped it to false. Auto-persisting on page-turn should behave
-       like the explicit "Save as Draft" button, and an already
-       finalized (locked) closing shouldn't be touched at all. */
-    if(existing && existing.locked === true) return;
-    saveDraft();
-  } catch(e) { /* silent — best-effort */ }
-}
-
-/* ═══════════════════════════════════════════
    POPULATE NAME DROPDOWN
 ═══════════════════════════════════════════ */
 export function populateNameDropdown(num) {

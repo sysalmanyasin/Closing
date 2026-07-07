@@ -42,7 +42,6 @@ Object.assign(window, {
   deleteCurrentSheet: Actions.deleteCurrentSheet,
   deleteSheet:       Actions.deleteSheet,
   insertHandoverClosing: Actions.insertHandoverClosing,
-  moveLedgerShift:   Actions.moveLedgerShift,
   saveDraft:         Actions.saveDraft,
   setOverride:       Actions.setOverride,
   settingsSetNamedCreditLabel: Actions.settingsSetNamedCreditLabel,
