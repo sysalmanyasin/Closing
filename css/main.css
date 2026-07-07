@@ -423,71 +423,6 @@
   .flex-between { display: flex; justify-content: space-between; align-items: center; }
 
   /* ═══════════════════════════════════════
-     NUMPAD OVERLAY
-  ═══════════════════════════════════════ */
-  #numpad-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.45);
-    display: flex; align-items: flex-end; justify-content: center;
-    z-index: 9999; padding-bottom: 0;
-    animation: fadeIn .15s ease;
-  }
-  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-
-  .numpad-sheet {
-    background: var(--white);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    width: 100%; max-width: 480px;
-    padding: 0 0 env(safe-area-inset-bottom, 12px);
-    box-shadow: 0 -8px 32px rgba(0,0,0,.2);
-    animation: slideUp .2s ease;
-  }
-  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-  .numpad-header {
-    padding: 14px 20px 10px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .numpad-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .numpad-display {
-    font-size: 1.8rem; font-weight: 700; color: var(--navy);
-    font-family: 'JetBrains Mono', monospace;
-    padding: 10px 20px 14px;
-    text-align: right; min-height: 52px;
-    border-bottom: 2px solid var(--teal);
-    letter-spacing: -1px;
-  }
-  .numpad-display.has-val { color: var(--navy); }
-  .numpad-display.empty-val { color: var(--muted); }
-
-  .numpad-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 1px; background: var(--border); margin: 0;
-    padding: 0;
-  }
-  .np-btn {
-    background: var(--white); border: none; padding: 18px 0;
-    font-size: 1.15rem; font-weight: 600; cursor: pointer;
-    color: var(--navy); font-family: 'Inter', sans-serif;
-    transition: background .1s; -webkit-tap-highlight-color: transparent;
-  }
-  .np-btn:active { background: var(--teal-light); }
-  .np-btn.np-zero { grid-column: span 2; }
-  .np-btn.np-back { background: #f8fafc; color: var(--red); font-size: 1.3rem; }
-  .np-btn.np-clear { background: var(--red-pale); color: var(--red); font-size: 0.85rem; font-weight: 700; }
-  .np-btn.np-confirm {
-    background: var(--teal); color: #fff; font-size: 0.85rem; font-weight: 700;
-    grid-column: span 3;
-    padding: 16px 0;
-  }
-  .np-btn.np-confirm:active { background: var(--teal-dark); }
-  .numpad-close-btn {
-    background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--muted);
-    padding: 4px 8px; border-radius: var(--radius-sm);
-  }
-  .numpad-close-btn:hover { color: var(--navy); background: var(--surface); }
-
-  /* ═══════════════════════════════════════
      MODAL PICKER OVERLAY (for selects)
   ═══════════════════════════════════════ */
   #modal-picker-overlay {
@@ -689,11 +624,6 @@
     font-size:7px; color:#9a9484; border-top:1px solid #e2ddd2;
   }
   .ps-sheet-scope .ps-foot-page { font-family:'JetBrains Mono',monospace; }
-  @media print {
-    #print-sheet { display:block !important; position:static !important; z-index:auto !important; }
-    #print-sheet .ps-page { page-break-after: always; }
-    .view-pane:not(#print-sheet) { display:none !important; }
-  }
   /* ── COMPACT LEDGER TOOLBAR ── */
   .ledger-toolbar {
     display: flex; align-items: center; justify-content: space-between;
@@ -752,9 +682,36 @@
     body { padding: 0; background: #fff; }
     .shell { box-shadow: none; border-radius: 0; }
     #print-sheet { display: block !important; position: static !important; z-index: auto !important; width: 100% !important; }
+    #print-sheet .ps-page { page-break-after: always; }
     .view-pane:not(#print-sheet) { display: none !important; }
     .app-bar, .pager, .ledger-header, .btn-row, #pdf-status { display: none !important; }
   }
+
+  /* ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── */
+  .fcs-empty {
+    padding: 20px 16px; text-align: center; color: var(--muted); font-size: 0.85rem;
+  }
+  #fcs-body.hidden, .fcs-empty.hidden { display: none; }
+  .fcs-head {
+    padding: 12px 16px 4px;
+    font-size: 0.8rem; font-weight: 700; color: var(--slate);
+    text-transform: uppercase; letter-spacing: .6px;
+  }
+  .fcs-date {
+    padding: 0 16px 10px; font-size: 0.82rem; font-weight: 600; color: var(--navy); cursor: pointer;
+  }
+  .fcs-viewport { overflow: hidden; touch-action: pan-y; }
+  .fcs-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+    background: var(--border); margin: 0 16px 16px; border-radius: var(--radius-md);
+    overflow: hidden; cursor: pointer;
+  }
+  .fcs-stat {
+    background: var(--white); padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .fcs-stat-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+  .fcs-stat-val { font-size: 1rem; font-weight: 800; color: var(--navy); font-family: 'JetBrains Mono', monospace; }
 
   /* ── CLOUD SYNC CARD ── */
   .sync-card {
@@ -1301,12 +1258,13 @@
 .img-reader-viewport {
   flex: 1 1 auto; min-height: 0; position: relative;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; touch-action: pan-y; border-radius: var(--radius-md);
+  overflow: hidden; touch-action: none; border-radius: var(--radius-md);
   background: #1e293b;
 }
 .img-reader-img {
   max-width: 100%; max-height: 100%; object-fit: contain;
   box-shadow: 0 6px 24px rgba(0,0,0,.4); background: #fff;
+  transform-origin: center center; will-change: transform;
 }
 .img-reader-status {
   color: #cbd5e1; font-size: 0.9rem; font-weight: 600;

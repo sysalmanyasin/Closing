@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    FLOOR 4 — COMPONENTS
-   Pure UI building blocks: numpad, modal picker, row builders,
-   toast, print sheet, PDF/WhatsApp export, edit modal, more menu.
+   Pure UI building blocks: modal picker, row builders, toast,
+   print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
 import { DENOMS, checkPin, daySlots, db, genRowId, srLabel, session } from './state.js';
@@ -17,9 +17,6 @@ import { dbxInit } from './sync.js';
 /* Floor 4's own transient UI state — file-local, never read by
    another floor. One object instead of scattered globals. */
 const compState = {
-  numpadTarget:   null,
-  numpadRawStr:   "",
-  numpadCallback: null,
   pickerTarget:   null,
   pickerCallback: null,
   namedEntrySeq:  {},
@@ -28,53 +25,8 @@ const compState = {
 };
 
 
-export function openNumpad(inputEl, label, onConfirm) {
-  compState.numpadTarget   = inputEl;
-  compState.numpadCallback = onConfirm || null;
-  compState.numpadRawStr   = (inputEl.value && inputEl.value !== "0") ? String(inputEl.value) : "";
-  document.getElementById('numpad-label').textContent = label || inputEl.closest('.row')?.querySelector('label,span.row-lbl')?.textContent?.trim() || "Enter value";
-  renderNumpadDisplay();
-  document.getElementById('numpad-overlay').classList.remove('hidden');
-}
-
-export function renderNumpadDisplay() {
-  const el = document.getElementById('numpad-display');
-  el.textContent = compState.numpadRawStr || "0";
-  el.className = 'numpad-display ' + (compState.numpadRawStr ? 'has-val' : 'empty-val');
-}
-
-export function npKey(k) {
-  if(k === 'back')  { compState.numpadRawStr = compState.numpadRawStr.slice(0,-1); }
-  else if(k === 'clear') { compState.numpadRawStr = ""; }
-  else if(k === '.') {
-    if(!compState.numpadRawStr.includes('.')) compState.numpadRawStr += (compState.numpadRawStr ? '.' : '0.');
-  }
-  else {
-    if(compState.numpadRawStr.length < 12) compState.numpadRawStr += k;
-  }
-  renderNumpadDisplay();
-}
-
-export function npConfirm() {
-  if(compState.numpadTarget) {
-    compState.numpadTarget.value = compState.numpadRawStr || "0";
-    compState.numpadTarget.dispatchEvent(new Event('input', {bubbles:true}));
-  }
-  if(compState.numpadCallback) compState.numpadCallback(compState.numpadRawStr || "0");
-  closeNumpad();
-}
-
-export function closeNumpad() {
-  document.getElementById('numpad-overlay').classList.add('hidden');
-  compState.numpadTarget = null; compState.numpadRawStr = ""; compState.numpadCallback = null;
-}
-
-export function numpadOutsideClick(e) {
-  if(e.target === document.getElementById('numpad-overlay')) closeNumpad();
-}
-
-/* attach numpad to a number input — NUMPAD DISABLED, using native keyboard */
-export function attachNumpad(el, label) {
+/* attach a number input for native keyboard entry (custom numpad UI removed) */
+export function attachNumpad(el, _label) {
   /* Restore normal input behaviour: remove any readonly/inputmode restrictions */
   el.removeAttribute('inputmode');
   el.removeAttribute('readonly');
@@ -377,7 +329,7 @@ export function delRow(id, recalc) {
   if(recalc) calc();
 }
 
-export function openTierPicker(num) { /* triggered by change, handled via mousedown */ }
+export function openTierPicker(_num) { /* triggered by change, handled via mousedown */ }
 
 /* ═══════════════════════════════════════════
    LEDGER INIT
@@ -912,6 +864,42 @@ function renderClosingImage(key) {
   return result;
 }
 
+/* ── PINCH-TO-ZOOM state for the fullscreen image reader ──
+   Kept separate from imgState (which is about *which* record/page is
+   showing) — this is purely the current pan/zoom transform applied
+   on top of whatever image is currently displayed. Reset to 1x
+   whenever the record changes or the viewer closes. */
+const imgZoomState = { scale: 1, tx: 0, ty: 0 };
+
+function applyImageZoom() {
+  const img = document.getElementById('img-reader-img');
+  if(img) img.style.transform = `translate(${imgZoomState.tx}px, ${imgZoomState.ty}px) scale(${imgZoomState.scale})`;
+}
+
+function resetImageZoom(animate) {
+  imgZoomState.scale = 1; imgZoomState.tx = 0; imgZoomState.ty = 0;
+  const img = document.getElementById('img-reader-img');
+  if(!img) return;
+  if(animate) {
+    img.style.transition = 'transform .2s ease';
+    applyImageZoom();
+    setTimeout(() => { img.style.transition = ''; }, 200);
+  } else {
+    img.style.transition = '';
+    applyImageZoom();
+  }
+}
+
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+/* Keep panned image from drifting entirely off-screen once zoomed */
+function clampImageZoomTranslate(vpRect) {
+  const maxX = (imgZoomState.scale - 1) * vpRect.width  / 2;
+  const maxY = (imgZoomState.scale - 1) * vpRect.height / 2;
+  imgZoomState.tx = clamp(imgZoomState.tx, -maxX, maxX);
+  imgZoomState.ty = clamp(imgZoomState.ty, -maxY, maxY);
+}
+
 export function openImageViewer(startKey) {
   imgState.keys  = imgRecentKeys(startKey);
   imgState.index = Math.max(0, imgState.keys.indexOf(startKey));
@@ -921,10 +909,12 @@ export function openImageViewer(startKey) {
 }
 
 export function closeImageViewer() {
+  resetImageZoom(false);
   document.getElementById('image-reader').classList.add('hidden');
 }
 
 async function imageViewerShow() {
+  resetImageZoom(false);
   const key = imgState.keys[imgState.index];
   if(!key) return;
   const img     = document.getElementById('img-reader-img');
@@ -1016,34 +1006,97 @@ export async function pdfModalShareImage() {
   }
 }
 
-/* ── Swipe to move between records, scoped to #img-reader-viewport,
-   same touchstart/move/end shape as the Closing Book reader's own
-   gesture handling in closing-book.js — kept independent (this file
-   never imports from closing-book.js, and vice versa) so each
-   reader's internal state stays genuinely private to its own file. ── */
+/* ── Touch gestures, scoped to #img-reader-viewport:
+   - One finger, not zoomed  → swipe left/right to move between records
+     (same touchstart/end shape as the Closing Book reader's own
+     gesture handling in closing-book.js — kept independent, this
+     file never imports from closing-book.js, and vice versa).
+   - Two fingers             → pinch to zoom (1x–4x), anchored on the
+     midpoint between the fingers.
+   - One finger, zoomed in   → drag to pan around the zoomed image.
+   - Double-tap              → toggle between 1x and 2.5x.
+   Zoom/pan state (imgZoomState) resets to 1x whenever the record
+   changes or the reader closes, so it never leaks between images. ── */
 (function initImageViewerGestures() {
-  const vp = document.getElementById('img-reader-viewport');
-  if(!vp) return;
-  let startX = 0, startY = 0, swiping = false;
+  const vp  = document.getElementById('img-reader-viewport');
+  const img = document.getElementById('img-reader-img');
+  if(!vp || !img) return;
+
+  let mode = null; /* 'swipe' | 'pinch' | 'pan' */
+  let startX = 0, startY = 0;
+  let pinchStartDist = 0, pinchStartScale = 1;
+  let panStartX = 0, panStartY = 0, panStartTx = 0, panStartTy = 0;
+  let lastTapAt = 0;
+
+  const touchDist = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
 
   vp.addEventListener('touchstart', (e) => {
-    if(e.touches.length === 1) {
-      swiping = true;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
+    if(e.touches.length === 2) {
+      mode = 'pinch';
+      pinchStartDist  = touchDist(e.touches[0], e.touches[1]);
+      pinchStartScale = imgZoomState.scale;
+      return;
+    }
+    if(e.touches.length !== 1) { mode = null; return; }
+
+    const now = Date.now();
+    if(now - lastTapAt < 300) {
+      /* double-tap: toggle zoom */
+      lastTapAt = 0;
+      mode = null;
+      if(imgZoomState.scale > 1) {
+        resetImageZoom(true);
+      } else {
+        imgZoomState.scale = 2.5;
+        img.style.transition = 'transform .2s ease';
+        applyImageZoom();
+        setTimeout(() => { img.style.transition = ''; }, 200);
+      }
+      return;
+    }
+    lastTapAt = now;
+
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    if(imgZoomState.scale > 1) {
+      mode = 'pan';
+      panStartX = startX; panStartY = startY;
+      panStartTx = imgZoomState.tx; panStartTy = imgZoomState.ty;
     } else {
-      swiping = false;
+      mode = 'swipe';
+    }
+  }, { passive: true });
+
+  vp.addEventListener('touchmove', (e) => {
+    if(mode === 'pinch' && e.touches.length === 2) {
+      const d = touchDist(e.touches[0], e.touches[1]);
+      imgZoomState.scale = clamp(pinchStartScale * (d / pinchStartDist), 1, 4);
+      clampImageZoomTranslate(vp.getBoundingClientRect());
+      applyImageZoom();
+    } else if(mode === 'pan' && e.touches.length === 1) {
+      imgZoomState.tx = panStartTx + (e.touches[0].clientX - panStartX);
+      imgZoomState.ty = panStartTy + (e.touches[0].clientY - panStartY);
+      clampImageZoomTranslate(vp.getBoundingClientRect());
+      applyImageZoom();
     }
   }, { passive: true });
 
   vp.addEventListener('touchend', (e) => {
-    if(!swiping || e.changedTouches.length !== 1) { swiping = false; return; }
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if(dx < 0) imageViewerNext(); else imageViewerPrev();
+    if(mode === 'pinch') {
+      if(imgZoomState.scale <= 1.02) resetImageZoom(true);
+      mode = null;
+      return;
     }
-    swiping = false;
+    if(mode === 'pan') { mode = null; return; }
+
+    if(mode === 'swipe' && e.changedTouches.length === 1) {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if(dx < 0) imageViewerNext(); else imageViewerPrev();
+      }
+    }
+    mode = null;
   }, { passive: true });
 })();
 

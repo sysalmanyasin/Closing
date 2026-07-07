@@ -64,8 +64,40 @@
         <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
       </div>
 
+      <!-- ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── -->
+      <div class="card" id="card-final-summary">
+        <div class="fcs-empty hidden" id="fcs-empty">📭 No Final Closing yet.</div>
+        <div id="fcs-body">
+          <div class="fcs-head">
+            <span>📊 Final Closing Summary</span>
+          </div>
+          <div class="fcs-date" id="fcs-date" onclick="openFinalSummaryRecord()"></div>
+          <div class="fcs-viewport" id="fcs-viewport">
+            <div class="fcs-grid" onclick="openFinalSummaryRecord()">
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Carried CC</span>
+                <span class="fcs-stat-val" id="fcs-val-cc"></span>
+              </div>
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Total Deposits</span>
+                <span class="fcs-stat-val" id="fcs-val-dep"></span>
+              </div>
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Book Bills</span>
+                <span class="fcs-stat-val" id="fcs-val-books"></span>
+              </div>
+              <div class="fcs-stat">
+                <span class="fcs-stat-lbl">Manual Returns</span>
+                <span class="fcs-stat-val" id="fcs-val-manret"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── CLOUD SYNC CARD ── -->
       <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0f2744 0%,#0d3d2e 100%);border-radius:var(--radius-lg);overflow:hidden;">
+
         <div class="card-head" onclick="toggleCard('card-cloud-sync')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <div class="sync-card-icon" style="font-size:1.3rem;">☁️</div>
@@ -856,27 +888,6 @@
   <!-- /PAGE 6 -->
 
 </div><!-- /shell -->
-
-<!-- ═══ NUMPAD OVERLAY ═══ -->
-<div id="numpad-overlay" class="hidden" onclick="numpadOutsideClick(event)" role="dialog" aria-modal="true" aria-label="Number entry">
-  <div class="numpad-sheet" onclick="event.stopPropagation()">
-    <div class="numpad-header">
-      <span class="numpad-label" id="numpad-label">Enter value</span>
-      <button class="numpad-close-btn" onclick="closeNumpad()" aria-label="Close numpad">✕</button>
-    </div>
-    <div class="numpad-display" id="numpad-display">0</div>
-    <div class="numpad-grid">
-      <button class="np-btn" onclick="npKey('7')">7</button><button class="np-btn" onclick="npKey('8')">8</button><button class="np-btn" onclick="npKey('9')">9</button>
-      <button class="np-btn" onclick="npKey('4')">4</button><button class="np-btn" onclick="npKey('5')">5</button><button class="np-btn" onclick="npKey('6')">6</button>
-      <button class="np-btn" onclick="npKey('1')">1</button><button class="np-btn" onclick="npKey('2')">2</button><button class="np-btn" onclick="npKey('3')">3</button>
-      <button class="np-btn np-zero" onclick="npKey('0')">0</button>
-      <button class="np-btn" onclick="npKey('.')">·</button>
-      <button class="np-btn np-back" onclick="npKey('back')" aria-label="Backspace">⌫</button>
-      <button class="np-btn np-clear" onclick="npKey('clear')">CLEAR</button>
-      <button class="np-btn np-confirm" onclick="npConfirm()">✓ Confirm</button>
-    </div>
-  </div>
-</div>
 
 <!-- ═══ MODAL PICKER OVERLAY ═══ -->
 <div id="modal-picker-overlay" class="hidden" onclick="closeModalPicker()" role="dialog" aria-modal="true">

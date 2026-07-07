@@ -6,7 +6,7 @@
 
 import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
 import { db } from './state.js';
-import { buildCalendar, renderManifest } from './pages.js';
+import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
 
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const DBX_APP_KEY_STORE   = 'dropbox_app_key';
@@ -432,7 +432,7 @@ export async function syncPushToCloud(manual = false) {
 }
 
 /* ── PULL: Cloud → Local ────────────────────────────────── */
-export async function syncPullFromCloud(manual = false) {
+export async function syncPullFromCloud(_manual = false) {
   if(!dbxState.client) return;
   dbxSetBusy(true);
   dbxSetStatus('Checking for updates…', 'busy', true);
@@ -469,6 +469,7 @@ export async function syncPullFromCloud(manual = false) {
       /* Refresh live UI */
       buildCalendar();
       renderManifest();
+      renderFinalSummaryCard();
       const ts = new Date().toLocaleTimeString('en-PK');
       dbxSetStatus(`Pulled from cloud at ${ts} (${cloudSheetCount} records)`, 'ok');
       if(keptLocalSettings) syncPushToCloud(false); /* cloud's settings were stale — push the corrected copy back up */

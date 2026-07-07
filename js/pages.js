@@ -31,7 +31,104 @@ export function goToDashboard() {
   showPage('page-dashboard');
   buildCalendar();
   renderManifest();
+  renderFinalSummaryCard();
 }
+
+/* ═══════════════════════════════════════════
+   FINAL CLOSING SUMMARY CARD (swipeable carousel)
+   Shows the last 10 saved Final Closings (profileMode === 'final'),
+   newest first. Swipe left/right to move between them; tapping the
+   card opens that record directly (same as Manifest's Open button).
+   Always jumps back to the newest Final whenever it refreshes —
+   so a freshly-saved Final Closing shows up front and center the
+   next time the dashboard is shown. ═══════════════════════════════ */
+const fcsState = { keys: [], index: 0 };
+
+function fcsRecentFinalKeys() {
+  return Object.keys(db.sheets)
+    .filter(k => { const r = db.sheets[k]; return r && r.draft !== true && r.profileMode === 'final'; })
+    .sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)))
+    .slice(0, 10);
+}
+
+export function renderFinalSummaryCard() {
+  fcsState.keys  = fcsRecentFinalKeys();
+  fcsState.index = 0;
+  fcsShow();
+}
+
+function fcsShow() {
+  const body  = document.getElementById('fcs-body');
+  const empty = document.getElementById('fcs-empty');
+  if(!body || !empty) return;
+
+  if(!fcsState.keys.length) {
+    body.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+  body.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  const key   = fcsState.keys[fcsState.index];
+  const rec   = db.sheets[key];
+  const parts = key.split('_');
+
+  document.getElementById('fcs-date').textContent = `${parts[0]} — ${srLabel(parts[1])}`;
+  document.getElementById('fcs-val-cc').textContent     = clFmt(parseFloat(rec.outPrevCC)  || 0);
+  document.getElementById('fcs-val-dep').textContent    = clFmt(parseFloat(rec.outTotalF)  || 0);
+  /* outFinalBooks / outFinalManRet were only added to saved records
+     going forward — older Final Closings saved before this feature
+     won't have them, so show a dash rather than a misleading 0. */
+  document.getElementById('fcs-val-books').textContent  =
+    (rec.outFinalBooks   !== undefined) ? clFmt(parseFloat(rec.outFinalBooks)  || 0) : '—';
+  document.getElementById('fcs-val-manret').textContent =
+    (rec.outFinalManRet  !== undefined) ? clFmt(parseFloat(rec.outFinalManRet) || 0) : '—';
+}
+
+/* Tapping the card (date line or the stat grid) opens that record,
+   same as Manifest's "Open" button. */
+export function openFinalSummaryRecord() {
+  const key = fcsState.keys[fcsState.index];
+  if(key) loadKey(key);
+}
+
+export function fcsNext() {
+  if(fcsState.index < fcsState.keys.length - 1) { fcsState.index++; fcsShow(); }
+}
+export function fcsPrev() {
+  if(fcsState.index > 0) { fcsState.index--; fcsShow(); }
+}
+
+/* Swipe gesture, scoped to #fcs-viewport — same touchstart/end shape
+   used elsewhere (Closing Book reader, Image viewer) for consistency;
+   each reader's gesture state stays private to its own file. */
+(function initFinalSummarySwipe() {
+  const vp = document.getElementById('fcs-viewport');
+  if(!vp) return;
+  let startX = 0, startY = 0, swiping = false;
+
+  vp.addEventListener('touchstart', (e) => {
+    if(e.touches.length === 1) {
+      swiping = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    } else {
+      swiping = false;
+    }
+  }, { passive: true });
+
+  vp.addEventListener('touchend', (e) => {
+    if(!swiping || e.changedTouches.length !== 1) { swiping = false; return; }
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if(dx < 0) fcsNext(); else fcsPrev();
+    }
+    swiping = false;
+  }, { passive: true });
+})();
+
 export function goToClosingBook() {
   showPage('page-closing-book');
   if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
@@ -113,7 +210,6 @@ export function clSwitchMode(mode) {
 export function renderCreditLedger() {
   if(clPageState.activeMode === 'misc') { renderMiscLedgerInternal(); return; }
   clEnsureArray();
-  const filterLbl = document.getElementById('cl-filter-select')?.value || '';
 
   /* Rebuild filter dropdown */
   const filterSel = document.getElementById('cl-filter-select');

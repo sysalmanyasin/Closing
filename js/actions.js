@@ -13,7 +13,7 @@ import {
   addNamedAccountBlock, addNamedCreditEntryRow, addTierCreditRow,
   attachNumpad, g, getRealSheet, set, showSaveAction, timelineStep, val
 } from './components.js';
-import { buildCalendar, goToDashboard, refreshRetentionStatus, renderManifest, showPage } from './pages.js';
+import { buildCalendar, goToDashboard, refreshRetentionStatus, renderFinalSummaryCard, renderManifest, showPage } from './pages.js';
 import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
@@ -259,7 +259,6 @@ export function setLockedState(locked) {
 export function pullPreviousShift(ds, shift, mode) {
   const prev      = timelineStep(ds, shift, -1);
   const hs        = getRealSheet(prev.key);
-  const dayChanged = (ds !== prev.date);
 
   if(!hs) {
     ['out-prev-cc','out-prev-credit','out-prev-dep','out-prev-cash'].forEach(id => set(id,0));
@@ -557,7 +556,6 @@ export function calc() {
 
   /* POS */
   const sysCash    = val('in-sys-cash');
-  const lastBillAmt = val('in-last-bill-amt');
   const lastBillNum = parseInt(g('in-last-bill-num')?.value)||0;
   const compSale   = val('in-comp-sale');
   const alfalah    = val('in-alfalah');
@@ -940,6 +938,8 @@ export function buildSheetRecord() {
     finalSysReturns: val('in-final-sys-returns'),
     finalNetSale:    val('out-final-net-sale'),
     finalNetSaleAdj: val('out-final-net-sale-adj'),
+    outFinalBooks:   val('out-final-books'),
+    outFinalManRet:  val('out-final-man-ret'),
     finalNetCash:    val('out-final-net-cash'),
     finalNetCashAdj: val('out-final-net-cash-adj'),
     finalDiff:       val('out-final-diff'),
@@ -1163,7 +1163,7 @@ export function flushInputs() {
 /* ═══════════════════════════════════════════
    CASCADE DOWNSTREAM UPDATES
 ═══════════════════════════════════════════ */
-export function cascadeDownstream(originKey) {
+export function cascadeDownstream(_originKey) {
   /* NOTE: downstream sheets are immutable snapshots once saved (see session.isSavedSheet).
      We deliberately do NOT recompute their "carried from previous" fields here —
      doing so previously caused double-counted deposits/credits when a downstream
@@ -1290,7 +1290,7 @@ export function deleteSheet(key) {
   delete db.sheets[key];
   persist();
   if(session.activeKey === key) { session.activeKey = null; goToDashboard(); }
-  else { renderManifest(); buildCalendar(); }
+  else { renderManifest(); buildCalendar(); renderFinalSummaryCard(); }
 }
 
 /* Change a saved sheet's shift/final profile mode (used when

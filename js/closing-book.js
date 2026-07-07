@@ -53,7 +53,6 @@ export function cbIsAssembling() { return cbState.assemblyMode; }
 /* ── Defaults when the tab is opened ─────────────────────── */
 export function initClosingBookDefaults() {
   const fromEl = document.getElementById('cb-from-date');
-  const toEl   = document.getElementById('cb-to-date');
   if(fromEl && !fromEl.value) setClosingBookShortcut(3);
 }
 
