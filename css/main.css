@@ -1280,3 +1280,92 @@
 .img-reader-nav:disabled { opacity: .3; pointer-events: none; }
 .img-reader-footer { margin-top: 10px; }
 .img-reader-footer .btn { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════
+   DESKTOP LAYOUT
+   Everything above this point is untouched — the app still
+   looks/behaves exactly the same on phones. These rules only
+   kick in on wider viewports so the app stops looking like a
+   phone screen stretched into the middle of a big monitor.
+═══════════════════════════════════════════════════════════ */
+@media (min-width: 861px) {
+
+  body {
+    padding: 40px 24px 60px;
+    background: #e2e8f0;
+  }
+  body.topbar-on { padding-top: 70px; }
+
+  /* Give the whole app room to breathe on real screens instead of
+     staying pinned to a 680px phone-width column. */
+  .shell {
+    max-width: 900px;
+    border-radius: 20px;
+  }
+  #page-credit-ledger .page-body { max-width: 100%; }
+
+  /* Mouse cursors instead of touch affordances */
+  .card-head, .cl-date-head, .lpb-chip, .ltb-back, .ltb-icon-btn,
+  .focus-btn, .add-row-btn, .del-row-btn, .cl-open-btn, .cl-print-btn,
+  .cl-mode-tab, .cl-show-more, .modal-picker-item, .viewall-close,
+  .btn, .edit-mode-btn { cursor: pointer; }
+
+  /* Rows get a touch more horizontal room since there's no thumb
+     to design around, and hover feedback reads better with a
+     visible pointer cursor throughout. */
+  .row input[type="number"],
+  .row input[type="text"],
+  .row select { width: 140px; }
+  .row.three-col input { width: 120px; }
+
+  /* Stat grids use the freed-up width instead of stacking 2-wide */
+  .fcs-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Bottom sheets → centered dialogs ──
+     On mobile these slide up from the bottom edge (a familiar
+     phone pattern). On desktop there is no "bottom edge" to
+     anchor to, so they become normal centered modal dialogs. */
+  #save-action-overlay,
+  #summary-modal-overlay,
+  .viewall-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+  .save-action-sheet,
+  .summary-sheet,
+  .viewall-panel {
+    max-width: 440px;
+    border-radius: var(--radius-xl);
+    animation: popIn .18s ease;
+  }
+  .summary-head { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+
+  /* Modal pickers / edit / pdf dialogs get a little more width so
+     they don't look like a phone dialog floating in a sea of gray */
+  .modal-picker-sheet { max-width: 420px; }
+  .edit-modal-sheet { max-width: 400px; }
+  .pdf-modal-sheet { max-width: 360px; }
+
+  /* Closing book reader: use real vertical space instead of vh
+     tuned for a phone viewport, and cap width so pages don't feel
+     lost in an oversized viewport. */
+  .cb-reader:not(.hidden) { padding: 24px; }
+  .cb-viewport { height: 78vh; min-height: 560px; }
+
+  /* Ledger toolbar / progress nav get breathing room */
+  .ledger-toolbar { padding: 14px 24px; }
+  .lpb-track-row { padding: 8px 24px 4px; }
+  .lpb-nav-row { padding: 0 24px 16px; }
+  .page-body { padding: 28px 32px 36px; }
+
+  /* Buttons shouldn't stay full-bleed-width like a mobile action
+     sheet when there's plenty of room to sit inline */
+  .save-action-btns .btn,
+  .summary-footer .btn-full { width: auto; align-self: stretch; }
+}
+
+/* Extra-wide monitors: stop growing past a comfortable reading
+   width so rows of text/inputs don't become uncomfortably wide. */
+@media (min-width: 1200px) {
+  .shell { max-width: 960px; }
+}
