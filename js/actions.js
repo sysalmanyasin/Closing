@@ -881,7 +881,21 @@ export function moveLedgerShift(n) {
 }
 
 export function autoSave() {
-  try { calc(); saveSheet(true); } catch(e) { /* silent — best-effort */ }
+  try {
+    calc();
+    if(!session.activeKey) return;
+    const existing = db.sheets[session.activeKey];
+    /* Bug fix: this used to call saveSheet(true), which always sets
+       draft:false + locked:true — silently promoting an in-progress
+       closing to "saved & final" just because Prev/Next Shift was
+       clicked. That also defeated the forward-navigation guard below,
+       since it reads the draft flag *after* autoSave had already
+       flipped it to false. Auto-persisting on page-turn should behave
+       like the explicit "Save as Draft" button, and an already
+       finalized (locked) closing shouldn't be touched at all. */
+    if(existing && existing.locked === true) return;
+    saveDraft();
+  } catch(e) { /* silent — best-effort */ }
 }
 
 /* ═══════════════════════════════════════════
