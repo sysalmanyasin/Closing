@@ -63,17 +63,11 @@
       <button class="sidebar-link" data-page="page-dashboard" onclick="goToDashboard()">
         <span class="sidebar-link-icon">🏠</span><span>Dashboard</span>
       </button>
-      <button class="sidebar-link sidebar-link-context" data-page="page-ledger" tabindex="-1">
-        <span class="sidebar-link-icon">📋</span><span>Shift Ledger</span>
-      </button>
       <button class="sidebar-link" data-page="page-credit-ledger" onclick="goToCreditLedger()">
         <span class="sidebar-link-icon">📒</span><span>Credit Ledger</span>
       </button>
       <button class="sidebar-link" data-page="page-closing-book" onclick="goToClosingBook()">
         <span class="sidebar-link-icon">📖</span><span>Closing Book</span>
-      </button>
-      <button class="sidebar-link" data-page="page-activity-log" onclick="goToActivityLog()">
-        <span class="sidebar-link-icon">📜</span><span>Activity Log</span>
       </button>
       <div class="sidebar-divider"></div>
       <button class="sidebar-link" data-page="page-settings" onclick="goToSettings()">
@@ -275,120 +269,144 @@
         <span class="text-muted text-sm">System Settings</span>
       </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Closing Book — Branding</h3></div>
-        <div style="padding:14px 16px;">
-          <div class="form-field">
-            <label for="cfg-book-brand-code">Brand Code (used in exported PDF filenames)</label>
-            <input type="text" id="cfg-book-brand-code"
-              onchange="updateBookBrandCode(this.value)">
-          </div>
-          <p class="text-muted text-sm" style="margin-top:6px;">Example: "<span id="cfg-book-brand-example"></span>"</p>
-        </div>
+      <!-- ══ SETTINGS TAB BAR ══ -->
+      <div class="settings-tabs" id="settings-tabs">
+        <button class="settings-tab active" data-tab="general" onclick="settingsShowTab('general')">⚙️ General</button>
+        <button class="settings-tab" data-tab="access" onclick="settingsShowTab('access')">🔑 Access &amp; PINs</button>
+        <button class="settings-tab" data-tab="backup" onclick="settingsShowTab('backup')">💾 Backup &amp; Retention</button>
+        <button class="settings-tab" data-tab="credit" onclick="settingsShowTab('credit')">📒 Credit &amp; Tiers</button>
+        <button class="settings-tab" data-tab="inventory" onclick="settingsShowTab('inventory')">📦 Inventory</button>
       </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Access PINs</h3></div>
-        <div style="padding:14px 16px;">
-          <p class="text-muted text-sm" style="margin-bottom:12px;">
-            Whichever PIN is typed to unlock an action (Edit, Delete, Archive, Settings) identifies
-            who did it. The Admin PIN works everywhere as a fallback; each staff member below has
-            their own.
-          </p>
-          <div class="form-field">
-            <label for="cfg-admin-pin">Admin PIN</label>
-            <input type="text" id="cfg-admin-pin" inputmode="numeric" maxlength="4" style="width:100px;"
-              onchange="updateAdminPin(this.value)">
+      <!-- ── GENERAL ── -->
+      <div class="settings-tab-panel" data-tab="general">
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Closing Book — Branding</h3></div>
+          <div style="padding:14px 16px;">
+            <div class="form-field">
+              <label for="cfg-book-brand-code">Brand Code (used in exported PDF filenames)</label>
+              <input type="text" id="cfg-book-brand-code"
+                onchange="updateBookBrandCode(this.value)">
+            </div>
+            <p class="text-muted text-sm" style="margin-top:6px;">Example: "<span id="cfg-book-brand-example"></span>"</p>
           </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="goToActivityLog()">📜 View Activity Log</button>
         </div>
-        <div class="card-head" style="cursor:default;border-top:1px solid var(--border);">
-          <h3 style="font-size:0.85rem;">Staff PINs</h3>
-          <button class="btn btn-teal btn-sm" onclick="addStaffSetting()">+ Add Staff</button>
-        </div>
-        <div id="settings-staff"></div>
-      </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Data Backup</h3></div>
-        <div class="card-body">
-          <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
-            All closings, settings and overrides are stored as JSON in this device's local storage.
-            Export a backup file regularly, or restore from one.
-          </p>
-          <div style="display:flex;gap:8px;padding:12px 16px;">
-            <button class="btn btn-ghost" style="flex:1;" onclick="exportDataJSON()">⬇ Export Backup</button>
-            <button class="btn btn-ghost" style="flex:1;" onclick="document.getElementById('import-json-file').click()">⬆ Import Backup</button>
-          </div>
-          <input type="file" id="import-json-file" accept="application/json" style="display:none;"
-            onchange="importDataJSON(event)">
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Data Retention</h3></div>
-        <div class="card-body">
-          <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
-            Nothing is deleted automatically. Export a backup first if you want to keep old records elsewhere, then archive them here to keep this device's storage lean.
-          </p>
-          <div class="row" style="padding:12px 16px 0;">
-            <label for="set-retention-months">Keep records for how many months?</label>
-            <input type="number" id="set-retention-months" style="width:70px;" value="6" min="1"
-              onchange="updateRetentionMonths(parseInt(this.value)||6)">
-          </div>
-          <p id="retention-status" style="font-size:0.8rem;color:var(--muted);padding:10px 16px 0;"></p>
-          <div style="padding:12px 16px;">
-            <button class="btn btn-red btn-full" onclick="archiveOldRecords()">🗑 Archive &amp; Delete Old Records</button>
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Auto Final Closing</h3></div>
+          <div class="card-body">
+            <div class="row">
+              <label for="set-final-every-n">Remind for Final Closing after how many shift closings?</label>
+              <input type="number" id="set-final-every-n" style="width:70px;" value="3">
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Auto Final Closing</h3></div>
-        <div class="card-body">
-          <div class="row">
-            <label for="set-final-every-n">Remind for Final Closing after how many shift closings?</label>
-            <input type="number" id="set-final-every-n" style="width:70px;" value="3">
+      <!-- ── ACCESS & PINS ── -->
+      <div class="settings-tab-panel hidden" data-tab="access">
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Access PINs</h3></div>
+          <div style="padding:14px 16px;">
+            <p class="text-muted text-sm" style="margin-bottom:12px;">
+              Whichever PIN is typed to unlock an action (Edit, Delete, Archive, Settings) identifies
+              who did it. The Admin PIN works everywhere as a fallback; each staff member below has
+              their own.
+            </p>
+            <div class="form-field">
+              <label for="cfg-admin-pin">Admin PIN</label>
+              <input type="text" id="cfg-admin-pin" inputmode="numeric" maxlength="4" style="width:100px;"
+                onchange="updateAdminPin(this.value)">
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="goToActivityLog()">📜 View Activity Log</button>
+          </div>
+          <div class="card-head" style="cursor:default;border-top:1px solid var(--border);">
+            <h3 style="font-size:0.85rem;">Staff PINs</h3>
+            <button class="btn btn-teal btn-sm" onclick="addStaffSetting()">+ Add Staff</button>
+          </div>
+          <div id="settings-staff"></div>
+        </div>
+      </div>
+
+      <!-- ── BACKUP & RETENTION ── -->
+      <div class="settings-tab-panel hidden" data-tab="backup">
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Data Backup</h3></div>
+          <div class="card-body">
+            <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+              All closings, settings and overrides are stored as JSON in this device's local storage.
+              Export a backup file regularly, or restore from one.
+            </p>
+            <div style="display:flex;gap:8px;padding:12px 16px;">
+              <button class="btn btn-ghost" style="flex:1;" onclick="exportDataJSON()">⬇ Export Backup</button>
+              <button class="btn btn-ghost" style="flex:1;" onclick="document.getElementById('import-json-file').click()">⬆ Import Backup</button>
+            </div>
+            <input type="file" id="import-json-file" accept="application/json" style="display:none;"
+              onchange="importDataJSON(event)">
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Data Retention</h3></div>
+          <div class="card-body">
+            <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+              Nothing is deleted automatically. Export a backup first if you want to keep old records elsewhere, then archive them here to keep this device's storage lean.
+            </p>
+            <div class="row" style="padding:12px 16px 0;">
+              <label for="set-retention-months">Keep records for how many months?</label>
+              <input type="number" id="set-retention-months" style="width:70px;" value="6" min="1"
+                onchange="updateRetentionMonths(parseInt(this.value)||6)">
+            </div>
+            <p id="retention-status" style="font-size:0.8rem;color:var(--muted);padding:10px 16px 0;"></p>
+            <div style="padding:12px 16px;">
+              <button class="btn btn-red btn-full" onclick="archiveOldRecords()">🗑 Archive &amp; Delete Old Records</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;">
-          <h3>Named Credit Accounts</h3>
-          <button class="btn btn-teal btn-sm" onclick="addNamedCreditSetting()">+ Add Account</button>
+      <!-- ── CREDIT & TIERS ── -->
+      <div class="settings-tab-panel hidden" data-tab="credit">
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Named Credit Accounts</h3>
+            <button class="btn btn-teal btn-sm" onclick="addNamedCreditSetting()">+ Add Account</button>
+          </div>
+          <div id="settings-named-credits"></div>
         </div>
-        <div id="settings-named-credits"></div>
-      </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Staff Credit Tiers (dropdown groups)</h3></div>
-        <div class="page-body" style="padding: 16px;">
-          <p class="text-muted text-sm" style="margin-bottom:12px;">Each tier is a dropdown group in the ledger — name the group and list its members separated by commas.</p>
-          <div id="subtier-fields"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head" style="cursor:default;">
-          <h3>Item Groups</h3>
-          <button class="btn btn-teal btn-sm" onclick="addStripGroup()">+ Add Group</button>
-        </div>
-        <div class="page-body" style="padding: 16px;">
-          <p class="text-muted text-sm" style="margin-bottom:12px;">Group inventory items (e.g. Water, Nestlé Juice, Nescafé, 1L Juice, Milo, Mask, Bags) so the Strips section is readable in portrait mode — items are shown under their group header with just Price / Qty / Total per row.</p>
-          <div id="settings-strip-groups"></div>
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Staff Credit Tiers (dropdown groups)</h3></div>
+          <div class="page-body" style="padding: 16px;">
+            <p class="text-muted text-sm" style="margin-bottom:12px;">Each tier is a dropdown group in the ledger — name the group and list its members separated by commas.</p>
+            <div id="subtier-fields"></div>
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head" style="cursor:default;">
-          <h3>Default Inventory Items</h3>
-          <button class="btn btn-teal btn-sm" onclick="addStripRow()">+ Add Item</button>
+      <!-- ── INVENTORY ── -->
+      <div class="settings-tab-panel hidden" data-tab="inventory">
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Item Groups</h3>
+            <button class="btn btn-teal btn-sm" onclick="addStripGroup()">+ Add Group</button>
+          </div>
+          <div class="page-body" style="padding: 16px;">
+            <p class="text-muted text-sm" style="margin-bottom:12px;">Group inventory items (e.g. Water, Nestlé Juice, Nescafé, 1L Juice, Milo, Mask, Bags) so the Strips section is readable in portrait mode — items are shown under their group header with just Price / Qty / Total per row.</p>
+            <div id="settings-strip-groups"></div>
+          </div>
         </div>
-        <div class="strips-header">
-          <span>Item Name</span><span>Group</span><span>Unit Price</span><span style="width:60px;"></span>
+
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Default Inventory Items</h3>
+            <button class="btn btn-teal btn-sm" onclick="addStripRow()">+ Add Item</button>
+          </div>
+          <div class="strips-header">
+            <span>Item Name</span><span>Group</span><span>Unit Price</span><span style="width:60px;"></span>
+          </div>
+          <div id="settings-strips" style="max-height:280px;overflow-y:auto;"></div>
         </div>
-        <div id="settings-strips" style="max-height:280px;overflow-y:auto;"></div>
       </div>
 
       <button class="btn btn-green btn-full" onclick="saveSettings()">💾 Save Settings</button>

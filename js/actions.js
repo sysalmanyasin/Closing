@@ -954,13 +954,21 @@ export function buildSheetRecord() {
     stripPrices:Array.from(document.querySelectorAll('.strip-price')).map(e=>parseFloat(e.value)||0),
     /* Reads each row as a whole (not three separately-zipped NodeLists
        by position) so a stable id travels with its own row, and nothing
-       shifts out of alignment if rows are ever reordered. */
-    auxStrips: Array.from(document.querySelectorAll('#ledger-strips .strip-row')).map(row => ({
-      id:    row.dataset.rid || genRowId(),
-      label: row.querySelector('.aux-strip-lbl')?.value || '',
-      p:     parseFloat(row.querySelector('.aux-strip-price')?.value) || 0,
-      q:     parseFloat(row.querySelector('.aux-strip-qty')?.value) || 0
-    })),
+       shifts out of alignment if rows are ever reordered.
+       Filtered to rows that actually have an .aux-strip-lbl input —
+       fixed catalog items (rendered from Settings) are also
+       .strip-row elements but use .strip-name instead, so without
+       this filter every save silently re-recorded one blank aux
+       entry per catalog item, which then reloaded as a real "Extra
+       item" row next time and multiplied on every subsequent save. */
+    auxStrips: Array.from(document.querySelectorAll('#ledger-strips .strip-row'))
+      .filter(row => row.querySelector('.aux-strip-lbl'))
+      .map(row => ({
+        id:    row.dataset.rid || genRowId(),
+        label: row.querySelector('.aux-strip-lbl')?.value || '',
+        p:     parseFloat(row.querySelector('.aux-strip-price')?.value) || 0,
+        q:     parseFloat(row.querySelector('.aux-strip-qty')?.value) || 0
+      })),
     tillValues:  Array.from(document.querySelectorAll('.till-cell')).map(e=>parseFloat(e.value)||0),
     vaultValues: Array.from(document.querySelectorAll('.vault-cell')).map(e=>parseFloat(e.value)||0),
     namedCredits: Array.from(document.querySelectorAll('.named-account-block')).flatMap(block => {
@@ -1068,7 +1076,18 @@ export function hydrate(s) {
     if(r.querySelector('.aux-strip-lbl')) r.remove();
   });
   session.auxStripCount = 0;
-  if(s.auxStrips) s.auxStrips.forEach(o => addAuxStripRow(o.label||'', o.p, o.q, o.id));
+  if(s.auxStrips) {
+    /* Older saves (before buildSheetRecord's filter fix) could contain
+       one blank {label:'', p:0, q:0} entry per fixed catalog item —
+       those aren't rows anyone actually added, just noise from a
+       previous bug, so they're dropped here rather than re-rendered
+       as empty "Extra item" rows again. A row with a name, or with a
+       nonzero price/qty even if never named, is kept — that's real
+       data someone entered. */
+    s.auxStrips
+      .filter(o => (o.label && o.label.trim()) || o.p || o.q)
+      .forEach(o => addAuxStripRow(o.label||'', o.p, o.q, o.id));
+  }
 
   /* till / vault */
   if(s.tillValues)  document.querySelectorAll('.till-cell').forEach((el,i) => el.value=s.tillValues[i]||0);

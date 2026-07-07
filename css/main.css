@@ -339,6 +339,22 @@
   }
   .pager-label { font-size: 0.82rem; font-weight: 700; color: var(--slate); font-family: 'JetBrains Mono', monospace; }
 
+  /* ── SETTINGS SUB-TABS ── */
+  .settings-tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .settings-tab {
+    padding: 7px 13px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--slate); font-size: 0.78rem; font-weight: 600;
+    font-family: 'Inter', sans-serif; cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+    white-space: nowrap;
+  }
+  .settings-tab:hover { background: #eef2f7; }
+  .settings-tab.active {
+    background: var(--teal); color: #fff; border-color: var(--teal);
+  }
+
   /* ── LEDGER HEADER ── */
   .ledger-header {
     padding: 16px 20px 14px;
@@ -1472,18 +1488,14 @@
   #card-saved-records{ grid-area: saved; margin-bottom: 0; }
   #shift-picker       { grid-area: picker; }
 
-  /* ── SETTINGS: two-column masonry instead of ~10 cards stacked
-     one under another in a single endless scroll ── */
-  #page-settings .page-body {
+  /* ── SETTINGS: two-column masonry within whichever tab panel is
+     open, instead of the whole page's ~10 cards stacked together ── */
+  #page-settings .settings-tab-panel {
     column-count: 2; column-gap: 20px;
   }
-  #page-settings .page-body > .card {
+  #page-settings .settings-tab-panel > .card {
     break-inside: avoid; -webkit-column-break-inside: avoid;
     display: inline-block; width: 100%; vertical-align: top;
-  }
-  #page-settings .page-body > .flex-between,
-  #page-settings .page-body > .btn.btn-green.btn-full {
-    column-span: all;
   }
 
   /* ── SHIFT LEDGER: the section chips become a real sticky side

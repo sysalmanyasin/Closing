@@ -112,6 +112,7 @@ Object.assign(window, {
   renderManifest:       Pages.renderManifest,
   saveSettings:         Pages.saveSettings,
   setPickerMode:        Pages.setPickerMode,
+  settingsShowTab:      Pages.settingsShowTab,
   shiftMonth:           Pages.shiftMonth,
   updateAdminPin:       Pages.updateAdminPin,
   updateStaffName:      Pages.updateStaffName,

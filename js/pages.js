@@ -173,6 +173,24 @@ export function goToSettings()  {
   if(!checkAdminPin(pin)) { alert("Incorrect PIN. Settings is Admin-only."); return; }
   showPage('page-settings');
   buildSettingsUI();
+  settingsShowTab('general'); /* always land on the first tab, not wherever it was left last time */
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS — SUB-TABS
+   Splits the long single scroll of settings cards into named
+   groups (General / Access & PINs / Backup & Retention /
+   Credit & Tiers / Inventory). Every field keeps the same id —
+   this only toggles which wrapper <div> is visible, so
+   buildSettingsUI() and saveSettings() are untouched.
+═══════════════════════════════════════════ */
+export function settingsShowTab(name) {
+  document.querySelectorAll('.settings-tab-panel').forEach(panel => {
+    panel.classList.toggle('hidden', panel.dataset.tab !== name);
+  });
+  document.querySelectorAll('.settings-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === name);
+  });
 }
 export function goToCreditLedger() {
   showPage('page-credit-ledger');
