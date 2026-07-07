@@ -25,6 +25,14 @@ import { initClosingBookDefaults } from './closing-book.js';
 export function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
+  /* Desktop sidebar (js/app.js's HTML has none of this on phones —
+     .sidebar-link only exists in the DOM, styling hides the whole
+     rail below the 861px breakpoint) highlights whichever page is
+     current, including the non-clickable "Shift Ledger" entry so
+     there's still a sense of "where am I" while a sheet is open. */
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    link.classList.toggle('active', link.dataset.page === id);
+  });
 }
 export function goToDashboard() {
   stopAutoDraft();          /* stop auto-draft when leaving ledger */

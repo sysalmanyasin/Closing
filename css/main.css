@@ -1369,3 +1369,180 @@
 @media (min-width: 1200px) {
   .shell { max-width: 960px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   DESKTOP APP SHELL — v2
+   The block above just widened the phone layout. This is the
+   actual structural difference: a persistent sidebar instead of
+   full-page swaps, and real multi-column layouts on the pages
+   that were still one long stacked column. Phones are completely
+   unaffected — .app-sidebar doesn't exist in their layout at all.
+═══════════════════════════════════════════════════════════ */
+.app-sidebar { display: none; }
+
+@media (min-width: 861px) {
+
+  body { display: flex; justify-content: center; }
+
+  /* ── Shell becomes sidebar + content, side by side ── */
+  .shell {
+    display: flex;
+    align-items: flex-start;
+    max-width: 1180px;
+    width: 100%;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+    gap: 24px;
+  }
+  .shell-main {
+    flex: 1;
+    min-width: 0;
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+
+  /* Phones use .app-bar as their only header; desktop uses the
+     sidebar brand block instead, so hide the duplicate. */
+  .shell-main > .app-bar { display: none; }
+
+  /* Redundant now that the destination is one click away in the
+     sidebar at all times. */
+  .btn-row.back-row, #dashboard-btn-row { display: none; }
+
+  #sync-topbar { display: none; } /* mobile pull-to-sync affordance; Settings/Dashboard already surface sync state on desktop */
+  body.topbar-on { padding-top: 40px; }
+
+  .app-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    background: linear-gradient(180deg, var(--navy) 0%, #1e3a5f 100%);
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    padding: 18px 14px;
+    gap: 4px;
+  }
+  .sidebar-brand {
+    display: flex; align-items: center; gap: 12px;
+    padding: 4px 8px 16px; margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .sidebar-brand-name { font-size: 0.88rem; font-weight: 800; color: #fff; letter-spacing: -.2px; line-height: 1.25; }
+  .sidebar-brand-sub  { font-size: 0.68rem; color: #94a3b8; font-weight: 500; margin-top: 2px; }
+  .sidebar-nav { display: flex; flex-direction: column; gap: 3px; }
+  .sidebar-link {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 12px; border-radius: 10px;
+    background: none; border: none; cursor: pointer;
+    color: #b8c4d9; font-size: 0.84rem; font-weight: 600;
+    font-family: 'Inter', sans-serif; text-align: left;
+    transition: background .12s, color .12s;
+  }
+  .sidebar-link-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+  .sidebar-link:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .sidebar-link.active { background: var(--teal); color: #fff; box-shadow: var(--shadow-sm); }
+  .sidebar-link.active:hover { background: var(--teal); }
+  .sidebar-link-context { cursor: default; opacity: .55; }
+  .sidebar-link-context:hover { background: none; color: #b8c4d9; }
+  .sidebar-link-context.active { opacity: 1; background: rgba(13,148,136,.25); color: #5eead4; box-shadow: none; }
+  .sidebar-divider { height: 1px; background: rgba(255,255,255,.1); margin: 8px 6px; }
+
+  /* ── DASHBOARD: cloud sync full-width, calendar + saved records
+     side by side instead of one under the other ── */
+  #page-dashboard .page-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    grid-template-areas:
+      "sync   sync"
+      "cal    saved"
+      "picker picker";
+    align-items: start;
+  }
+  #card-cloud-sync   { grid-area: sync; }
+  #card-calendar     { grid-area: cal; }
+  #card-saved-records{ grid-area: saved; margin-bottom: 0; }
+  #shift-picker       { grid-area: picker; }
+
+  /* ── SETTINGS: two-column masonry instead of ~10 cards stacked
+     one under another in a single endless scroll ── */
+  #page-settings .page-body {
+    column-count: 2; column-gap: 20px;
+  }
+  #page-settings .page-body > .card {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+    display: inline-block; width: 100%; vertical-align: top;
+  }
+  #page-settings .page-body > .flex-between,
+  #page-settings .page-body > .btn.btn-green.btn-full {
+    column-span: all;
+  }
+
+  /* ── SHIFT LEDGER: the section chips become a real sticky side
+     rail (still the same DOM/JS — jumpToSection() etc. — just laid
+     out vertically alongside the section instead of as a scrolling
+     row of pills above it) ── */
+  #page-ledger {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-areas:
+      "pager    pager"
+      "banners  banners"
+      "toolbar  toolbar"
+      "pdf      pdf"
+      "nav      body";
+    column-gap: 24px;
+  }
+  #page-ledger .pager           { grid-area: pager; }
+  #page-ledger #final-mode-bar,
+  #page-ledger #locked-mode-bar { grid-area: banners; }
+  #page-ledger .ledger-toolbar  { grid-area: toolbar; }
+  #page-ledger #pdf-status      { grid-area: pdf; }
+  #page-ledger > .page-body     { grid-area: body; max-width: 640px; }
+
+  #page-ledger .ledger-progress-bar {
+    grid-area: nav;
+    position: sticky; top: 0;
+    background: transparent; border-bottom: none;
+    align-self: start;
+  }
+  #page-ledger .lpb-track-row { justify-content: flex-start; padding: 16px 8px 10px; }
+  #page-ledger .lpb-nav-row {
+    display: flex; flex-direction: column; gap: 4px;
+    overflow: visible; padding: 0 4px;
+  }
+  #page-ledger .lpb-chip {
+    justify-content: flex-start; width: 100%; border-radius: 10px;
+    padding: 9px 12px;
+  }
+  #page-ledger .lpb-chip.lpb-current { transform: none; }
+  #page-ledger .lpb-chip.lpb-current::after { display: none; } /* the little downward arrow made sense under a horizontal row, not a vertical list */
+  #page-ledger .lpb-chip.lpb-current:active { transform: none; }
+
+  /* ── CREDIT LEDGER: date snapshots as a multi-column masonry
+     instead of one long vertical stack ── */
+  #page-credit-ledger #cl-cards-container {
+    column-count: 2; column-gap: 16px;
+  }
+  #page-credit-ledger #cl-cards-container > * {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+    margin-bottom: 16px;
+  }
+
+  /* ── CLOSING BOOK: summary + range picker side by side; reader
+     (once generated) still takes the full width below ── */
+  #page-closing-book .page-body {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;
+  }
+  #page-closing-book .btn-row.back-row,
+  #page-closing-book .cl-toolbar { grid-column: 1 / -1; }
+  #page-closing-book #cb-reader:not(.hidden) { grid-column: 1 / -1; }
+}

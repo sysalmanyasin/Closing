@@ -46,7 +46,45 @@
 
 <div class="shell">
 
-  <!-- ══ HEADER BAR ══ -->
+  <!-- ══ DESKTOP SIDEBAR ══
+       Hidden on phones (CSS media query) — mobile keeps the app-bar
+       below as its only header. On wide screens this becomes the
+       persistent left rail so switching pages doesn't mean swapping
+       out the whole screen, the way it does on a phone. ══ -->
+  <nav class="app-sidebar" id="app-sidebar">
+    <div class="sidebar-brand">
+      <div class="app-bar-icon">💊</div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-name">Fazal Din's Pharma Plus</div>
+        <div class="sidebar-brand-sub">Shift Register &amp; Daily Closing</div>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <button class="sidebar-link" data-page="page-dashboard" onclick="goToDashboard()">
+        <span class="sidebar-link-icon">🏠</span><span>Dashboard</span>
+      </button>
+      <button class="sidebar-link sidebar-link-context" data-page="page-ledger" tabindex="-1">
+        <span class="sidebar-link-icon">📋</span><span>Shift Ledger</span>
+      </button>
+      <button class="sidebar-link" data-page="page-credit-ledger" onclick="goToCreditLedger()">
+        <span class="sidebar-link-icon">📒</span><span>Credit Ledger</span>
+      </button>
+      <button class="sidebar-link" data-page="page-closing-book" onclick="goToClosingBook()">
+        <span class="sidebar-link-icon">📖</span><span>Closing Book</span>
+      </button>
+      <button class="sidebar-link" data-page="page-activity-log" onclick="goToActivityLog()">
+        <span class="sidebar-link-icon">📜</span><span>Activity Log</span>
+      </button>
+      <div class="sidebar-divider"></div>
+      <button class="sidebar-link" data-page="page-settings" onclick="goToSettings()">
+        <span class="sidebar-link-icon">⚙️</span><span>Settings</span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="shell-main">
+
+  <!-- ══ HEADER BAR (mobile only — see .app-sidebar for desktop) ══ -->
   <div class="app-bar">
     <div class="app-bar-icon">💊</div>
     <div class="app-bar-text">
@@ -58,7 +96,7 @@
   <!-- ══ PAGE 1 — CALENDAR DASHBOARD ══ -->
   <div id="page-dashboard" class="view-pane">
     <div class="page-body">
-      <div class="btn-row">
+      <div class="btn-row" id="dashboard-btn-row">
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
         <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
@@ -178,7 +216,7 @@
       <!-- /CLOUD SYNC CARD -->
 
       <!-- ── CALENDAR ── -->
-      <div class="card">
+      <div class="card" id="card-calendar">
         <div class="card-head" style="cursor:default;">
           <h3>📅 Pick a Date</h3>
         </div>
@@ -201,7 +239,7 @@
       </div>
 
       <!-- ── SAVED RECORDS ── -->
-      <div class="card">
+      <div class="card" id="card-saved-records">
         <div class="card-head" onclick="toggleManifestFilter()" style="cursor:pointer;">
           <h3>🗄️ Saved Records</h3>
           <div class="card-head-right">
@@ -683,7 +721,7 @@
   <!-- ══ PAGE 4 — CREDIT LEDGER ══ -->
   <div id="page-credit-ledger" class="view-pane hidden">
     <div class="page-body">
-      <div class="btn-row" style="margin-bottom:10px;">
+      <div class="btn-row back-row" style="margin-bottom:10px;">
         <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
       </div>
       <div class="cl-toolbar">
@@ -737,7 +775,7 @@
   <!-- ══ PAGE 5 — CLOSING BOOK ══ -->
   <div id="page-closing-book" class="view-pane hidden">
     <div class="page-body">
-      <div class="btn-row" style="margin-bottom:10px;">
+      <div class="btn-row back-row" style="margin-bottom:10px;">
         <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
       </div>
       <div class="cl-toolbar">
@@ -854,7 +892,7 @@
   <!-- ══ PAGE 6 — ACTIVITY LOG ══ -->
   <div id="page-activity-log" class="view-pane hidden">
     <div class="page-body">
-      <div class="btn-row" style="margin-bottom:10px;">
+      <div class="btn-row back-row" style="margin-bottom:10px;">
         <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
       </div>
       <div class="cl-toolbar">
@@ -886,6 +924,8 @@
     </div>
   </div>
   <!-- /PAGE 6 -->
+
+  </div><!-- /shell-main -->
 
 </div><!-- /shell -->
 
