@@ -4,7 +4,7 @@
    print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
-import { DENOMS, checkPin, daySlots, db, genRowId, srLabel, session } from './state.js';
+import { DENOMS, checkPin, daySlots, db, escHtml, genRowId, srLabel, session } from './state.js';
 import { alLog } from './activity-log.js';
 import {
   calc, flushInputs, initLedger, populateNameDropdown,
@@ -146,7 +146,7 @@ export function addHsRow(lbl='', val='', rid=null) {
   row.className = "row"; row.id = id;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text" class="lbl-input hs-lbl" placeholder="Home Service ${session.hsRowCount}" value="${lbl}">
+    <input type="text" class="lbl-input hs-lbl" placeholder="Home Service ${session.hsRowCount}" value="${escHtml(lbl)}">
     <input type="number" class="hs-val" value="${val||0}" oninput="calc()">
     <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('hs-rows').appendChild(row);
@@ -164,7 +164,7 @@ export function addAuxStripRow(lbl='', price='', qty='', rid=null) {
   row.className = "row strip-row"; row.id = id;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" value="${lbl}" style="flex:1;">
+    <input type="text" class="lbl-input aux-strip-lbl" placeholder="Extra item" value="${escHtml(lbl)}" style="flex:1;">
     <input type="number" class="aux-strip-price" value="${price||0}" oninput="calc()" style="width:80px;">
     <input type="number" class="aux-strip-qty"   value="${qty||0}"   oninput="calc()" style="width:80px;">
     <input type="number" class="aux-strip-total" readonly style="width:80px;">
@@ -185,7 +185,7 @@ export function addNamedAccountBlock(accountIdx, lbl) {
   block.id = `named-account-${accountIdx}`;
   block.dataset.accountIdx = accountIdx;
   block.innerHTML = `
-    <div class="named-account-head">${lbl}</div>
+    <div class="named-account-head">${escHtml(lbl)}</div>
     <div class="named-account-rows"></div>
     <div class="named-account-add-wrap">
       <button type="button" class="add-row-btn add-row-btn-sm" onclick="addNamedCreditEntryRow(${accountIdx})">＋ Add entry</button>
@@ -208,7 +208,7 @@ export function addNamedCreditEntryRow(accountIdx, desc='', val=0, rid=null) {
   row.dataset.accountIdx = accountIdx;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" value="${desc||''}">
+    <input type="text" class="lbl-input named-entry-desc" placeholder="Description (optional)" value="${escHtml(desc)}">
     <div style="display:flex;gap:4px;align-items:center;">
       <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle positive or negative">±</button>
       <input type="number" class="named-entry-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
@@ -279,7 +279,7 @@ export function addAuxCreditRow(lbl='', val='', rid=null) {
   row.className = "row"; row.id = id;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" value="${lbl}">
+    <input type="text"   class="lbl-input aux-cred-lbl" placeholder="Other account name" value="${escHtml(lbl)}">
     <div style="display:flex;gap:4px;align-items:center;">
       <button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;" onclick="toggleSign('${valId}')" aria-label="Toggle positive or negative">±</button>
       <input type="number" class="aux-cred-val" id="${valId}" value="${val||0}" oninput="calc()" style="width:90px;">
@@ -298,7 +298,7 @@ export function addDepositRow(lbl='', val='', rid=null) {
   row.className = "row"; row.id = id;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" value="${lbl}">
+    <input type="text"   class="lbl-input dep-lbl" placeholder="Safe drop reference" value="${escHtml(lbl)}">
     <input type="number" class="dep-val" value="${val||0}" oninput="calc()">
     <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-deposits').appendChild(row);
@@ -314,7 +314,7 @@ export function addMiscRow(lbl='', val='', rid=null) {
   row.className = "row misc-row"; row.id = id;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text"   id="misc-lbl-${session.miscCount}" class="lbl-input" placeholder="Charge / note" value="${lbl}">
+    <input type="text"   id="misc-lbl-${session.miscCount}" class="lbl-input" placeholder="Charge / note" value="${escHtml(lbl)}">
     <input type="number" id="misc-val-${session.miscCount}" value="${val||0}" style="width:90px;" oninput="calc()">
     <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-misc').appendChild(row);
@@ -412,7 +412,7 @@ export function timelineStep(ds, shift, n) {
 export function buildPrintSheet() {
   const parts = session.activeKey ? session.activeKey.split('_') : ['',''];
   const ds = parts[0], shift = parts[1];
-  const psRow = (label, value, cls='') => `<div class="ps-row ${cls}"><span>${label}</span><span>${value}</span></div>`;
+  const psRow = (label, value, cls='') => `<div class="ps-row ${cls}"><span>${escHtml(label)}</span><span>${escHtml(value)}</span></div>`;
   const psRowOrEmpty = (label, raw, cls='') => {
     const n = parseFloat(raw)||0;
     return n !== 0 ? psRow(label, n.toLocaleString('en-PK'), cls) : psRow(label, '—', cls + ' ps-empty');
@@ -588,7 +588,7 @@ export function buildPrintSheet() {
         <div class="ps-letterhead">
           <div class="ps-brand">
             <h1>Fazal Din's Pharma Plus</h1>
-            <p>${branchName}</p>
+            <p>${escHtml(branchName)}</p>
           </div>
           <div class="ps-doctype">
             <span class="ps-doctype-tag">${(session.activeMode||'shift')==='final'?'Final Closing':'Shift Closing'}</span>
@@ -684,7 +684,7 @@ export function buildPrintSheet() {
         <div class="ps-letterhead">
           <div class="ps-brand">
             <h1>Fazal Din's Pharma Plus</h1>
-            <p>${branchName}</p>
+            <p>${escHtml(branchName)}</p>
           </div>
           <div class="ps-doctype">
             <span class="ps-doctype-tag">Final Closing</span>

@@ -24,6 +24,15 @@ const localStorageStub = (() => {
 
 globalThis.window = globalThis;
 globalThis.localStorage = localStorageStub;
+/* window.addEventListener/removeEventListener — needed because sync.js
+   registers 'online' and 'pageshow' listeners directly on window at
+   module load time (alongside document's 'visibilitychange'), and
+   window === globalThis here, which has no addEventListener of its
+   own in Node. */
+if(typeof globalThis.addEventListener !== 'function') {
+  globalThis.addEventListener = () => {};
+  globalThis.removeEventListener = () => {};
+}
 globalThis.document = {
   getElementById: () => null,
   querySelectorAll: () => [],

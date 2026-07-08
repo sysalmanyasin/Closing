@@ -185,6 +185,24 @@ export let db = applySettingsDefaults(repoLoad() || {
    missing the way a raw reassignment could. */
 export function setDB(newDb) { db = applySettingsDefaults(newDb); }
 
+/* ═══════════════════════════════════════════
+   HTML ESCAPING — the one sanctioned way to put user-entered text
+   (row labels, descriptions, staff/account names, etc) into an
+   innerHTML template string anywhere in the app. Every free-text
+   field a person can type into eventually gets re-rendered this way
+   (row builders, print sheet, Credit/Misc Ledger, Activity Log,
+   Settings forms) — without escaping, a value like
+   `x" onfocus="..." autofocus="` or `"><img src=x onerror=...>`
+   breaks out of the attribute/tag it was placed in and runs as
+   real HTML/script in whoever's browser next renders that row,
+   including across Dropbox sync to every other linked device.
+   Pure, no DOM dependency, safe to import from every floor. */
+export function escHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
 /* Stable identity for rows in free-form arrays (hsRows, auxStrips,
    auxCredits, deposits, miscRows, namedCredits entries) — assigned
    ONCE when a row is first created and carried through every

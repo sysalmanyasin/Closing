@@ -5,7 +5,7 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-import { SHIFTS, checkAdminPin, checkPin, db, getSeq, srLabel, session } from './state.js';
+import { SHIFTS, checkAdminPin, checkPin, db, escHtml, getSeq, srLabel, session } from './state.js';
 import {
   aggregateSinceLastFinal, initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
   settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
@@ -367,10 +367,10 @@ export function clBuildShiftBlock(snap, activeFilter) {
 
   function renderGroup(items, label) {
     if(!items.length) return '';
-    let h = `<div class="cl-cat-label">${label}</div>`;
+    let h = `<div class="cl-cat-label">${escHtml(label)}</div>`;
     items.forEach(l => {
       h += `<div class="cl-line">
-        <span class="cl-lbl">${l.lbl}${l.desc ? ` <span class="cl-lbl-desc">(${l.desc})</span>` : ''}</span>
+        <span class="cl-lbl">${escHtml(l.lbl)}${l.desc ? ` <span class="cl-lbl-desc">(${escHtml(l.desc)})</span>` : ''}</span>
         <span class="cl-val">${clFmt(l.val)}</span>
       </div>`;
     });
@@ -392,7 +392,7 @@ export function clBuildShiftBlock(snap, activeFilter) {
   /* Total row */
   const totalRow = !activeFilter
     ? `<div class="cl-total-row"><span>TOTAL CREDIT</span><span>${clFmt(snap.totalCredit)}</span></div>`
-    : `<div class="cl-total-row" style="color:var(--teal-dark);"><span>${activeFilter}</span><span>${clFmt(displayLines.reduce((s,l)=>s+l.val,0))}</span></div>`;
+    : `<div class="cl-total-row" style="color:var(--teal-dark);"><span>${escHtml(activeFilter)}</span><span>${clFmt(displayLines.reduce((s,l)=>s+l.val,0))}</span></div>`;
 
   return `
     <div class="cl-shift-block ${modeClass}">
@@ -595,7 +595,7 @@ export function mlBuildShiftBlock(snap) {
   let linesHtml = '';
   snap.lines.forEach(l => {
     linesHtml += `<div class="cl-line">
-      <span class="cl-lbl">${l.lbl}</span>
+      <span class="cl-lbl">${escHtml(l.lbl)}</span>
       <span class="cl-val">${clFmt(l.val)}</span>
     </div>`;
   });
@@ -698,8 +698,8 @@ export function printThermalSnapshot(kind, key) {
     const aux   = snap.lines.filter(l => l.category === 'aux');
     function grp(items, label) {
       if(!items.length) return '';
-      let h = `<div class="tp-cat">${label}</div>`;
-      items.forEach(l => { h += `<div class="tp-row"><span>${l.lbl}${l.desc ? ` (${l.desc})` : ''}</span><span>${clFmt(l.val)}</span></div>`; });
+      let h = `<div class="tp-cat">${escHtml(label)}</div>`;
+      items.forEach(l => { h += `<div class="tp-row"><span>${escHtml(l.lbl)}${l.desc ? ` (${escHtml(l.desc)})` : ''}</span><span>${clFmt(l.val)}</span></div>`; });
       return h;
     }
     rowsHtml += grp(named, 'NAMED ACCOUNTS') + grp(tier, 'STAFF / TIER') + grp(aux, 'FREE ENTRIES');
@@ -707,12 +707,12 @@ export function printThermalSnapshot(kind, key) {
     rowsHtml += `<div class="tp-rule"></div><div class="tp-row tp-total"><span>TOTAL CREDIT</span><span>${clFmt(snap.totalCredit)}</span></div>`;
   } else {
     if(!snap.lines.length) rowsHtml += `<div class="tp-row"><span>— no items —</span><span></span></div>`;
-    snap.lines.forEach(l => { rowsHtml += `<div class="tp-row"><span>${l.lbl}</span><span>${clFmt(l.val)}</span></div>`; });
+    snap.lines.forEach(l => { rowsHtml += `<div class="tp-row"><span>${escHtml(l.lbl)}</span><span>${clFmt(l.val)}</span></div>`; });
     rowsHtml += `<div class="tp-rule"></div><div class="tp-row tp-total"><span>TOTAL MISC</span><span>${clFmt(snap.total)}</span></div>`;
   }
 
   const bodyHtml = `
-    <div class="tp-center tp-brand">${brand}</div>
+    <div class="tp-center tp-brand">${escHtml(brand)}</div>
     <div class="tp-center tp-sub">${title}</div>
     <div class="tp-rule"></div>
     <div class="tp-row"><span>Date</span><span>${clFmtDate(snap.date)}</span></div>
@@ -1205,8 +1205,8 @@ export function buildSettingsUI() {
     if(i>0) { div.style.borderTop="1px solid var(--border)"; div.style.paddingTop="14px"; }
     div.style.marginBottom = "14px";
     div.innerHTML = `
-      <div class="form-field"><label for="cfg-tier-type-${i+1}">Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${t?.type||''}"></div>
-      <div class="form-field"><label for="cfg-tier-names-${i+1}">Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${t?.names?.join(', ')||''}"></div>`;
+      <div class="form-field"><label for="cfg-tier-type-${i+1}">Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${escHtml(t?.type||'')}"></div>
+      <div class="form-field"><label for="cfg-tier-names-${i+1}">Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${escHtml(t?.names?.join(', ')||'')}"></div>`;
     sf.appendChild(div);
   }
   renderSettingsStripGroups();
@@ -1220,7 +1220,7 @@ export function renderSettingsNamedCredits() {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${nc.label}" placeholder="Account name" onchange="settingsSetNamedCreditLabel(${idx}, this.value)">
+      <input type="text" value="${escHtml(nc.label)}" placeholder="Account name" onchange="settingsSetNamedCreditLabel(${idx}, this.value)">
       <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})" aria-label="Remove account">✕</button>`;
     box.appendChild(div);
   });
@@ -1258,8 +1258,8 @@ export function renderSettingsStaff() {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${s.name}" placeholder="Staff name" onchange="updateStaffName(${idx}, this.value)">
-      <input type="text" inputmode="numeric" maxlength="4" style="width:70px;" value="${s.pin}" placeholder="PIN" onchange="updateStaffPin(${idx}, this.value)">
+      <input type="text" value="${escHtml(s.name)}" placeholder="Staff name" onchange="updateStaffName(${idx}, this.value)">
+      <input type="text" inputmode="numeric" maxlength="4" style="width:70px;" value="${escHtml(s.pin)}" placeholder="PIN" onchange="updateStaffPin(${idx}, this.value)">
       <button class="btn btn-red btn-sm" onclick="removeStaff(${idx})" aria-label="Remove staff member">✕</button>`;
     box.appendChild(div);
   });
@@ -1290,12 +1290,12 @@ export function renderSettingsStrips() {
   const box = document.getElementById('settings-strips');
   box.innerHTML = "";
   const groupOptions = (selected) => `<option value="">— Ungrouped —</option>` +
-    db.settings.stripGroups.map(g => `<option value="${g}" ${g===selected?'selected':''}>${g}</option>`).join('');
+    db.settings.stripGroups.map(g => `<option value="${escHtml(g)}" ${g===selected?'selected':''}>${escHtml(g)}</option>`).join('');
   db.settings.strips.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${item.name}" onchange="settingsSetStripField(${idx},'name',this.value)">
+      <input type="text" value="${escHtml(item.name)}" onchange="settingsSetStripField(${idx},'name',this.value)">
       <select onchange="settingsSetStripField(${idx},'group',this.value)">${groupOptions(item.group||'')}</select>
       <input type="number" value="${item.price}" onchange="settingsSetStripField(${idx},'price',parseFloat(this.value)||0)">
       <button class="btn btn-red btn-sm" onclick="removeStrip(${idx})" aria-label="Remove item">✕</button>`;
@@ -1319,7 +1319,7 @@ export function renderSettingsStripGroups() {
     const div = document.createElement('div');
     div.className = "settings-item";
     div.innerHTML = `
-      <input type="text" value="${name}" onchange="renameStripGroup(${idx}, this.value)">
+      <input type="text" value="${escHtml(name)}" onchange="renameStripGroup(${idx}, this.value)">
       <button class="btn btn-red btn-sm" onclick="removeStripGroup(${idx})" aria-label="Remove group">✕</button>`;
     box.appendChild(div);
   });
@@ -1407,7 +1407,7 @@ export function populateActivityLogFilters() {
   (db.settings.staff || []).forEach(s => { if(s.name) actors.add(s.name); });
   alAllEntries().forEach(e => actors.add(e.actor));
   sel.innerHTML = '<option value="">Everyone</option>' +
-    Array.from(actors).sort().map(a => `<option value="${a}">${a}</option>`).join('');
+    Array.from(actors).sort().map(a => `<option value="${escHtml(a)}">${escHtml(a)}</option>`).join('');
   sel.value = current;
 }
 
@@ -1447,16 +1447,16 @@ export function renderActivityLog() {
       const changesHtml = (e.changes && e.changes.length)
         ? `<div class="al-entry-changes">${e.changes.map(c => `
             <div class="al-change-row">
-              <span class="al-change-label">${c.label}</span>
-              <span class="al-change-vals">${c.from} → ${c.to}</span>
+              <span class="al-change-label">${escHtml(c.label)}</span>
+              <span class="al-change-vals">${escHtml(c.from)} → ${escHtml(c.to)}</span>
             </div>`).join('')}</div>`
         : '';
       return `
         <div class="al-entry">
           <div class="al-entry-head">
             <div class="al-entry-main">
-              <span class="al-entry-title">${alKeyLabel(e.key)}</span>
-              <span class="al-entry-sub">${e.actor} · ${when}</span>
+              <span class="al-entry-title">${escHtml(alKeyLabel(e.key))}</span>
+              <span class="al-entry-sub">${escHtml(e.actor)} · ${when}</span>
             </div>
             <span class="al-entry-badge ${badgeClass}">${badgeLabel}</span>
           </div>

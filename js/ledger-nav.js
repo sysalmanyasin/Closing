@@ -8,7 +8,7 @@
    review screen. Never mutates db directly.
 ═══════════════════════════════════════════════════════════════ */
 
-import { DENOMS, db, srLabel, session } from './state.js';
+import { DENOMS, db, escHtml, srLabel, session } from './state.js';
 import { calc, saveSheet } from './actions.js';
 import { getRealSheet, timelineStep } from './components.js';
 
@@ -373,8 +373,8 @@ export function renderPrevShiftSnapshot() {
   const rows = snapshotRowsForSection(currentKey, prev.rec);
   const shiftLabel = typeof srLabel === 'function' ? srLabel(prev.shift) : prev.shift;
   const rowsHtml = rows.length
-    ? rows.map(([label, value]) => `<div class="pss-row"><span>${label}</span><span>${value}</span></div>`).join('')
-    : `<div class="pss-row pss-empty-row"><span>No data entered for ${sec ? sec.label : 'this section'} that shift</span></div>`;
+    ? rows.map(([label, value]) => `<div class="pss-row"><span>${escHtml(label)}</span><span>${escHtml(value)}</span></div>`).join('')
+    : `<div class="pss-row pss-empty-row"><span>No data entered for ${sec ? escHtml(sec.label) : 'this section'} that shift</span></div>`;
 
   box.innerHTML = `
     <div class="pss-head">📋 Previous shift — ${prev.date} · ${shiftLabel}</div>

@@ -302,15 +302,42 @@ export function dbxScheduleRetry() {
   }, delay);
 }
 
-/* Tab-focus heal: instantly retry when user switches back to the tab */
+/* Shared "heal now" path — resets backoff state and re-runs dbxInit().
+   Called from every reconnect signal below so they all behave the
+   same way instead of each hand-rolling the reset + call. */
+function dbxHealConnection(reason) {
+  if(!dbxGetRefreshToken() || dbxState.client) return; /* nothing to heal, or already connected */
+  console.log(`[DBX] ${reason} — healing connection…`);
+  if(dbxState.retryTimer) { clearTimeout(dbxState.retryTimer); dbxState.retryTimer = null; }
+  dbxState.quickRetryCount = 0;
+  dbxState.backoffIndex    = 0;
+  dbxInit();
+}
+
+/* Tab-focus heal: instantly retry when user switches back to the tab.
+   Covers backgrounding/foregrounding, but NOT a network change that
+   happens while the app stays in the foreground (see 'online' below —
+   that's the common case on a phone: walking out of WiFi range,
+   losing cell signal in an elevator, etc, without ever backgrounding
+   the app or locking the screen). */
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible' && dbxGetRefreshToken() && !dbxState.client) {
-    console.log('[DBX] Tab focused — healing connection…');
-    if(dbxState.retryTimer) { clearTimeout(dbxState.retryTimer); dbxState.retryTimer = null; }
-    dbxState.quickRetryCount = 0;
-    dbxState.backoffIndex    = 0;
-    dbxInit();
-  }
+  if(document.visibilityState === 'visible') dbxHealConnection('Tab focused');
+});
+
+/* Network-change heal: fires the moment the OS reports connectivity
+   is back, regardless of whether the app was ever backgrounded.
+   This is the primary fix for intermittent mobile connectivity —
+   without it, a WiFi↔cellular handoff has to wait out whatever step
+   of the retry backoff (up to 5 minutes) happened to be in flight. */
+window.addEventListener('online', () => dbxHealConnection('Network back online'));
+
+/* iOS Safari back-forward cache restore: iOS suspends timers (like
+   the retry backoff's setTimeout) when a page is put in the bfcache
+   — e.g. switching apps and coming back via the app switcher rather
+   than a full reload. Neither 'visibilitychange' nor 'online' is
+   guaranteed to fire in that exact case, so this catches it directly. */
+window.addEventListener('pageshow', (e) => {
+  if(e.persisted) dbxHealConnection('Page restored from bfcache');
 });
 
 /* ── EXPORT / IMPORT CONNECTION TOKEN ───────────────────────

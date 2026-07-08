@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v3.01
+   Pharma Plus Closing App — Service Worker  v1.8
    Strategy: Cache-first for app shell.
    Dropbox API calls always go to network (never cached).
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v3.01';
+const CACHE_NAME = 'pharmpos-closing-v1.8';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -104,10 +104,28 @@ self.addEventListener('fetch', event => {
   event.respondWith(networkFirst(request));
 });
 
-/* ── Strategy helpers ── */
-const TIMEOUT_MS = 5000;
+/* ── Strategy helpers ──
+   Timeout is adaptive: a flat 5s was too aggressive on mobile —
+   reconnecting after a WiFi↔cellular handoff involves a cold DNS +
+   TLS handshake that can legitimately take longer than that on a
+   weak signal, and 5s was misreporting "offline" for what was
+   really just "slow". navigator.connection isn't available on iOS
+   Safari, so DEFAULT_TIMEOUT_MS covers that case; where the API
+   *is* available (Chrome/Android), we tighten or loosen based on
+   the reported connection type. ── */
+const DEFAULT_TIMEOUT_MS  = 12000; /* iOS Safari and any browser without the Network Information API */
+const FAST_TIMEOUT_MS     = 6000;  /* wifi / ethernet / 4g */
+const SLOW_TIMEOUT_MS     = 20000; /* 2g / slow-2g / 3g */
 
-function fetchWithTimeout(request, timeoutMs = TIMEOUT_MS) {
+function currentTimeoutMs() {
+  const conn = self.navigator?.connection;
+  if(!conn?.effectiveType) return DEFAULT_TIMEOUT_MS;
+  return (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g' || conn.effectiveType === '3g')
+    ? SLOW_TIMEOUT_MS
+    : FAST_TIMEOUT_MS;
+}
+
+function fetchWithTimeout(request, timeoutMs = currentTimeoutMs()) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   return fetch(request, { signal: controller.signal })

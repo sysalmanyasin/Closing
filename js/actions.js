@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
-import { checkPin, db, genRowId, getSeq, isPinTaken, srLabel, session } from './state.js';
+import { checkPin, db, escHtml, genRowId, getSeq, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
 import {
@@ -105,7 +105,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
     const row = document.createElement('div');
     row.className = "row strip-row" + (grp ? " grouped" : "");
     row.innerHTML = `
-      <span class="strip-name">${st.name}</span>
+      <span class="strip-name">${escHtml(st.name)}</span>
       <input type="number" class="strip-price" data-idx="${idx}" value="${st.price}" readonly style="width:80px;background:#f1f5f9;color:var(--muted);">
       <input type="number" class="strip-qty"   data-idx="${idx}" value="0"           oninput="calc()" style="width:80px;">
       <input type="number" class="strip-line"  id="strip-line-${idx}" readonly       style="width:80px;">`;
