@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
-import { checkPin, db, escHtml, genRowId, getSeq, isPinTaken, srLabel, session } from './state.js';
+import { checkPin, daySlots, db, escHtml, genRowId, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
 import {
@@ -343,10 +343,24 @@ export function computeNextHandoverSlot(ds) {
      Evening already happens to be saved. Evening is deliberately
      excluded from this max: otherwise a Handover created after
      Evening was already saved would compute a seq bigger than 9999
-     and incorrectly sort AFTER it, breaking "Evening is always last". */
-  const existingForDate = Object.keys(db.sheets).filter(k => k.startsWith(prefix) && db.sheets[k]);
-  const nonEvening = existingForDate.filter(k => k.slice(prefix.length) !== 'Evening');
-  const maxSeq  = Math.max(...nonEvening.map(k => getSeq(ds, k.slice(prefix.length))));
+     and incorrectly sort AFTER it, breaking "Evening is always last".
+
+     Use daySlots() rather than only scanning db.sheets directly —
+     daySlots() always includes Night/Morning/Evening as guaranteed
+     anchors (state.js), even if Morning hasn't actually been saved
+     yet. That matters because a Handover must always land between
+     Morning and Evening, never between Night and Morning: if we only
+     looked at what's *actually saved*, a Handover inserted right
+     after Night (before Morning exists) would compute maxSeq from
+     Night alone (10) and land at seq 20 — the exact same seq Morning
+     later gets by default (baseSeq(), state.js) when it IS saved.
+     That tie was a real bug: two same-seq records break the tie by
+     insertion order, so the Handover (created first) sorted BEFORE
+     Morning even though Morning was saved. Folding Morning's implicit
+     seq 20 into this max up front reserves its spot regardless of
+     save order, so a Handover always computes to at least 30. */
+  const slots = daySlots(ds).filter(s => s.shift !== 'Evening');
+  const maxSeq  = Math.max(...slots.map(s => s.seq));
   const nextSeq = maxSeq + 10;
   if(nextSeq >= 9999) {
     return { error: 'This date already has as many closings as it can hold.' };
