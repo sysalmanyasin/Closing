@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.0
+   Pharma Plus Closing App — Service Worker  v5.1
    Strategy: Cache-first for app shell.
    Dropbox API calls always go to network (never cached).
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.0';
+const CACHE_NAME = 'pharmpos-closing-v5.1';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -30,6 +30,7 @@ const APP_SHELL = [
   './js/ledger-nav.js',
   './js/closing-book.js',
   './js/sync.js',
+  './js/activity-log.js',
   /* ── Icons ── */
   './icons/icon.svg',
   './icons/icon-192.png',

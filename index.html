@@ -5,6 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fazal Din's Pharma Plus — Shift Register</title>
 
+<!-- ── Content-Security-Policy ──
+     Scoped to exactly what this app loads: itself, the three cdnjs
+     libraries in the head below, Google Fonts, and the Dropbox API/
+     auth domains sw.js already treats as network-only.
+
+     NOTE on 'unsafe-inline' in script-src: this codebase's whole UI
+     wiring is ~160 onclick/onchange/oninput attributes in this file
+     (by design — see README, "index.html's onclick/onchange
+     attributes") plus the inline Service-Worker-registration <script>
+     block below. Without 'unsafe-inline' every one of those breaks
+     and the app is unusable, so it has to stay unless/until those are
+     migrated to addEventListener wiring in app.js. With it, this CSP
+     still does real work: it blocks loading script or exfiltrating
+     data to any origin other than the ones listed below, which stops
+     a compromised/typosquatted CDN or a data-stealing XSS payload from
+     phoning home anywhere — it just can't stop inline script from
+     *executing* the way a nonce/hash-based policy could. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  img-src 'self' data: blob:;
+  connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://notify.dropboxapi.com https://www.dropbox.com;
+  frame-src https://www.dropbox.com;
+  object-src 'none';
+  base-uri 'self';
+">
+
+
 <!-- ── PWA ── -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0d9488">
