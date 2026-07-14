@@ -1,0 +1,3317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Branch Invoice Desk — Fazal Din's Pharma Plus</title>
+<style>
+  :root{
+    --ink:#16241f;
+    --paper:#f6f4ee;
+    --panel:#ffffff;
+    --line:#dcd6c8;
+    --brand:#0f4c3a;
+    --brand-dim:#e8efe9;
+    --brass:#a9782f;
+    --amber:#c98a1c;
+    --red:#a5382c;
+    --blue:#2c5f8a;
+    --muted:#6b7269;
+    --radius:10px;
+    font-family: 'Iowan Old Style','Georgia',serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ledger-head{
+    background:var(--brand);
+    color:#f3f0e6;
+    padding:18px 16px 14px;
+    position:sticky; top:0; z-index:20;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  .ledger-head h1{
+    font-family:'Iowan Old Style','Georgia',serif;
+    font-size:20px; margin:0 0 2px; font-weight:700; letter-spacing:.2px;
+  }
+  .ledger-head .sub{font-size:12px; opacity:.8; letter-spacing:.4px;}
+  nav.tabs{
+    display:flex; gap:2px; margin-top:14px;
+    background:rgba(0,0,0,.18); border-radius:999px; padding:3px;
+  }
+  nav.tabs button{
+    flex:1; border:none; background:transparent; color:#dfe8e2;
+    padding:9px 4px; border-radius:999px; font-size:12.5px; font-weight:600;
+    cursor:pointer; transition:.15s;
+  }
+  nav.tabs button.active{ background:#f3f0e6; color:var(--brand); }
+
+  main{ max-width:640px; margin:0 auto; padding:16px 14px 100px; }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; margin-bottom:14px;
+  }
+  .card h2{ margin:0 0 4px; font-size:15px; }
+  .hint{ color:var(--muted); font-size:12.5px; line-height:1.5; margin:0 0 12px;}
+
+  /* Capture */
+  .capture-choices{ display:flex; gap:10px; }
+  .choice-btn{
+    flex:1; border:2px dashed var(--line); border-radius:var(--radius); padding:22px 10px;
+    text-align:center; cursor:pointer; background:#fbfaf6; display:flex; flex-direction:column;
+    align-items:center; gap:2px; font-family:inherit;
+  }
+  .choice-btn:active{ background:var(--brand-dim); }
+  .choice-btn .icon{ font-size:30px; margin-bottom:4px; }
+  .choice-btn strong{ font-size:13.5px; color:var(--ink); }
+  .choice-btn .sub{ font-size:11px; color:var(--muted); line-height:1.35; }
+  input[type=file]{ display:none; }
+
+  .thumbwrap{ position:relative; border-radius:var(--radius); overflow:hidden; margin-bottom:10px; border:1px solid var(--line);}
+  .thumbwrap img{ width:100%; display:block; max-height:340px; object-fit:contain; background:#111; }
+  .blurflag{
+    position:absolute; top:8px; left:8px; background:var(--red); color:#fff;
+    font-size:11.5px; font-weight:700; padding:4px 9px; border-radius:999px;
+  }
+  .sharpflag{ background:var(--brand); }
+  .cropflag{
+    position:absolute; top:8px; right:8px; background:var(--blue); color:#fff;
+    font-size:11.5px; font-weight:700; padding:4px 9px; border-radius:999px; display:none;
+  }
+  .filter-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .filter-btn{
+    flex:1; border:1.5px solid var(--line); background:#fbfaf6; border-radius:8px;
+    padding:9px 6px; font-size:12.5px; font-weight:700; color:var(--muted); cursor:pointer;
+    font-family:inherit; display:flex; align-items:center; justify-content:center; gap:5px;
+  }
+  .filter-btn.active{ border-color:var(--brand); background:var(--brand-dim); color:var(--brand); }
+
+  /* Live scan */
+  .livewrap{ position:relative; background:#000; line-height:0; }
+  .livewrap video{ width:100%; display:block; max-height:70vh; object-fit:cover; }
+  .livewrap canvas{ position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  .livestatus{
+    position:absolute; left:0; right:0; bottom:10px; text-align:center;
+    color:#fff; font-size:12.5px; font-weight:700; text-shadow:0 1px 3px rgba(0,0,0,.7);
+  }
+  .livestatus.steady{ color:#8ee6ab; }
+  .shutter-row{ display:flex; gap:8px; padding:14px; }
+  .shutter-row button{ margin:0; }
+
+  button.primary{
+    width:100%; background:var(--brand); color:#fff; border:none; border-radius:8px;
+    padding:12px; font-size:14.5px; font-weight:700; cursor:pointer;
+  }
+  button.primary:disabled{ opacity:.45; }
+  button.secondary{
+    width:100%; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:8px;
+    padding:11px; font-size:13.5px; font-weight:600; cursor:pointer; margin-top:8px;
+  }
+  button.danger-outline{ border-color:var(--red); color:var(--red); }
+  button.retake{ background:var(--amber); color:#fff; border:none; }
+
+  .status-line{
+    display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted);
+    padding:10px 0;
+  }
+  .spinner{
+    width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--brand);
+    border-radius:50%; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* Day groups / list */
+  .daygroup{ margin-bottom:18px; }
+  .daygroup > .daylabel{
+    font-size:12.5px; font-weight:700; color:var(--brass); text-transform:uppercase;
+    letter-spacing:.6px; margin:0 0 8px 2px; display:flex; justify-content:space-between;
+  }
+  .inv-row{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 12px; margin-bottom:8px; display:flex; gap:10px; align-items:center; cursor:pointer;
+  }
+  .inv-row img{ width:46px; height:46px; object-fit:cover; border-radius:6px; border:1px solid var(--line); flex:none;}
+  .inv-main{ flex:1; min-width:0; }
+  .inv-main .vend{ font-weight:700; font-size:14px; }
+  .inv-main .meta{ font-size:12px; color:var(--muted); margin-top:1px;}
+  .inv-amt{ text-align:right; flex:none; }
+  .inv-amt .rs{ font-weight:700; font-size:14px; }
+  .pill{
+    display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px;
+    margin-top:3px;
+  }
+  .pill.received{ background:#f1e6d3; color:var(--brass); }
+  .pill.extracted{ background:#dce8f2; color:var(--blue); }
+  .pill.sent{ background:#e3ecdf; color:var(--brand); }
+  .pill.closed{ background:#e5e5e5; color:#555; }
+  .pill.error{ background:#f3dcd8; color:var(--red); }
+  .pill.manual{ background:#ece3f5; color:#6b3fa0; margin-left:5px; }
+
+  /* Detail */
+  .kv{ display:grid; grid-template-columns:auto 1fr; gap:5px 12px; font-size:13px; margin-bottom:12px;}
+  .kv b{ color:var(--muted); font-weight:600; }
+  table.items{ width:100%; border-collapse:collapse; font-size:12px; margin-bottom:10px;}
+  table.items th{ text-align:left; background:var(--brand-dim); padding:6px 6px; font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--brand);}
+  table.items td{ padding:6px 6px; border-bottom:1px solid var(--line); }
+  table.items td.num, table.items th.num{ text-align:right; }
+  .totals{ font-size:13px; }
+  .totals div{ display:flex; justify-content:space-between; padding:3px 0; }
+  .totals .grand{ font-weight:800; font-size:15px; border-top:2px solid var(--ink); margin-top:5px; padding-top:7px;}
+
+  .str-box{ display:flex; gap:8px; margin-top:10px; }
+  .str-box input{ flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:13px; }
+
+  .backbtn{ background:none; border:none; color:var(--brand); font-weight:700; font-size:13.5px; padding:0 0 10px; cursor:pointer; }
+
+  /* Settings */
+  label.field{ display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin:12px 0 5px; }
+  input[type=text], input[type=password], input[type=date]{
+    width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font-size:13.5px;
+  }
+  .toggle-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; font-size:13.5px;}
+  .empty{ text-align:center; color:var(--muted); font-size:13px; padding:30px 10px; }
+
+  .banner{ background:#fff8e6; border:1px solid #eddca1; color:#8a6a12; font-size:12.5px; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
+
+  /* Toast notifications (Dropbox sync feedback, etc.) */
+  .toast{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(12px); background:#1f1f1f; color:#fff; padding:11px 18px; border-radius:9px; font-size:13px; line-height:1.4; box-shadow:0 6px 18px rgba(0,0,0,.25); opacity:0; transition:opacity .18s ease, transform .18s ease; z-index:9999; max-width:88vw; text-align:center; pointer-events:none; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.error{ background:#8a2f1f; }
+
+  .sync-badge{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:999px; border:1px solid transparent; }
+  .sync-badge.sync-off{ background:#f0efe9; border-color:var(--line); color:var(--muted); }
+  .sync-badge.sync-ok{ background:#e6f4ea; border-color:#b7dfc3; color:#1a7a3c; }
+  .sync-badge.sync-syncing{ background:#eef1fb; border-color:#ccd6f2; color:#3a4a8a; }
+  .sync-badge.sync-error{ background:#fdeceb; border-color:#f0c4bd; color:#8a2f1f; }
+
+  /* AI review: confidence highlighting + validation banners */
+  .conf-legend{ display:flex; flex-wrap:wrap; gap:12px; font-size:11px; color:var(--muted); margin:0 0 12px; }
+  .conf-legend .sw{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  .conf-legend .sw.med{ background:var(--amber); }
+  .conf-legend .sw.low{ background:var(--red); }
+  input[type=text].conf-med, input[type=date].conf-med, select.conf-med{ border-color:var(--amber); background:#fff8e9; }
+  input[type=text].conf-low, input[type=date].conf-low, select.conf-low{ border-color:var(--red); background:#fdeceb; }
+  .manual-item-row.conf-med{ border-color:var(--amber); background:#fff8e9; }
+  .manual-item-row.conf-low{ border-color:var(--red); background:#fdeceb; }
+  .val-banner{ border-radius:8px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+  .val-banner.warn{ background:#fff8e6; border:1px solid #eddca1; color:#8a6a12; }
+  .val-banner.error{ background:#fdeceb; border:1px solid #f0c4bd; color:#8a2f1f; }
+  .val-banner.dup{ background:#ece3f5; border:1px solid #d7c3ee; color:#5a3a86; }
+  .val-banner ul{ margin:6px 0 0; padding-left:18px; }
+  .val-banner li{ margin-bottom:3px; }
+  .review-thumb{ width:100%; max-height:220px; object-fit:contain; background:#111; border-radius:8px; margin-bottom:10px; display:block; }
+  .review-tag{ display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--brand-dim); color:var(--brand); margin-left:6px; vertical-align:middle; }
+
+  /* Manual entry */
+  .manual-item-row{ border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:8px; background:#fbfaf6; }
+  .manual-item-row .mi-name{ width:100%; border:1px solid var(--line); border-radius:6px; padding:7px 8px; font-size:13px; margin-bottom:6px; }
+  .manual-item-row .mi-grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr auto; gap:5px; }
+  .manual-item-row .mi-grid input{ border:1px solid var(--line); border-radius:6px; padding:6px 4px; font-size:11.5px; width:100%; text-align:right; min-width:0;}
+  .manual-item-row .mi-remove{ border:none; background:var(--red); color:#fff; border-radius:6px; font-size:14px; font-weight:700; cursor:pointer; padding:0 8px;}
+  select.field-select{ width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font-size:13.5px; background:#fff; font-family:inherit; }
+  .link-btn{ background:none; border:none; color:var(--brand); font-weight:600; font-size:12.5px; padding:8px 0 0; cursor:pointer; text-decoration:underline; }
+
+  @media print{
+    .ledger-head, nav.tabs, .no-print{ display:none !important; }
+    body{ background:#fff; }
+    main{ max-width:100%; padding:0; }
+    .card{ border:none; box-shadow:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="ledger-head">
+  <h1>Branch Invoice Desk</h1>
+  <div class="sub">Fazal Din's Pharma Plus · Bahria Town Sector B</div>
+  <nav class="tabs">
+    <button data-tab="capture" class="active">Capture</button>
+    <button data-tab="invoices">Invoices</button>
+    <button data-tab="reports">Reports</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+</div>
+
+<main>
+
+  <!-- CAPTURE TAB -->
+  <section id="tab-capture">
+    <div class="card" id="captureCard">
+      <h2>New invoice photo</h2>
+      <p class="hint">Either scan live or load an existing photo — both are straightened, cropped to the page, and sharpened before being sent to the AI.</p>
+      <div class="capture-choices">
+        <button class="choice-btn" id="captureChoiceBtn" type="button">
+          <span class="icon">📷</span>
+          <strong>Capture</strong>
+          <span class="sub">Live edge-detection guide</span>
+        </button>
+        <button class="choice-btn" id="filesChoiceBtn" type="button">
+          <span class="icon">🗂️</span>
+          <strong>Load from Files</strong>
+          <span class="sub">Pick an existing photo</span>
+        </button>
+      </div>
+      <input type="file" id="fileInput" accept="image/*">
+      <button class="link-btn" id="captureCardManualBtn" type="button" style="display:block;margin:10px auto 0;">Or enter an invoice manually — no photo</button>
+    </div>
+
+    <div class="card" id="liveCard" style="display:none; padding:0; overflow:hidden;">
+      <div class="livewrap">
+        <video id="liveVideo" playsinline autoplay muted></video>
+        <canvas id="liveOverlay"></canvas>
+        <div class="livestatus" id="liveStatus">Looking for the page…</div>
+      </div>
+      <div class="shutter-row">
+        <button class="primary" id="liveCaptureBtn">Capture now</button>
+        <button class="secondary" id="liveCancelBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div class="card" id="previewCard" style="display:none;">
+      <div class="thumbwrap">
+        <img id="previewImg" src="">
+        <span class="blurflag" id="blurFlag">Checking sharpness…</span>
+        <span class="cropflag" id="cropFlag"></span>
+      </div>
+      <div id="captureActions"></div>
+    </div>
+
+    <div class="card" id="progressCard" style="display:none;">
+      <div class="status-line"><div class="spinner"></div><span id="progressText">Reading invoice…</span></div>
+    </div>
+
+    <div class="card" id="manualCard" style="display:none;">
+      <h2 id="manualCardTitle">Enter invoice manually</h2>
+      <div class="banner" id="manualBanner" style="display:none;"></div>
+      <div id="valBanner"></div>
+      <p class="hint" id="manualCardHint">Fill in what you can read. Leave anything unknown blank — you can still print, email, or close this record later.</p>
+      <img id="reviewThumb" class="review-thumb" style="display:none;">
+      <div class="conf-legend" id="confLegend" style="display:none;">
+        <span><span class="sw med"></span>Lower AI confidence — worth a quick check</span>
+        <span><span class="sw low"></span>Low AI confidence — please verify against the photo</span>
+      </div>
+
+      <label class="field">Vendor</label>
+      <input type="text" id="m_vendor" placeholder="e.g. Pakistan Fruit Juice Co. (Hico)">
+      <label class="field">Branch / Customer</label>
+      <input type="text" id="m_customer">
+      <label class="field">Invoice #</label>
+      <input type="text" id="m_invoice_number">
+      <label class="field">Order #</label>
+      <input type="text" id="m_order_number">
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1;"><label class="field">Order date</label><input type="date" id="m_order_date"></div>
+        <div style="flex:1;"><label class="field">Delivery date</label><input type="date" id="m_delivery_date"></div>
+      </div>
+      <label class="field">Category</label>
+      <select class="field-select" id="m_category">
+        <option value="Ice Cream">Ice Cream</option>
+        <option value="Chips/Snacks">Chips/Snacks</option>
+        <option value="Other" selected>Other</option>
+      </select>
+
+      <label class="field">Items</label>
+      <div id="manualItems"></div>
+      <button class="secondary" id="addManualItemBtn" type="button">+ Add item row</button>
+
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <div style="flex:1;"><label class="field">Gross amount</label><input type="text" id="m_gross" inputmode="decimal"></div>
+        <div style="flex:1;"><label class="field">Total GST</label><input type="text" id="m_gst" inputmode="decimal"></div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1;"><label class="field">Total discount</label><input type="text" id="m_discount" inputmode="decimal"></div>
+        <div style="flex:1;"><label class="field">Advance tax</label><input type="text" id="m_advtax" inputmode="decimal"></div>
+      </div>
+      <label class="field">Total bill amount</label>
+      <input type="text" id="m_total" inputmode="decimal">
+      <label class="field">Notes</label>
+      <input type="text" id="m_notes" placeholder="Handwritten notes, stamps, signatures">
+
+      <button class="primary" id="saveManualBtn" style="margin-top:14px;">Save invoice</button>
+      <button class="secondary" id="cancelManualBtn">Cancel</button>
+    </div>
+  </section>
+
+  <!-- INVOICES TAB -->
+  <section id="tab-invoices" style="display:none;">
+    <div id="invoiceList"></div>
+  </section>
+
+  <!-- DETAIL VIEW (shown over invoices tab) -->
+  <section id="tab-detail" style="display:none;">
+    <button class="backbtn no-print" id="backToList">← Back to invoices</button>
+    <div id="detailBody"></div>
+  </section>
+
+  <!-- REPORTS TAB -->
+  <section id="tab-reports" style="display:none;">
+    <div class="card">
+      <h2>Report range</h2>
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1;"><label class="field">From</label><input type="date" id="repFrom"></div>
+        <div style="flex:1;"><label class="field">To</label><input type="date" id="repTo"></div>
+      </div>
+      <button class="secondary no-print" id="runReport" style="margin-top:12px;">Generate report</button>
+      <button class="secondary no-print" id="printReport">Print this report</button>
+    </div>
+    <div class="card" id="reportOutput" style="display:none;"></div>
+  </section>
+
+  <!-- SETTINGS TAB -->
+  <section id="tab-settings" style="display:none;">
+    <div class="card">
+      <h2>AI reading engine</h2>
+      <p class="hint">Uses OpenRouter's free tier (no credit card, no prepay) to read invoice images with a vision-capable AI model. Sign up free at openrouter.ai → Keys → Create Key. Stored only on this device.</p>
+      <label class="field">OpenRouter API key</label>
+      <input type="password" id="aiKey" placeholder="sk-or-v1-...">
+      <p class="hint" style="margin-top:8px;">Free tier: ~50 invoice reads/day, no billing ever required. If reading stops working, free models rotate occasionally — check openrouter.ai/models (filter: free, vision).</p>    </div>
+    <div class="card">
+      <h2>Dropbox sync (optional)</h2>
+      <p class="hint">Connect Dropbox to back up every invoice (photo + details) and pull them onto other devices/branches — a phone that scans invoices and a desktop that reviews them can share the same list.</p>
+      <label class="field">Dropbox access token</label>
+      <input type="password" id="dropboxKey" placeholder="sl.xxxxxxxx">
+      <div id="dropboxStatusBadge" class="sync-badge sync-off" style="margin-top:10px;">○ Not connected</div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        <button class="secondary" type="button" id="connectDropboxBtn" style="width:auto; padding:8px 14px;">Connect</button>
+        <button class="secondary danger-outline" type="button" id="disconnectDropboxBtn" style="width:auto; padding:8px 14px;">Disconnect</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <button class="secondary" type="button" id="pushDropboxBtn" style="width:auto; padding:8px 14px;">⬆ Push — sync this device now</button>
+        <button class="secondary" type="button" id="pullDropboxBtn" style="width:auto; padding:8px 14px;">⬇ Pull — restore from Dropbox</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">
+        <b>Push</b> uploads every invoice on this device (details + any photos not yet backed up) to Dropbox.
+        <b>Pull</b> brings in invoices that were pushed from any other device — use this the first time you set up a new phone or browser.
+      </p>
+
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+        <label class="field">Share this connection with another device</label>
+        <p class="hint">Instead of retyping the token, copy a setup code here and paste it into Settings on the other device.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="secondary" type="button" id="copySetupCodeBtn" style="width:auto; padding:8px 14px;">Copy setup code</button>
+        </div>
+        <label class="field" style="margin-top:10px;">Paste a setup code from another device</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="setupCodeInput" placeholder="Paste code here" style="flex:1;">
+          <button class="secondary" type="button" id="applySetupCodeBtn" style="width:auto; padding:8px 14px;">Apply</button>
+        </div>
+      </div>
+
+      <p class="hint" style="margin-top:12px;">Note: a "Generated access token" from the Dropbox App Console usually expires after 4 hours unless the app is configured for tokens with no expiration. If sync that was working suddenly stops, generate a fresh token, paste it above, and press Connect again.</p>
+    </div>
+    <div class="card">
+      <h2>Gmail destination</h2>
+      <label class="field">Send-to address (warehouse)</label>
+      <input type="text" id="gmailTo" placeholder="warehouse@example.com">
+    </div>
+    <button class="primary" id="saveSettings">Save settings</button>
+    <div class="card" style="margin-top:14px;">
+      <h2>Data</h2>
+      <p class="hint">All invoice records and images are stored locally in this browser. Clearing browser data will remove them — export or send to Gmail first.</p>
+      <button class="secondary danger-outline" id="wipeData">Erase all local invoice data</button>
+    </div>
+  </section>
+
+</main>
+
+<script type="text/plain" id="scan-engine-src">
+(function(){
+  "use strict";
+
+  /* ============================================================
+     Branch Invoice Desk — scan processing engine.
+     Pure numeric functions only (no DOM/canvas), so this exact
+     source can run either inside a Web Worker (heavy, full-res
+     work: corner detection, dewarp, denoise, enhance, blur check)
+     or — if Workers aren't available — directly on the main
+     thread as a synchronous fallback. The main page decodes
+     images to raw RGBA pixel buffers via <canvas> (cheap, GPU
+     assisted) and hands those buffers here; this file never
+     touches the DOM.
+     ============================================================ */
+
+  /* ---------- basic helpers ---------- */
+
+  function toGray(data, w, h){
+    const gray = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++){
+      const o=i*4;
+      gray[i] = 0.299*data[o]+0.587*data[o+1]+0.114*data[o+2];
+    }
+    return gray;
+  }
+
+  // Fast separable box blur via sliding-window sum — O(w*h) regardless of radius.
+  function boxBlurGray(gray, w, h, radius){
+    if(radius<=0) return gray.slice();
+    const tmp = new Float32Array(w*h);
+    const out = new Float32Array(w*h);
+    for(let y=0;y<h;y++){
+      const rowOff = y*w;
+      let sum=0;
+      for(let x=-radius;x<=radius;x++) sum += gray[rowOff + Math.min(w-1, Math.max(0,x))];
+      for(let x=0;x<w;x++){
+        tmp[rowOff+x] = sum/(radius*2+1);
+        const addX = Math.min(w-1, x+radius+1), remX = Math.max(0, x-radius);
+        sum += gray[rowOff+addX] - gray[rowOff+remX];
+      }
+    }
+    for(let x=0;x<w;x++){
+      let sum=0;
+      for(let y=-radius;y<=radius;y++) sum += tmp[Math.min(h-1,Math.max(0,y))*w + x];
+      for(let y=0;y<h;y++){
+        out[y*w+x] = sum/(radius*2+1);
+        const addY = Math.min(h-1, y+radius+1), remY = Math.max(0, y-radius);
+        sum += tmp[addY*w+x] - tmp[remY*w+x];
+      }
+    }
+    return out;
+  }
+
+  // Local mean & variance at every pixel via two box blurs (mean of x, mean of x^2).
+  // Used both as a fast edge-preserving denoise (blend toward local mean in flat/noisy
+  // areas, keep original near edges) and as the Sauvola-style adaptive threshold below.
+  function localMeanVar(gray, w, h, radius){
+    const mean = boxBlurGray(gray, w, h, radius);
+    const sq = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++) sq[i]=gray[i]*gray[i];
+    const meanSq = boxBlurGray(sq, w, h, radius);
+    const varr = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++){ const v = meanSq[i]-mean[i]*mean[i]; varr[i] = v>0?v:0; }
+    return { mean, varr };
+  }
+
+  // Otsu's method: picks the grayscale cutoff that best separates two populations
+  // (here: the bright page vs. whatever cluttered background/counter it's sitting on).
+  function otsuThreshold(gray){
+    const hist = new Array(256).fill(0);
+    for(let i=0;i<gray.length;i++) hist[gray[i]<0?0:(gray[i]>255?255:gray[i])|0]++;
+    const total = gray.length;
+    let sumAll = 0;
+    for(let t=0;t<256;t++) sumAll += t*hist[t];
+    let sumB=0, wB=0, maxVar=-1, threshold=127;
+    for(let t=0;t<256;t++){
+      wB += hist[t];
+      if(wB===0) continue;
+      const wF = total - wB;
+      if(wF===0) break;
+      sumB += t*hist[t];
+      const mB = sumB/wB;
+      const mF = (sumAll-sumB)/wF;
+      const between = wB*wF*(mB-mF)*(mB-mF);
+      if(between > maxVar){ maxVar = between; threshold = t; }
+    }
+    return threshold;
+  }
+
+  function sobelMagnitude(gray, w, h){
+    const mag = new Float32Array(w*h);
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        const i=y*w+x;
+        const gx = -gray[i-w-1]-2*gray[i-1]-gray[i+w-1] + gray[i-w+1]+2*gray[i+1]+gray[i+w+1];
+        const gy = -gray[i-w-1]-2*gray[i-w]-gray[i-w+1] + gray[i+w-1]+2*gray[i+w]+gray[i+w+1];
+        mag[i] = Math.sqrt(gx*gx+gy*gy);
+      }
+    }
+    return mag;
+  }
+
+  /* ---------- document corner detection (with confidence score) ----------
+     Thresholds the page (bright) against its background via Otsu, walks
+     inward from the frame edge to the page boundary, then takes extreme
+     corner points plus per-column/per-row boundary point clouds for the
+     curve fit used by the dewarp mesh. On top of the original heuristic,
+     this scores how *trustworthy* the detected quad is — fill ratio,
+     corner-angle regularity (near 90°), and edge straightness — so callers
+     (live guidance, capture pipeline) can require a minimum confidence
+     before trusting it, instead of a bare "quad found / not found" signal. */
+  function detectCorners(payload){
+    const workW = payload.width, workH = payload.height, data = payload.data;
+    const gray0 = toGray(data, workW, workH);
+    const gray = boxBlurGray(gray0, workW, workH, 1); // light denoise before thresholding
+    const t = otsuThreshold(gray);
+
+    const rowCount = new Array(workH).fill(0);
+    const colCount = new Array(workW).fill(0);
+    for(let y=0;y<workH;y++){
+      for(let x=0;x<workW;x++){
+        if(gray[y*workW+x] > t){ rowCount[y]++; colCount[x]++; }
+      }
+    }
+    const maxRow = Math.max.apply(null, rowCount), maxCol = Math.max.apply(null, colCount);
+    if(maxRow < workW*0.15 || maxCol < workH*0.15) return null;
+
+    const rowThresh = maxRow*0.4, colThresh = maxCol*0.4;
+    let top=0, bottom=workH-1, left=0, right=workW-1;
+    while(top<workH-1 && rowCount[top]<rowThresh) top++;
+    while(bottom>0 && rowCount[bottom]<rowThresh) bottom--;
+    while(left<workW-1 && colCount[left]<colThresh) left++;
+    while(right>0 && colCount[right]<colThresh) right--;
+    if(bottom<=top || right<=left || (bottom-top)<workH*0.25 || (right-left)<workW*0.25) return null;
+
+    let tl=null, tr=null, br=null, bl=null;
+    let tlScore=Infinity, brScore=-Infinity, trScore=-Infinity, blScore=Infinity;
+    for(let y=top;y<=bottom;y++){
+      for(let x=left;x<=right;x++){
+        if(gray[y*workW+x] <= t) continue;
+        const s1 = x+y, s2 = x-y;
+        if(s1 < tlScore){ tlScore = s1; tl = [x,y]; }
+        if(s1 > brScore){ brScore = s1; br = [x,y]; }
+        if(s2 > trScore){ trScore = s2; tr = [x,y]; }
+        if(s2 < blScore){ blScore = s2; bl = [x,y]; }
+      }
+    }
+    if(!tl || !tr || !br || !bl) return null;
+
+    const topPts=[], bottomPts=[], leftPts=[], rightPts=[];
+    for(let x=left;x<=right;x++){
+      let yFirst=-1, yLast=-1;
+      for(let y=top;y<=bottom;y++){
+        if(gray[y*workW+x] > t){ if(yFirst<0) yFirst=y; yLast=y; }
+      }
+      if(yFirst>=0){ topPts.push([x,yFirst]); bottomPts.push([x,yLast]); }
+    }
+    for(let y=top;y<=bottom;y++){
+      let xFirst=-1, xLast=-1;
+      for(let x=left;x<=right;x++){
+        if(gray[y*workW+x] > t){ if(xFirst<0) xFirst=x; xLast=x; }
+      }
+      if(xFirst>=0){ leftPts.push([xFirst,y]); rightPts.push([xLast,y]); }
+    }
+
+    // ---- confidence scoring ----
+    const fillRatio = ((right-left)*(bottom-top))/(workW*workH);
+    const fillScore = fillRatio > 0.97 ? 0.4 : Math.max(0, 1 - Math.abs(fillRatio-0.55)/0.55);
+
+    function angleAt(prev,cur,next){
+      const v1=[prev[0]-cur[0],prev[1]-cur[1]], v2=[next[0]-cur[0],next[1]-cur[1]];
+      const m1=Math.hypot(v1[0],v1[1])||1e-6, m2=Math.hypot(v2[0],v2[1])||1e-6;
+      let cos = (v1[0]*v2[0]+v1[1]*v2[1])/(m1*m2);
+      cos = Math.max(-1,Math.min(1,cos));
+      return Math.acos(cos)*180/Math.PI;
+    }
+    const angles = [angleAt(bl,tl,tr), angleAt(tl,tr,br), angleAt(tr,br,bl), angleAt(br,bl,tl)];
+    let angleScore=0;
+    for(let i=0;i<4;i++) angleScore += Math.max(0, 1-Math.abs(angles[i]-90)/45);
+    angleScore/=4;
+
+    function lineResidualScore(pts, horizontal){
+      if(pts.length<6) return 0.5;
+      const n=pts.length;
+      let sx=0,sy=0,sxx=0,sxy=0;
+      for(let i=0;i<n;i++){
+        const xv = horizontal?pts[i][0]:pts[i][1], yv = horizontal?pts[i][1]:pts[i][0];
+        sx+=xv; sy+=yv; sxx+=xv*xv; sxy+=xv*yv;
+      }
+      const denom = n*sxx-sx*sx;
+      if(Math.abs(denom)<1e-6) return 0.5;
+      const slope=(n*sxy-sx*sy)/denom, intercept=(sy-slope*sx)/n;
+      let sumSq=0;
+      for(let i=0;i<n;i++){
+        const xv = horizontal?pts[i][0]:pts[i][1], yv = horizontal?pts[i][1]:pts[i][0];
+        const pred=slope*xv+intercept;
+        sumSq += (yv-pred)*(yv-pred);
+      }
+      const rmse = Math.sqrt(sumSq/n);
+      const norm = Math.max(1, horizontal ? (bottom-top) : (right-left));
+      return Math.max(0, 1 - Math.min(1, rmse/(norm*0.12)));
+    }
+    const straightScore = (lineResidualScore(topPts,true)+lineResidualScore(bottomPts,true)+
+                            lineResidualScore(leftPts,false)+lineResidualScore(rightPts,false))/4;
+
+    const confidence = Math.max(0, Math.min(1, 0.35*fillScore + 0.35*angleScore + 0.30*straightScore));
+
+    return {
+      corners:[tl,tr,br,bl],
+      edgePoints:{ topPts, bottomPts, leftPts, rightPts },
+      bbox:{ top, bottom, left, right },
+      confidence,
+      avgBrightness: (function(){ let s=0; for(let i=0;i<gray.length;i++) s+=gray[i]; return s/gray.length; })()
+    };
+  }
+
+  // Target output size for the straightened page, from the detected corners' own
+  // proportions (not forced to A4), capped so the warp stays fast and the file stays
+  // a reasonable size.
+  function quadDimensions(corners){
+    const tl=corners[0], tr=corners[1], br=corners[2], bl=corners[3];
+    const dist = (a,b)=> Math.hypot(a[0]-b[0], a[1]-b[1]);
+    let w = Math.round(Math.max(dist(tl,tr), dist(bl,br)));
+    let h = Math.round(Math.max(dist(tl,bl), dist(tr,br)));
+    const maxDim = 2000;
+    if(w > maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+    if(h > maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+    return { w: Math.max(w,50), h: Math.max(h,50) };
+  }
+
+  /* ---------- linear algebra for the perspective (homography) warp ---------- */
+  function solveLinearSystem(A, b){
+    const n = A.length;
+    for(let i=0;i<n;i++) A[i] = A[i].concat([b[i]]);
+    for(let col=0; col<n; col++){
+      let pivot = col;
+      for(let r=col+1;r<n;r++){ if(Math.abs(A[r][col]) > Math.abs(A[pivot][col])) pivot = r; }
+      const tmpRow=A[col]; A[col]=A[pivot]; A[pivot]=tmpRow;
+      const pv = A[col][col];
+      if(Math.abs(pv) < 1e-12) continue;
+      for(let c=col;c<=n;c++) A[col][c] /= pv;
+      for(let r=0;r<n;r++){
+        if(r===col) continue;
+        const factor = A[r][col];
+        for(let c=col;c<=n;c++) A[r][c] -= factor*A[col][c];
+      }
+    }
+    return A.map(row=>row[n]);
+  }
+
+  function computeHomography(src, dst){
+    const A = [], b = [];
+    for(let i=0;i<4;i++){
+      const x=src[i][0], y=src[i][1], u=dst[i][0], v=dst[i][1];
+      A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u);
+      A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v);
+    }
+    const m = solveLinearSystem(A, b);
+    return [m[0],m[1],m[2], m[3],m[4],m[5], m[6],m[7],1];
+  }
+
+  function invert3x3(m){
+    const a=m[0],b=m[1],c=m[2],d=m[3],e=m[4],f=m[5],g=m[6],h=m[7],i=m[8];
+    const A =  (e*i - f*h), B = -(d*i - f*g), C =  (d*h - e*g);
+    const D = -(b*i - c*h), E =  (a*i - c*g), F = -(a*h - b*g);
+    const G =  (b*f - c*e), H = -(a*f - c*d), I =  (a*e - b*d);
+    const det = a*A + b*B + c*C;
+    if(Math.abs(det) < 1e-12) return null;
+    const inv = 1/det;
+    return [A*inv, D*inv, G*inv, B*inv, E*inv, H*inv, C*inv, F*inv, I*inv];
+  }
+
+  function applyHomography(m, x, y){
+    const w = m[6]*x + m[7]*y + m[8];
+    return [(m[0]*x+m[1]*y+m[2])/w, (m[3]*x+m[4]*y+m[5])/w];
+  }
+
+  // True perspective correction: maps the detected (possibly skewed) quadrilateral onto
+  // a flat rectangle via the inverse homography, bilinear-sampled from the source buffer.
+  function warpPerspectiveArr(srcData, sw, sh, corners, outW, outH){
+    const dst = [[0,0],[outW,0],[outW,outH],[0,outH]];
+    const Hsrc2dst = computeHomography(corners, dst);
+    const Hdst2src = invert3x3(Hsrc2dst);
+    if(!Hdst2src) throw new Error('degenerate perspective transform');
+    const out = new Uint8ClampedArray(outW*outH*4);
+    for(let y=0;y<outH;y++){
+      for(let x=0;x<outW;x++){
+        const p = applyHomography(Hdst2src, x, y);
+        const sx=p[0], sy=p[1];
+        const idx = (y*outW+x)*4;
+        if(sx<0 || sy<0 || sx>=sw-1 || sy>=sh-1){
+          out[idx]=255; out[idx+1]=255; out[idx+2]=255; out[idx+3]=255;
+          continue;
+        }
+        const x0=Math.floor(sx), y0=Math.floor(sy);
+        const fx=sx-x0, fy=sy-y0;
+        const x1=Math.min(x0+1,sw-1), y1=Math.min(y0+1,sh-1);
+        for(let c=0;c<3;c++){
+          const p00=srcData[(y0*sw+x0)*4+c], p10=srcData[(y0*sw+x1)*4+c];
+          const p01=srcData[(y1*sw+x0)*4+c], p11=srcData[(y1*sw+x1)*4+c];
+          const topv = p00*(1-fx)+p10*fx, botv = p01*(1-fx)+p11*fx;
+          out[idx+c] = topv*(1-fy)+botv*fy;
+        }
+        out[idx+3] = 255;
+      }
+    }
+    return out;
+  }
+
+  /* ---------- edge-curve fitting + mesh dewarp: straightens a bowed/curled page,
+     not just a tilted one. A plain 4-corner homography assumes the page is perfectly
+     flat; a hand-held or slightly curled receipt bows a little, which makes straight
+     table rows look wavy after a naive perspective crop. Instead we fit a curve to
+     each edge and warp through a Coons patch (a surface blended from all 4 boundary
+     curves), so the measured edge shape is followed rather than forced onto 4
+     straight lines. ---------- */
+  function polyFit(points, degree){
+    const n = degree+1;
+    const A = []; const b = [];
+    for(let i=0;i<n;i++){ A.push(new Array(n).fill(0)); b.push(0); }
+    for(let k2=0;k2<points.length;k2++){
+      const t=points[k2][0], v=points[k2][1];
+      const powers = [1];
+      for(let k=1;k<n;k++) powers.push(powers[k-1]*t);
+      for(let i=0;i<n;i++){
+        for(let j=0;j<n;j++) A[i][j] += powers[i]*powers[j];
+        b[i] += powers[i]*v;
+      }
+    }
+    try{
+      const coef = solveLinearSystem(A, b);
+      for(let i=0;i<coef.length;i++) if(!isFinite(coef[i])) return null;
+      return coef;
+    }catch(e){ return null; }
+  }
+  function evalPoly(coef, t){
+    let v=0, p=1;
+    for(let i=0;i<coef.length;i++){ v += coef[i]*p; p *= t; }
+    return v;
+  }
+  // Fit, drop the worst ~15% of residuals (a stray noisy edge pixel shouldn't bend the
+  // whole curve), refit on what's left.
+  function robustCurveFit(points, degree){
+    if(points.length < (degree+1)*4) return null;
+    let coef = polyFit(points, degree);
+    if(!coef) return null;
+    const withRes = points.map(function(p){ return { p:p, r: Math.abs(p[1]-evalPoly(coef,p[0])) }; });
+    withRes.sort(function(a,b){ return a.r-b.r; });
+    const keep = withRes.slice(0, Math.max((degree+1)*4, Math.floor(withRes.length*0.85))).map(function(o){ return o.p; });
+    return polyFit(keep, degree) || coef;
+  }
+
+  function buildDewarpMesh(edgePoints, bbox){
+    const top=bbox.top, bottom=bbox.bottom, left=bbox.left, right=bbox.right;
+    const fit = function(pts){ return robustCurveFit(pts, 2) || robustCurveFit(pts, 1); };
+    const topCurve    = fit(edgePoints.topPts);
+    const bottomCurve = fit(edgePoints.bottomPts);
+    const leftCurve   = fit(edgePoints.leftPts.map(function(p){ return [p[1],p[0]]; }));
+    const rightCurve  = fit(edgePoints.rightPts.map(function(p){ return [p[1],p[0]]; }));
+    if(!topCurve || !bottomCurve || !leftCurve || !rightCurve) return null;
+
+    const topAt    = function(x){ return evalPoly(topCurve, x); };
+    const bottomAt = function(x){ return evalPoly(bottomCurve, x); };
+    const leftAt   = function(y){ return evalPoly(leftCurve, y); };
+    const rightAt  = function(y){ return evalPoly(rightCurve, y); };
+
+    const avg2 = function(a,b){ return [(a[0]+b[0])/2, (a[1]+b[1])/2]; };
+    const TL = avg2([left, topAt(left)],     [leftAt(top), top]);
+    const TR = avg2([right, topAt(right)],   [rightAt(top), top]);
+    const BL = avg2([left, bottomAt(left)],  [leftAt(bottom), bottom]);
+    const BR = avg2([right, bottomAt(right)],[rightAt(bottom), bottom]);
+    const lerpPt = function(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; };
+
+    function TopU(u){
+      const x = left + u*(right-left);
+      const base = lerpPt(TL, TR, u);
+      const dev = topAt(x) - (topAt(left) + (topAt(right)-topAt(left))*u);
+      return [base[0], base[1]+dev];
+    }
+    function BottomU(u){
+      const x = left + u*(right-left);
+      const base = lerpPt(BL, BR, u);
+      const dev = bottomAt(x) - (bottomAt(left) + (bottomAt(right)-bottomAt(left))*u);
+      return [base[0], base[1]+dev];
+    }
+    function LeftV(v){
+      const y = top + v*(bottom-top);
+      const base = lerpPt(TL, BL, v);
+      const dev = leftAt(y) - (leftAt(top) + (leftAt(bottom)-leftAt(top))*v);
+      return [base[0]+dev, base[1]];
+    }
+    function RightV(v){
+      const y = top + v*(bottom-top);
+      const base = lerpPt(TR, BR, v);
+      const dev = rightAt(y) - (rightAt(top) + (rightAt(bottom)-rightAt(top))*v);
+      return [base[0]+dev, base[1]];
+    }
+    function sourceAt(u, v){
+      const Tu = TopU(u), Bu = BottomU(u), Lv = LeftV(v), Rv = RightV(v);
+      const sx = (1-v)*Tu[0] + v*Bu[0] + (1-u)*Lv[0] + u*Rv[0]
+               - ((1-u)*(1-v)*TL[0] + u*(1-v)*TR[0] + (1-u)*v*BL[0] + u*v*BR[0]);
+      const sy = (1-v)*Tu[1] + v*Bu[1] + (1-u)*Lv[1] + u*Rv[1]
+               - ((1-u)*(1-v)*TL[1] + u*(1-v)*TR[1] + (1-u)*v*BL[1] + u*v*BR[1]);
+      return [sx, sy];
+    }
+    return { sourceAt: sourceAt };
+  }
+
+  function warpMeshArr(srcData, sw, sh, mesh, outW, outH){
+    const out = new Uint8ClampedArray(outW*outH*4);
+    for(let y=0;y<outH;y++){
+      const v = y/Math.max(1,outH-1);
+      for(let x=0;x<outW;x++){
+        const u = x/Math.max(1,outW-1);
+        const p = mesh.sourceAt(u, v);
+        const sx=p[0], sy=p[1];
+        const idx = (y*outW+x)*4;
+        if(!isFinite(sx) || !isFinite(sy) || sx<0 || sy<0 || sx>=sw-1 || sy>=sh-1){
+          out[idx]=255; out[idx+1]=255; out[idx+2]=255; out[idx+3]=255;
+          continue;
+        }
+        const x0=Math.floor(sx), y0=Math.floor(sy);
+        const fx=sx-x0, fy=sy-y0;
+        const x1=Math.min(x0+1,sw-1), y1=Math.min(y0+1,sh-1);
+        for(let c=0;c<3;c++){
+          const p00=srcData[(y0*sw+x0)*4+c], p10=srcData[(y0*sw+x1)*4+c];
+          const p01=srcData[(y1*sw+x0)*4+c], p11=srcData[(y1*sw+x1)*4+c];
+          const topv = p00*(1-fx)+p10*fx, botv = p01*(1-fx)+p11*fx;
+          out[idx+c] = topv*(1-fy)+botv*fy;
+        }
+        out[idx+3] = 255;
+      }
+    }
+    return out;
+  }
+
+  /* ---------- denoise (edge-preserving) ---------- */
+  // Fast bilateral-style denoise: blend each pixel toward its local neighborhood mean,
+  // with the blend weight driven by local variance — flat/noisy regions (paper grain,
+  // sensor noise) get smoothed, while high-variance regions (text edges, table rules)
+  // are left alone. O(w*h) via the box-blur trick above, so it's cheap even at full
+  // photo resolution.
+  function denoiseArr(data, w, h, radius, strength){
+    const out = new Uint8ClampedArray(data.length);
+    for(let c=0;c<3;c++){
+      const chan = new Float32Array(w*h);
+      for(let i=0;i<w*h;i++) chan[i]=data[i*4+c];
+      const mv = localMeanVar(chan, w, h, radius);
+      for(let i=0;i<w*h;i++){
+        const edgeFactor = mv.varr[i]/(mv.varr[i]+strength);
+        out[i*4+c] = chan[i]*edgeFactor + mv.mean[i]*(1-edgeFactor);
+      }
+    }
+    for(let i=0;i<w*h;i++) out[i*4+3]=255;
+    return out;
+  }
+
+  /* ---------- unsharp mask sharpening ---------- */
+  function sharpenArr(data, w, h, amount, radius){
+    const out = new Uint8ClampedArray(data.length);
+    for(let c=0;c<3;c++){
+      const chan = new Float32Array(w*h);
+      for(let i=0;i<w*h;i++) chan[i]=data[i*4+c];
+      const blurred = boxBlurGray(chan, w, h, radius);
+      for(let i=0;i<w*h;i++){
+        out[i*4+c] = chan[i] + amount*(chan[i]-blurred[i]);
+      }
+    }
+    for(let i=0;i<w*h;i++) out[i*4+3]=255;
+    return out;
+  }
+
+  /* ---------- white balance (percentile gray-world) ---------- */
+  // Corrects the yellow/orange color cast typical of indoor tube-light or tungsten
+  // lighting by scaling each channel so its bright-end percentile lands near white,
+  // rather than assuming the whole-image *average* should be gray (plain gray-world
+  // gets thrown off badly by a mostly-white invoice with dark ink and a colored logo).
+  function whiteBalance(data, w, h){
+    const n = w*h;
+    const step = Math.max(1, Math.floor(n/20000));
+    const rs=[], gs=[], bs=[];
+    for(let i=0;i<n;i+=step){ rs.push(data[i*4]); gs.push(data[i*4+1]); bs.push(data[i*4+2]); }
+    rs.sort(function(a,b){return a-b;}); gs.sort(function(a,b){return a-b;}); bs.sort(function(a,b){return a-b;});
+    function pct(arr,p){ return arr.length ? arr[Math.min(arr.length-1,Math.floor(arr.length*p))] : 255; }
+    const rp=pct(rs,0.9)||1, gp=pct(gs,0.9)||1, bp=pct(bs,0.9)||1;
+    const target=235;
+    const rGain=Math.max(0.6,Math.min(1.9,target/Math.max(1,rp)));
+    const gGain=Math.max(0.6,Math.min(1.9,target/Math.max(1,gp)));
+    const bGain=Math.max(0.6,Math.min(1.9,target/Math.max(1,bp)));
+    const out=new Uint8ClampedArray(data.length);
+    for(let i=0;i<w*h;i++){
+      out[i*4]=data[i*4]*rGain;
+      out[i*4+1]=data[i*4+1]*gGain;
+      out[i*4+2]=data[i*4+2]*bGain;
+      out[i*4+3]=255;
+    }
+    return out;
+  }
+
+  /* ---------- shadow flattening + glare/highlight compression ---------- */
+  // Estimates the page's own lighting gradient via a large-radius blur (smooth, no
+  // blocky banding), divides it out so a shadow falling across the page disappears,
+  // then compresses any near-blown highlights (camera-flash glare, glossy lamination)
+  // with a soft knee instead of leaving a harsh white blob.
+  function flattenShadowsColor(data, w, h){
+    const gray = toGray(data, w, h);
+    const radius = Math.max(10, Math.round(Math.min(w,h)/14));
+    const bg = boxBlurGray(gray, w, h, radius);
+    const out = new Uint8ClampedArray(data.length);
+    const target=228;
+    for(let i=0;i<w*h;i++){
+      let b=bg[i]; if(b<10) b=10;
+      const ratio = target/b;
+      for(let c=0;c<3;c++){
+        let v = data[i*4+c]*ratio;
+        if(v>235) v = 235 + (v-235)*0.25; // soft-knee highlight compression
+        out[i*4+c]=v;
+      }
+      out[i*4+3]=255;
+    }
+    return out;
+  }
+
+  function illuminationCorrectedGray(data, w, h){
+    const gray = toGray(data, w, h);
+    const radius = Math.max(10, Math.round(Math.min(w,h)/14));
+    const bg = boxBlurGray(gray, w, h, radius);
+    const out = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++){
+      let b=bg[i]; if(b<10) b=10;
+      let v=gray[i]/b*230;
+      out[i]=v>255?255:(v<0?0:v);
+    }
+    return out;
+  }
+
+  /* ---------- local adaptive contrast (tiled CLAHE-lite) ---------- */
+  // Global contrast stretch treats the whole page as one lighting condition; a photo
+  // often isn't (corner shadow, glare falloff). This computes a per-tile percentile
+  // stretch and bilinearly blends the tiles' curves across the image, so contrast
+  // adapts smoothly to local conditions without visible block seams.
+  function localContrastColor(data, w, h){
+    const tilesX=8, tilesY=6;
+    const tw=Math.ceil(w/tilesX), th=Math.ceil(h/tilesY);
+    const loMap=new Float32Array(tilesX*tilesY), hiMap=new Float32Array(tilesX*tilesY);
+    const gray = toGray(data, w, h);
+    for(let ty=0;ty<tilesY;ty++){
+      for(let tx=0;tx<tilesX;tx++){
+        const x0=tx*tw, x1=Math.min(w,x0+tw), y0=ty*th, y1=Math.min(h,y0+th);
+        const vals=[];
+        for(let y=y0;y<y1;y+=2){ for(let x=x0;x<x1;x+=2){ vals.push(gray[y*w+x]); } }
+        vals.sort(function(a,b){return a-b;});
+        const lo = vals.length ? vals[Math.floor(vals.length*0.02)] : 0;
+        const hi = vals.length ? vals[Math.floor(vals.length*0.96)] : 255;
+        loMap[ty*tilesX+tx]=lo; hiMap[ty*tilesX+tx]=Math.max(hi,lo+20);
+      }
+    }
+    function bilerp(map, ftx, fty){
+      const fx = ftx-0.5, fy=fty-0.5;
+      const x0=Math.max(0,Math.min(tilesX-1,Math.floor(fx))), y0=Math.max(0,Math.min(tilesY-1,Math.floor(fy)));
+      const x1=Math.min(tilesX-1,x0+1), y1=Math.min(tilesY-1,y0+1);
+      const ax=Math.max(0,Math.min(1,fx-x0)), ay=Math.max(0,Math.min(1,fy-y0));
+      const v00=map[y0*tilesX+x0], v10=map[y0*tilesX+x1], v01=map[y1*tilesX+x0], v11=map[y1*tilesX+x1];
+      return (v00*(1-ax)+v10*ax)*(1-ay) + (v01*(1-ax)+v11*ax)*ay;
+    }
+    const out=new Uint8ClampedArray(data.length);
+    for(let y=0;y<h;y++){
+      const ty=(y+0.5)/th;
+      for(let x=0;x<w;x++){
+        const tx=(x+0.5)/tw;
+        const lo=bilerp(loMap,tx,ty), hi=bilerp(hiMap,tx,ty);
+        const range=Math.max(10,hi-lo);
+        const i=y*w+x;
+        for(let c=0;c<3;c++){
+          let v=(data[i*4+c]-lo)/range*255;
+          v=v<0?0:v>255?255:v;
+          out[i*4+c]=v;
+        }
+        out[i*4+3]=255;
+      }
+    }
+    return out;
+  }
+
+  /* ---------- professional color scan enhancement ---------- */
+  // Pipeline order matters: white balance first (color cast skews everything after
+  // it), then flatten lighting/shadows, then denoise (before we boost contrast, so we
+  // don't amplify grain), then adaptive local contrast, then a light final sharpen.
+  function enhanceColor(payload){
+    const w=payload.width, h=payload.height;
+    let d = whiteBalance(payload.data, w, h);
+    d = flattenShadowsColor(d, w, h);
+    d = denoiseArr(d, w, h, 2, 120);
+    d = localContrastColor(d, w, h);
+    d = sharpenArr(d, w, h, 0.5, 3);
+    return { width:w, height:h, data:d };
+  }
+
+  /* ---------- Clear Black & White filter (printed invoices/receipts) ----------
+     Runs on the illumination-corrected grayscale (so shadows/gradients don't bias
+     the threshold), lightly denoises and sharpens the text strokes, then binarizes
+     with a Sauvola-style *local* adaptive threshold (computed from local mean/std
+     via the same fast box-blur trick) rather than one global cutoff — this is what
+     keeps faint or unevenly-lit printed text solid black while the background stays
+     a clean, even white all the way across the page. A soft sigmoid (instead of a
+     hard cut) keeps character edges anti-aliased for OCR, with true 0/255 tails so
+     it still reads as a crisp black-and-white scan. */
+  function enhanceBW(payload){
+    const w=payload.width, h=payload.height;
+    let gray = illuminationCorrectedGray(payload.data, w, h);
+
+    const mv = localMeanVar(gray, w, h, 2);
+    const denoised = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++){
+      const ef = mv.varr[i]/(mv.varr[i]+90);
+      denoised[i] = gray[i]*ef + mv.mean[i]*(1-ef);
+    }
+
+    const blurredSmall = boxBlurGray(denoised, w, h, 2);
+    const crisp = new Float32Array(w*h);
+    for(let i=0;i<w*h;i++){
+      let v = denoised[i] + 0.6*(denoised[i]-blurredSmall[i]);
+      crisp[i] = v>255?255:(v<0?0:v);
+    }
+
+    const winR = Math.max(12, Math.round(Math.min(w,h)/22));
+    const local = localMeanVar(crisp, w, h, winR);
+    const out = new Uint8ClampedArray(w*h*4);
+    const k=0.34, R=110, softness=9;
+    for(let i=0;i<w*h;i++){
+      const std = Math.sqrt(local.varr[i]);
+      const thresh = local.mean[i]*(1 + k*(std/R - 1));
+      let v = 255/(1+Math.exp(-(crisp[i]-thresh)/softness));
+      if(v<24) v=0; else if(v>232) v=255;
+      const o=i*4;
+      out[o]=v; out[o+1]=v; out[o+2]=v; out[o+3]=255;
+    }
+    return { width:w, height:h, data:out };
+  }
+
+  /* ---------- multi-metric blur / focus quality check ----------
+     A single Laplacian-variance number is easy to fool — a bold logo or a ruled
+     table can inflate it even when the body text is soft, and it says nothing about
+     *localized* blur (e.g. one corner out of focus because the page wasn't flat).
+     This combines four signals and requires both the overall composite AND the
+     weakest image region to clear a bar:
+       - Laplacian variance (classic "high-frequency energy" proxy)
+       - Tenengrad (Sobel gradient-magnitude energy — different sensitivity profile,
+         catches some motion blur that Laplacian misses)
+       - high-frequency energy ratio (edge energy normalized by overall contrast, so
+         a low-contrast-but-sharp photo isn't penalized the way a raw HF measure would)
+       - block-wise median Laplacian variance over a 3x3 grid (catches blur that's
+         localized to part of the frame rather than uniform) */
+  function computeBlurMetrics(payload){
+    const ow=payload.width, oh=payload.height, data=payload.data;
+    const maxW=480;
+    const scale=Math.min(1,maxW/ow);
+    const w=Math.max(3,Math.round(ow*scale)), h=Math.max(3,Math.round(oh*scale));
+    const fullGray = toGray(data, ow, oh);
+    const gray=new Float32Array(w*h);
+    const gxScale=ow/w, gyScale=oh/h;
+    for(let y=0;y<h;y++){
+      const sy0=Math.floor(y*gyScale), sy1=Math.min(oh,Math.floor((y+1)*gyScale)+1);
+      for(let x=0;x<w;x++){
+        const sx0=Math.floor(x*gxScale), sx1=Math.min(ow,Math.floor((x+1)*gxScale)+1);
+        let sum=0,cnt=0;
+        for(let yy=sy0; yy<sy1; yy++){ for(let xx=sx0; xx<sx1; xx++){ sum+=fullGray[yy*ow+xx]; cnt++; } }
+        gray[y*w+x]=cnt?sum/cnt:0;
+      }
+    }
+
+    let sum=0,sumSq=0,count=0;
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        const idx=y*w+x;
+        const lap=gray[idx-1]+gray[idx+1]+gray[idx-w]+gray[idx+w]-4*gray[idx];
+        sum+=lap; sumSq+=lap*lap; count++;
+      }
+    }
+    const lapMean = count?sum/count:0;
+    const lapVar = count?(sumSq/count)-(lapMean*lapMean):0;
+
+    const mag = sobelMagnitude(gray, w, h);
+    let mSumSq=0, mCount=0;
+    for(let y=1;y<h-1;y++){ for(let x=1;x<w-1;x++){ const m=mag[y*w+x]; mSumSq+=m*m; mCount++; } }
+    const tenengrad = mCount ? mSumSq/mCount : 0;
+
+    const blurredRef = boxBlurGray(gray, w, h, 3);
+    let hfEnergy=0, meanGray=0;
+    for(let i=0;i<w*h;i++) meanGray+=gray[i];
+    meanGray/= (w*h);
+    let totalVar=0;
+    for(let i=0;i<w*h;i++){
+      const hf=gray[i]-blurredRef[i];
+      hfEnergy += hf*hf;
+      const dv=gray[i]-meanGray;
+      totalVar += dv*dv;
+    }
+    hfEnergy/=(w*h); totalVar=(totalVar/(w*h))||1;
+    const hfRatio = hfEnergy/totalVar;
+
+    const gridX=3, gridY=3;
+    const bw=Math.floor(w/gridX), bh=Math.floor(h/gridY);
+    const blockVars=[];
+    for(let by=0; by<gridY; by++){
+      for(let bx=0; bx<gridX; bx++){
+        const x0=Math.max(1,bx*bw), x1=(bx===gridX-1? w-1 : (bx+1)*bw);
+        const y0=Math.max(1,by*bh), y1=(by===gridY-1? h-1 : (by+1)*bh);
+        let s=0,sq=0,c=0;
+        for(let y=y0;y<y1;y++){
+          for(let x=x0;x<x1;x++){
+            const idx=y*w+x;
+            const lap=gray[idx-1]+gray[idx+1]+gray[idx-w]+gray[idx+w]-4*gray[idx];
+            s+=lap; sq+=lap*lap; c++;
+          }
+        }
+        if(c>0){ const m=s/c; blockVars.push((sq/c)-(m*m)); }
+      }
+    }
+    blockVars.sort(function(a,b){return a-b;});
+    const blockMedianVar = blockVars.length? blockVars[Math.floor(blockVars.length/2)] : lapVar;
+
+    const normLap       = Math.min(100, (lapVar/280)*100);
+    const normTenengrad  = Math.min(100, (tenengrad/9000)*100);
+    const normHf         = Math.min(100, (hfRatio/0.55)*100);
+    const normBlock      = Math.min(100, (blockMedianVar/220)*100);
+
+    const score = 0.35*normLap + 0.25*normTenengrad + 0.20*normHf + 0.20*normBlock;
+    // Require both a healthy overall composite AND that the weakest region of the
+    // frame isn't badly out of focus — catches partial/corner blur a global average hides.
+    const sharp = score >= 48 && normBlock >= 28;
+
+    return {
+      score: Math.round(Math.max(0,Math.min(100,score))),
+      sharp: sharp,
+      laplacianVar: lapVar, tenengrad: tenengrad, hfRatio: hfRatio, blockMedianVar: blockMedianVar
+    };
+  }
+
+  /* ---------- combined capture pipeline: detect -> dewarp -> denoise -> sharpen ----------
+     Corner detection runs on a small (~700px) working copy for speed; the result is
+     scaled back up and used to warp the *full-resolution* buffer, so accuracy doesn't
+     depend on processing the whole multi-megapixel photo pixel-by-pixel for detection. */
+  function processCapture(payload){
+    const smallW=payload.smallW, smallH=payload.smallH, smallData=payload.smallData;
+    const fullW=payload.fullW, fullH=payload.fullH, fullData=payload.fullData;
+    const knownCorners = payload.knownCorners;
+
+    const detection = detectCorners({ width:smallW, height:smallH, data:smallData });
+    let corners=null, edgePoints=null, bbox=null, confidence=0;
+    if(detection && detection.confidence > 0.22){
+      const scaleX = fullW/smallW, scaleY = fullH/smallH;
+      const scalePts = function(pts){ return pts.map(function(p){ return [p[0]*scaleX, p[1]*scaleY]; }); };
+      corners = scalePts(detection.corners);
+      edgePoints = {
+        topPts: scalePts(detection.edgePoints.topPts),
+        bottomPts: scalePts(detection.edgePoints.bottomPts),
+        leftPts: scalePts(detection.edgePoints.leftPts),
+        rightPts: scalePts(detection.edgePoints.rightPts)
+      };
+      bbox = {
+        top: detection.bbox.top*scaleY, bottom: detection.bbox.bottom*scaleY,
+        left: detection.bbox.left*scaleX, right: detection.bbox.right*scaleX
+      };
+      confidence = detection.confidence;
+    } else if(knownCorners && knownCorners.length===4){
+      corners = knownCorners;
+      confidence = 0.3;
+    }
+
+    let outData, outW, outH, cropApplied=false;
+    if(corners){
+      const dims = quadDimensions(corners);
+      outW=dims.w; outH=dims.h;
+      let warped=null;
+      if(edgePoints){
+        const mesh = buildDewarpMesh(edgePoints, bbox);
+        if(mesh){
+          try{ warped = warpMeshArr(fullData, fullW, fullH, mesh, outW, outH); }catch(e){ warped=null; }
+        }
+      }
+      if(!warped){
+        try{ warped = warpPerspectiveArr(fullData, fullW, fullH, corners, outW, outH); }catch(e){ warped=null; }
+      }
+      if(warped){ outData=warped; cropApplied=true; }
+      else { outData=fullData; outW=fullW; outH=fullH; }
+    } else {
+      outData = fullData; outW=fullW; outH=fullH;
+    }
+
+    // Denoise before the fine sharpen so grain doesn't get punched up along with text.
+    outData = denoiseArr(outData, outW, outH, 1, 60);
+    outData = sharpenArr(outData, outW, outH, 0.5, 3);
+
+    return { width: outW, height: outH, data: outData, cropApplied: cropApplied, confidence: confidence };
+  }
+
+  function buildScanEngine(){
+    return {
+      detectCorners: detectCorners,
+      quadDimensions: quadDimensions,
+      processCapture: processCapture,
+      enhanceColor: enhanceColor,
+      enhanceBW: enhanceBW,
+      computeBlurMetrics: computeBlurMetrics
+    };
+  }
+
+  /* ---------- wire up: Worker context dispatches messages; otherwise expose the
+     engine directly for the main-thread synchronous fallback. ---------- */
+  if(typeof self !== 'undefined' && typeof importScripts === 'function'){
+    const engine = buildScanEngine();
+    self.onmessage = function(e){
+      const msg = e.data;
+      try{
+        let result;
+        if(msg.type === 'detectCorners') result = engine.detectCorners(msg.payload);
+        else if(msg.type === 'process') result = engine.processCapture(msg.payload);
+        else if(msg.type === 'enhance') result = msg.payload.mode === 'bw' ? engine.enhanceBW(msg.payload) : engine.enhanceColor(msg.payload);
+        else if(msg.type === 'blur') result = engine.computeBlurMetrics(msg.payload);
+        else throw new Error('Unknown engine command: '+msg.type);
+
+        const transfer = (result && result.data && result.data.buffer) ? [result.data.buffer] : [];
+        self.postMessage({ id: msg.id, ok:true, result: result }, transfer);
+      }catch(err){
+        self.postMessage({ id: msg.id, ok:false, error: (err && err.message) || String(err) });
+      }
+    };
+  } else if(typeof window !== 'undefined'){
+    window.__scanEngine = buildScanEngine();
+  } else if(typeof module !== 'undefined'){
+    module.exports = buildScanEngine();
+  }
+})();
+</script>
+
+<script>
+/* ---------------- Storage ---------------- */
+const LS_KEY = 'bid_invoices_v1';
+const LS_SETTINGS = 'bid_settings_v1';
+
+function loadInvoices(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ return []; } }
+function saveInvoices(list){ localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+function loadSettings(){ try{ return JSON.parse(localStorage.getItem(LS_SETTINGS)) || {}; }catch(e){ return {}; } }
+function saveSettings(s){ localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); }
+
+/* ---------------- Toast notifications ---------------- */
+function toast(msg, kind){
+  let el = document.getElementById('appToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'appToast';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.className = 'toast show' + (kind==='error' ? ' error' : '');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(()=> el.classList.remove('show'), 3400);
+}
+
+/* ---------------- Scan processing engine (Web Worker + main-thread fallback) ----------------
+   The heavy pixel work (corner detection on full-res photos, perspective/mesh dewarp,
+   denoise, color/B&W enhancement, multi-metric blur check) lives in a single engine
+   source shared by a background Worker and, if Workers aren't available, a synchronous
+   in-page fallback — see the #scan-engine-src block above. Routing it through a Worker
+   keeps the UI thread (and the live-camera overlay) responsive while a multi-megapixel
+   photo is being straightened and cleaned up. */
+const SCAN_ENGINE_SRC = document.getElementById('scan-engine-src').textContent;
+let scanWorker = null;
+let scanWorkerFailed = false;
+let scanWorkerReqId = 0;
+const scanWorkerPending = new Map();
+
+function initScanWorker(){
+  if(scanWorker || scanWorkerFailed) return;
+  if(typeof Worker === 'undefined'){ scanWorkerFailed = true; return; }
+  try{
+    const blob = new Blob([SCAN_ENGINE_SRC], { type:'application/javascript' });
+    scanWorker = new Worker(URL.createObjectURL(blob));
+    scanWorker.onmessage = (e)=>{
+      const { id, ok, result, error } = e.data;
+      const pending = scanWorkerPending.get(id);
+      if(!pending) return;
+      scanWorkerPending.delete(id);
+      ok ? pending.resolve(result) : pending.reject(new Error(error));
+    };
+    scanWorker.onerror = (err)=>{
+      console.warn('Scan worker crashed, falling back to main thread from now on', err);
+      scanWorker = null;
+      scanWorkerFailed = true;
+      scanWorkerPending.forEach(p=> p.reject(new Error('Scan worker crashed')));
+      scanWorkerPending.clear();
+    };
+  }catch(e){
+    console.warn('Web Worker unavailable, using main-thread scan processing', e);
+    scanWorker = null;
+    scanWorkerFailed = true;
+  }
+}
+
+// Lazily built synchronous fallback engine (used if Workers are unsupported/blocked,
+// and also directly for the cheap, frequent live-preview corner check — see
+// detectLiveFrame — where a worker round-trip would just add latency for no benefit).
+let __scanEngineFallbackObj = null;
+function getFallbackEngine(){
+  if(!__scanEngineFallbackObj){
+    (0, eval)(SCAN_ENGINE_SRC); // runs the same source in global scope -> window.__scanEngine
+    __scanEngineFallbackObj = window.__scanEngine;
+  }
+  return __scanEngineFallbackObj;
+}
+
+// Runs one engine command. Transfers typed-array buffers into the worker (zero-copy)
+// when possible; falls back to the synchronous in-page engine otherwise.
+function runEngine(type, payload, transferables){
+  initScanWorker();
+  if(scanWorker){
+    return new Promise((resolve, reject)=>{
+      const id = ++scanWorkerReqId;
+      scanWorkerPending.set(id, { resolve, reject });
+      try{
+        scanWorker.postMessage({ id, type, payload }, transferables||[]);
+      }catch(e){
+        scanWorkerPending.delete(id);
+        reject(e);
+      }
+    });
+  }
+  return new Promise((resolve, reject)=>{
+    try{
+      const engine = getFallbackEngine();
+      let result;
+      if(type==='detectCorners') result = engine.detectCorners(payload);
+      else if(type==='process') result = engine.processCapture(payload);
+      else if(type==='enhance') result = payload.mode==='bw' ? engine.enhanceBW(payload) : engine.enhanceColor(payload);
+      else if(type==='blur') result = engine.computeBlurMetrics(payload);
+      else throw new Error('Unknown engine command: '+type);
+      resolve(result);
+    }catch(e){ reject(e); }
+  });
+}
+
+/* ---------------- Tabs ---------------- */
+const tabs = ['capture','invoices','reports','settings'];
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=> showTab(btn.dataset.tab));
+});
+function showTab(name){
+  tabs.forEach(t=>{
+    document.getElementById('tab-'+t).style.display = (t===name)?'block':'none';
+    document.querySelector(`nav.tabs button[data-tab="${t}"]`)?.classList.toggle('active', t===name);
+  });
+  document.getElementById('tab-detail').style.display='none';
+  if(name!=='capture' && typeof stopLiveCapture==='function') stopLiveCapture();
+  if(name==='invoices') renderInvoiceList();
+  if(name==='settings') fillSettingsForm();
+}
+
+/* ---------------- Settings form ---------------- */
+function fillSettingsForm(){
+  const s = loadSettings();
+  document.getElementById('aiKey').value = s.aiKey || s.geminiKey || '';
+  document.getElementById('dropboxKey').value = s.dropboxKey || '';
+  document.getElementById('gmailTo').value = s.gmailTo || '';
+  renderDropboxBadge();
+}
+document.getElementById('saveSettings').addEventListener('click', ()=>{
+  saveSettings({
+    aiKey: document.getElementById('aiKey').value.trim(),
+    dropboxKey: document.getElementById('dropboxKey').value.trim(),
+    gmailTo: document.getElementById('gmailTo').value.trim()
+  });
+  alert('Settings saved on this device.');
+});
+document.getElementById('wipeData').addEventListener('click', ()=>{
+  if(confirm('This deletes every stored invoice on this device permanently. Continue?')){
+    localStorage.removeItem(LS_KEY);
+    renderInvoiceList();
+    alert('Local invoice data erased.');
+  }
+});
+
+/* ---------------- Capture flow ---------------- */
+const captureChoiceBtn = document.getElementById('captureChoiceBtn');
+const filesChoiceBtn = document.getElementById('filesChoiceBtn');
+const fileInput = document.getElementById('fileInput');
+const liveCard = document.getElementById('liveCard');
+const liveVideo = document.getElementById('liveVideo');
+const liveOverlay = document.getElementById('liveOverlay');
+const liveStatus = document.getElementById('liveStatus');
+const previewCard = document.getElementById('previewCard');
+const previewImg = document.getElementById('previewImg');
+const blurFlag = document.getElementById('blurFlag');
+const captureActions = document.getElementById('captureActions');
+const progressCard = document.getElementById('progressCard');
+const progressText = document.getElementById('progressText');
+
+let currentImageDataUrl = null;
+let currentSharp = true;
+let lastBlurScore = null;
+let rawImageDataUrl = null;      // untouched photo straight from camera/file
+let croppedImageDataUrl = null;  // perspective-corrected + sharpened version
+let usingCropped = true;
+let lastCropApplied = false;
+let currentScanFilter = 'color'; // 'color' (professional enhanced) or 'bw' (Clear Black & White)
+let enhancedPreviewCache = { color:null, bw:null }; // avoids recomputing enhance() twice for the same image
+
+/* ----- entry points ----- */
+captureChoiceBtn.addEventListener('click', ()=> startLiveCapture());
+filesChoiceBtn.addEventListener('click', ()=> fileInput.click());
+
+fileInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=> processCapturedImage(ev.target.result, null);
+  reader.readAsDataURL(file);
+});
+
+/* ----- live camera scan with real-time edge guide -----
+   Runs the *light* corner detector directly on the main thread (not via the Worker):
+   at the 240px working resolution used here it's cheap (sub-millisecond range), and a
+   worker round trip every ~180ms would only add latency to the on-screen guide box for
+   no real benefit. The Worker is reserved for the expensive full-resolution work
+   (capture processing, enhancement, blur check) — see runEngine() above. */
+let liveStream = null;
+let liveDetectTimer = null;
+let liveAutoCaptureArmed = true;
+let liveQuadHistory = [];      // rolling window of {corners, confidence} for stability + confidence gating
+const LIVE_HISTORY_LEN = 8;
+const LIVE_STABLE_FRAMES = 5;
+const LIVE_MIN_CONFIDENCE = 0.5;
+
+async function startLiveCapture(){
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+  }catch(err){
+    // No camera / permission denied / not on HTTPS — fall back straight to the file picker
+    // (which still opens the phone's native camera app via capture="environment").
+    console.warn('Live camera unavailable, falling back to file picker', err);
+    fileInput.click();
+    return;
+  }
+  liveStream = stream;
+  document.getElementById('captureCard').style.display = 'none';
+  liveCard.style.display = 'block';
+  liveVideo.srcObject = liveStream;
+  try{ await liveVideo.play(); }catch(e){ /* autoplay quirks, ignore */ }
+  liveQuadHistory = [];
+  liveAutoCaptureArmed = true;
+  liveStatus.textContent = 'Looking for the page…';
+  liveStatus.className = 'livestatus';
+  liveDetectTimer = setInterval(detectLiveFrame, 180);
+}
+
+function stopLiveCapture(){
+  if(liveDetectTimer){ clearInterval(liveDetectTimer); liveDetectTimer = null; }
+  if(liveStream){ liveStream.getTracks().forEach(t=>t.stop()); liveStream = null; }
+  liveCard.style.display = 'none';
+}
+
+document.getElementById('liveCancelBtn').addEventListener('click', ()=>{
+  stopLiveCapture();
+  document.getElementById('captureCard').style.display = 'block';
+});
+
+document.getElementById('liveCaptureBtn').addEventListener('click', ()=>{
+  liveAutoCaptureArmed = false;
+  const last = liveQuadHistory[liveQuadHistory.length-1];
+  captureFromLiveVideo(last ? last.corners : null, last ? last.workW : 0, last ? last.workH : 0);
+});
+
+// Corner jitter (max per-corner movement) across the whole rolling window — not just
+// vs. the previous frame — so a slow drift or a shaky hand doesn't get miscounted as
+// "stable" just because two adjacent frames happened to be close.
+function windowJitter(history, workW){
+  if(history.length < 2) return Infinity;
+  let maxJitter = 0;
+  for(let c=0;c<4;c++){
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for(let i=0;i<history.length;i++){
+      const p = history[i].corners[c];
+      if(p[0]<minX) minX=p[0]; if(p[0]>maxX) maxX=p[0];
+      if(p[1]<minY) minY=p[1]; if(p[1]>maxY) maxY=p[1];
+    }
+    maxJitter = Math.max(maxJitter, Math.hypot(maxX-minX, maxY-minY));
+  }
+  return maxJitter / workW;
+}
+
+function detectLiveFrame(){
+  if(!liveVideo.videoWidth) return;
+  const workW = 240, workH = Math.max(1, Math.round(240 * liveVideo.videoHeight / liveVideo.videoWidth));
+  const wc = document.createElement('canvas');
+  wc.width = workW; wc.height = workH;
+  const wctx = wc.getContext('2d');
+  wctx.drawImage(liveVideo, 0, 0, workW, workH);
+  const frameData = wctx.getImageData(0, 0, workW, workH);
+  const quad = getFallbackEngine().detectCorners({ width:workW, height:workH, data:frameData.data });
+
+  const overlayW = liveVideo.clientWidth, overlayH = liveVideo.clientHeight;
+  liveOverlay.width = overlayW; liveOverlay.height = overlayH;
+  const octx = liveOverlay.getContext('2d');
+  octx.clearRect(0,0,overlayW,overlayH);
+
+  if(!quad || quad.confidence < 0.18){
+    liveQuadHistory = [];
+    liveStatus.textContent = (quad && quad.avgBrightness < 60) ? 'Too dark — find better light…' : 'Looking for the page…';
+    liveStatus.className = 'livestatus';
+    return;
+  }
+
+  liveQuadHistory.push({ corners: quad.corners, confidence: quad.confidence, workW, workH });
+  if(liveQuadHistory.length > LIVE_HISTORY_LEN) liveQuadHistory.shift();
+
+  const jitterRatio = windowJitter(liveQuadHistory, workW);
+  const avgConfidence = liveQuadHistory.reduce((s,q)=>s+q.confidence,0) / liveQuadHistory.length;
+  const isStablePosition = liveQuadHistory.length >= LIVE_STABLE_FRAMES && jitterRatio < 0.045;
+  const isSteady = isStablePosition && avgConfidence >= LIVE_MIN_CONFIDENCE;
+
+  const scaleX = overlayW/workW, scaleY = overlayH/workH;
+  const pts = quad.corners.map(([x,y])=>[x*scaleX, y*scaleY]);
+
+  const color = isSteady ? '#3fbf6f' : (quad.confidence >= LIVE_MIN_CONFIDENCE ? '#e8b93f' : '#e0693f');
+  octx.strokeStyle = color;
+  octx.lineWidth = 3;
+  octx.beginPath();
+  pts.forEach(([x,y],i)=> i===0 ? octx.moveTo(x,y) : octx.lineTo(x,y));
+  octx.closePath();
+  octx.stroke();
+  pts.forEach(([x,y])=>{
+    octx.fillStyle = color;
+    octx.beginPath(); octx.arc(x,y,6,0,Math.PI*2); octx.fill();
+  });
+
+  // Fill ratio drives a "move closer / fill the frame" nudge, similar to CamScanner/
+  // Lens-style guidance, instead of just "found it" / "didn't find it".
+  const xs = quad.corners.map(p=>p[0]), ys = quad.corners.map(p=>p[1]);
+  const fillRatio = ((Math.max(...xs)-Math.min(...xs)) * (Math.max(...ys)-Math.min(...ys))) / (workW*workH);
+
+  if(isSteady){
+    liveStatus.textContent = 'Steady — capturing…';
+    liveStatus.className = 'livestatus steady';
+  } else if(quad.confidence < LIVE_MIN_CONFIDENCE){
+    liveStatus.textContent = fillRatio < 0.25 ? 'Move closer — fill the frame with the page' : 'Straighten the page in view…';
+    liveStatus.className = 'livestatus';
+  } else {
+    liveStatus.textContent = 'Hold steady over the page…';
+    liveStatus.className = 'livestatus';
+  }
+
+  if(isSteady && liveAutoCaptureArmed){
+    liveAutoCaptureArmed = false;
+    captureFromLiveVideo(quad.corners, workW, workH);
+  }
+}
+
+async function captureFromLiveVideo(workCorners, workW, workH){
+  const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
+  const fullCanvas = document.createElement('canvas');
+  fullCanvas.width = vw; fullCanvas.height = vh;
+  fullCanvas.getContext('2d').drawImage(liveVideo, 0, 0, vw, vh);
+  const rawDataUrl = fullCanvas.toDataURL('image/jpeg', 0.92);
+
+  stopLiveCapture();
+
+  let fullResCorners = null;
+  if(workCorners && workW && workH){
+    const sx = vw/workW, sy = vh/workH;
+    fullResCorners = workCorners.map(([x,y])=>[x*sx, y*sy]);
+  }
+  await processCapturedImage(rawDataUrl, fullResCorners);
+}
+
+/* ----- shared pipeline: detect -> dewarp -> denoise -> sharpen, whatever the source -----
+   The main thread's only job here is decoding the photo to raw pixels (cheap, via
+   <canvas>, GPU-assisted) at two sizes — a small ~700px copy for corner detection and
+   the full-resolution copy to actually warp — and handing both to the engine in one
+   'process' call. All the expensive per-pixel work happens off the UI thread. */
+async function processCapturedImage(rawDataUrl, knownCorners){
+  rawImageDataUrl = rawDataUrl;
+  document.getElementById('captureCard').style.display = 'none';
+  previewCard.style.display = 'none';
+  progressCard.style.display = 'block';
+  progressText.textContent = 'Detecting page edges…';
+
+  let processed = rawDataUrl;
+  lastCropApplied = false;
+  try{
+    const img = await loadImageEl(rawDataUrl);
+
+    const fullCanvas = document.createElement('canvas');
+    fullCanvas.width = img.width; fullCanvas.height = img.height;
+    const fctx = fullCanvas.getContext('2d');
+    fctx.drawImage(img, 0, 0);
+    const fullImageData = fctx.getImageData(0, 0, img.width, img.height);
+
+    const smallW = 700, smallH = Math.max(1, Math.round(700 * img.height / img.width));
+    const smallCanvas = document.createElement('canvas');
+    smallCanvas.width = smallW; smallCanvas.height = smallH;
+    const sctx = smallCanvas.getContext('2d');
+    sctx.drawImage(img, 0, 0, smallW, smallH);
+    const smallImageData = sctx.getImageData(0, 0, smallW, smallH);
+
+    progressText.textContent = 'Straightening & cleaning up scan…';
+    const result = await runEngine('process', {
+      smallW, smallH, smallData: smallImageData.data,
+      fullW: img.width, fullH: img.height, fullData: fullImageData.data,
+      knownCorners
+    }, [smallImageData.data.buffer, fullImageData.data.buffer]);
+
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = result.width; outCanvas.height = result.height;
+    outCanvas.getContext('2d').putImageData(
+      new ImageData(new Uint8ClampedArray(result.data), result.width, result.height), 0, 0
+    );
+    processed = outCanvas.toDataURL('image/jpeg', 0.92);
+    lastCropApplied = !!result.cropApplied;
+  }catch(err){
+    console.warn('Scan processing failed, using original photo', err);
+    processed = rawDataUrl;
+    lastCropApplied = false;
+  }
+
+  croppedImageDataUrl = processed;
+  usingCropped = true;
+  currentImageDataUrl = processed;
+  enhancedPreviewCache = { color:null, bw:null }; // stale after a new capture
+  previewImg.src = currentImageDataUrl;
+  progressCard.style.display = 'none';
+  previewCard.style.display = 'block';
+  updateCropFlag();
+  checkSharpness(currentImageDataUrl);
+  refreshFilterPreview(); // shows the default (Enhanced color) filter once it's ready, non-blocking
+}
+
+function updateCropFlag(){
+  const flag = document.getElementById('cropFlag');
+  if(usingCropped && lastCropApplied){
+    flag.style.display='inline-block';
+    flag.textContent = '⛶ Straightened';
+  } else if(!usingCropped){
+    flag.style.display='inline-block';
+    flag.textContent = 'Full photo';
+  } else {
+    flag.style.display='none';
+  }
+}
+
+function toggleCropVersion(){
+  usingCropped = !usingCropped;
+  currentImageDataUrl = usingCropped ? croppedImageDataUrl : rawImageDataUrl;
+  enhancedPreviewCache = { color:null, bw:null };
+  previewImg.src = currentImageDataUrl;
+  updateCropFlag();
+  checkSharpness(currentImageDataUrl);
+  refreshFilterPreview();
+}
+
+// Multi-metric blur / focus check (Laplacian variance + Tenengrad + high-frequency
+// energy ratio + block-wise localized variance — see computeBlurMetrics in the scan
+// engine) instead of a single Laplacian-variance number, which is easy to fool with a
+// bold logo/ruling and blind to blur that's localized to part of the frame.
+async function checkSharpness(dataUrl){
+  blurFlag.textContent = 'Checking sharpness…';
+  blurFlag.className = 'blurflag';
+  try{
+    const img = await loadImageEl(dataUrl);
+    const w = Math.min(900, img.width), h = Math.round(w * img.height / img.width);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+
+    const metrics = await runEngine('blur', { width:w, height:h, data:imageData.data }, [imageData.data.buffer]);
+    currentSharp = metrics.sharp;
+    lastBlurScore = metrics.score;
+    if(currentSharp){
+      blurFlag.textContent = '✓ Looks sharp (' + metrics.score + '/100)';
+      blurFlag.classList.add('sharpflag');
+    } else {
+      blurFlag.textContent = '⚠ Too blurry (' + metrics.score + '/100) — please retake';
+    }
+  }catch(err){
+    console.warn('Blur check failed, assuming sharp', err);
+    currentSharp = true;
+    lastBlurScore = null;
+    blurFlag.textContent = '✓ Ready';
+    blurFlag.classList.add('sharpflag');
+  }
+  renderCaptureActions();
+}
+
+// Applies the selected scan filter to the current preview image, caching the result
+// so switching back and forth (and the eventual submit/save step) doesn't reprocess
+// the same image twice. Runs through the Worker like everything else heavy.
+async function refreshFilterPreview(){
+  if(!currentImageDataUrl) return;
+  if(enhancedPreviewCache[currentScanFilter]){
+    previewImg.src = enhancedPreviewCache[currentScanFilter];
+    return;
+  }
+  const prevSrc = previewImg.src;
+  previewImg.style.opacity = '0.5';
+  try{
+    const result = await enhanceForPreview(currentImageDataUrl, currentScanFilter);
+    enhancedPreviewCache[currentScanFilter] = result;
+    // Only apply if the user hasn't switched filters again while this was running.
+    if(!enhancedPreviewCache[currentScanFilter] || enhancedPreviewCache[currentScanFilter]===result){
+      previewImg.src = result;
+    }
+  }catch(e){
+    console.warn('Filter preview failed', e);
+    previewImg.src = prevSrc;
+  }
+  previewImg.style.opacity = '1';
+}
+
+function setScanFilter(mode){
+  if(currentScanFilter===mode) return;
+  currentScanFilter = mode;
+  renderCaptureActions();
+  refreshFilterPreview();
+}
+
+function renderCaptureActions(){
+  captureActions.innerHTML = '';
+
+  const filterRow = document.createElement('div');
+  filterRow.className = 'filter-row';
+  const colorBtn = document.createElement('button');
+  colorBtn.type = 'button';
+  colorBtn.className = 'filter-btn' + (currentScanFilter==='color' ? ' active' : '');
+  colorBtn.innerHTML = '🎨 Enhanced color';
+  colorBtn.onclick = ()=> setScanFilter('color');
+  const bwBtn = document.createElement('button');
+  bwBtn.type = 'button';
+  bwBtn.className = 'filter-btn' + (currentScanFilter==='bw' ? ' active' : '');
+  bwBtn.innerHTML = '⬛ Clear black &amp; white';
+  bwBtn.onclick = ()=> setScanFilter('bw');
+  filterRow.appendChild(colorBtn); filterRow.appendChild(bwBtn);
+  captureActions.appendChild(filterRow);
+
+  if(!currentSharp){
+    const retakeBtn = document.createElement('button');
+    retakeBtn.className = 'primary retake';
+    retakeBtn.textContent = 'Retake photo';
+    retakeBtn.onclick = resetCapture;
+    captureActions.appendChild(retakeBtn);
+
+    const proceedAnyway = document.createElement('button');
+    proceedAnyway.className = 'secondary';
+    proceedAnyway.textContent = 'Use anyway (not recommended)';
+    proceedAnyway.onclick = ()=> submitForExtraction();
+    captureActions.appendChild(proceedAnyway);
+  } else {
+    const okBtn = document.createElement('button');
+    okBtn.className = 'primary';
+    okBtn.textContent = 'Looks good — read invoice';
+    okBtn.onclick = ()=> submitForExtraction();
+    captureActions.appendChild(okBtn);
+
+    const retakeBtn = document.createElement('button');
+    retakeBtn.className = 'secondary';
+    retakeBtn.textContent = 'Retake anyway';
+    retakeBtn.onclick = resetCapture;
+    captureActions.appendChild(retakeBtn);
+  }
+
+  if(rawImageDataUrl){
+    const toggleCropBtn = document.createElement('button');
+    toggleCropBtn.className = 'secondary';
+    toggleCropBtn.textContent = usingCropped
+      ? "Straightened wrong? Use full photo"
+      : 'Use straightened version';
+    toggleCropBtn.onclick = toggleCropVersion;
+    captureActions.appendChild(toggleCropBtn);
+  }
+
+  const manualLink = document.createElement('button');
+  manualLink.className = 'link-btn';
+  manualLink.type = 'button';
+  manualLink.textContent = 'Skip AI — enter details manually';
+  manualLink.onclick = ()=> openManualEntry();
+  captureActions.appendChild(manualLink);
+}
+
+function resetCapture(){
+  currentImageDataUrl = null;
+  rawImageDataUrl = null;
+  croppedImageDataUrl = null;
+  usingCropped = true;
+  lastCropApplied = false;
+  currentScanFilter = 'color';
+  enhancedPreviewCache = { color:null, bw:null };
+  lastBlurScore = null;
+  previewCard.style.display='none';
+  document.getElementById('captureCard').style.display='block';
+  fileInput.value='';
+}
+
+/* ---------------- Auto page-edge crop + sharpen ---------------- */
+function loadImageEl(src){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+// Decodes a dataURL, runs it through the engine's color or B&W enhancement (white
+// balance, shadow flatten, glare compression, denoise, local adaptive contrast /
+// adaptive threshold, fine sharpen — see enhanceColor/enhanceBW in the scan engine),
+// and returns a new dataURL. Capped to 2000px on the long edge, which keeps files
+// small for email/Dropbox/storage while comfortably exceeding what OCR needs.
+async function enhanceForPreview(dataUrl, mode){
+  const img = await loadImageEl(dataUrl);
+  const maxDim = 2000;
+  const scale = Math.min(1, maxDim/Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width*scale)), h = Math.max(1, Math.round(img.height*scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  const imageData = ctx.getImageData(0, 0, w, h);
+
+  const result = await runEngine('enhance', { width:w, height:h, data:imageData.data, mode }, [imageData.data.buffer]);
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = result.width; outCanvas.height = result.height;
+  outCanvas.getContext('2d').putImageData(
+    new ImageData(new Uint8ClampedArray(result.data), result.width, result.height), 0, 0
+  );
+  // B&W scans are near-binary and compress very well under JPEG despite the format
+  // usually being a poor fit for hard edges — quality 0.85 keeps files small with no
+  // visible artifacting on printed text; color scans use the same 0.92 as capture.
+  return outCanvas.toDataURL('image/jpeg', mode==='bw' ? 0.85 : 0.92);
+}
+
+// Produces the final "clean scan" saved with an invoice record, using whichever
+// filter (Enhanced color / Clear Black & White) the person picked in the preview —
+// reusing the cached preview render when the source image hasn't changed since.
+async function enhanceToScan(dataUrl){
+  const mode = currentScanFilter;
+  if(dataUrl === currentImageDataUrl && enhancedPreviewCache[mode]){
+    return enhancedPreviewCache[mode];
+  }
+  const result = await enhanceForPreview(dataUrl, mode);
+  if(dataUrl === currentImageDataUrl) enhancedPreviewCache[mode] = result;
+  return result;
+}
+
+/* ---------------- AI extraction (OpenRouter, free tier) ---------------- */
+// Free vision-capable models rotate on OpenRouter over time. If extraction stops
+// working, check https://openrouter.ai/models?fmt=cards&supported_parameters=vision
+// filtered to "free" and update this list.
+const OPENROUTER_VISION_MODELS = [
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'google/gemma-4-26b-a4b-it:free'
+];
+
+const EXTRACTION_INSTRUCTIONS = `
+You are reading a supplier sales invoice / delivery bill photographed at a retail pharmacy branch in Pakistan (ice cream, chips, snacks, FMCG distributors such as Hico/Pakistan Fruit Juice Co, C&B Marketing, Nawaz Brothers/Lays, Z&Z Taqseemkar).
+
+Read the ENTIRE image carefully, including handwritten notes, stamps, and signatures. Extract ONLY what is printed or written on the page. Never invent numbers. Accuracy always outranks completeness or a "clean-looking" result — a correctly-flagged blank beats a confident guess.
+
+=== KNOWN LAYOUT: Pakistan Fruit Juice Co. (Hico) "Sales Bill" ===
+This is the most common invoice format you will see. It has caused specific field-mapping mistakes before — read this section carefully before extracting.
+
+Header block, right side, has FOUR separate numbers that are easy to mix up:
+  "Order #"     -> put this in order_number
+  "Delivery #"  -> put this in invoice_number  (this is the vendor's actual bill/voucher number, NOT "Order #")
+  "Delivery Date" -> put this in delivery_date
+  There is no separate "order date" printed on this format — leave order_date "" unless one is shown elsewhere.
+Dates on this and similar Pakistani invoices are printed DD/MM/YYYY (day first). E.g. "11/07/2026" means 11 July 2026, NOT November 7. Convert to YYYY-MM-DD using that rule.
+
+The item table has this exact column order (left to right):
+  S/N | BarCode | Product No. | Product Name | Qty | CP Excl.GST Per Unit | GST Per Unit Rs. | CP Inc.GST Per Unit | Total CP Excl.GST | Total GST | Total CP Inc.GST | Total Discount | Total Bill Amount
+Map each item row as:
+  qty          -> the "Qty" column
+  rate         -> the "CP Excl.GST Per Unit" column (a per-unit price, small number)
+  gst          -> the "Total GST" column (the row's total GST amount, NOT "GST Per Unit Rs.")
+  discount     -> the "Total Discount" column (second-to-last column)
+  net_amount   -> the "Total Bill Amount" column (the LAST column — the row's final payable figure). Sanity check: net_amount should equal "Total CP Inc.GST" minus "Total Discount" for that row.
+Five of these columns start with the word "Total" — go by column POSITION (left to right, as listed above), not by skimming for the word "Total". This is exactly where past extractions have put the wrong number in the wrong field.
+
+Below the item table there is a "Totals" row, and then, separately, a boxed summary near the signature/stamp. Do not confuse these — map them as:
+  gross_amount      -> Totals row, "Total CP Excl.GST" column
+  total_gst         -> Totals row, "Total GST" column
+  total_discount    -> Totals row, "Total Discount" column (second-to-last column of the Totals row — NOT the "Total CP Inc.GST" column just to its left; those two are adjacent and easy to swap)
+  advance_tax       -> the boxed summary's "Advance Tax Registered" line
+  total_bill_amount -> the boxed summary's "Total Bill Amount" line specifically (the LAST line in that box) — NOT the "Bill Amount" line just above it, and NOT the Totals row's own "Total Bill Amount" column (those two both equal the pre-tax figure). Sanity check: "Total Bill Amount" (box) should equal "Bill Amount" (box) plus "Advance Tax Registered". If your total_bill_amount doesn't satisfy that, re-check which line you read.
+
+Product names in the "Product Name" column are sometimes cut off by the column width (e.g. printed as "Chocolate Chip BP A01 (70" instead of the full "...(700ML)"). If a nearly-identical item elsewhere on the same invoice shows the full suffix, you may complete it consistently; otherwise transcribe exactly what's visible rather than guessing.
+
+=== Row completeness (read this before listing items) ===
+- Before writing the "items" array, count the visible product rows in the table from the first row to the last, top to bottom — including the last row even if it sits right against the totals line or the page edge. Your "items" array must have exactly that many entries.
+- One printed row = one JSON entry. Never combine two printed rows into one entry, and never split one printed row's values across two entries, even if two rows look similar (same product, different batch/pack size) or a product name wraps onto a second printed line.
+- If a row is partly cut off by the photo edge or a fold and you genuinely cannot read it, still add an entry for it with whatever fields ARE legible and put the rest as "", then describe which row and what's missing in "issues" — do not silently drop the row.
+- Do not skip rows that look like duplicates, subtotal-looking rows, or free-sample/zero-amount rows — every printed product line is a separate entry unless it is clearly the "Totals" row itself (which is not an item).
+
+=== Exact transcription ===
+- Preserve printed values exactly as shown: keep the same digits, decimal places, and any unit suffixes (e.g. "2 CS / 0 PC", "12.5", "1,240"). Do not round, reformat, or "correct" a number to make totals line up — if the printed digits don't reconcile, report them as printed and flag it in "issues" instead of adjusting them.
+- Do not normalize product names, spelling, or capitalization beyond what's printed. Transcribe misspellings and abbreviations as printed.
+
+=== General rules (apply to every invoice, this format or otherwise) ===
+- When several column headers share a generic word like "Total", disambiguate by column position and by numeric relationships (e.g. a subtotal plus a tax should equal a grand total), never by matching on the word alone.
+- Handwritten numbers or scribbled adjustment notes near the printed totals (corrections, running-balance notes, etc.) belong in handwritten_notes verbatim. Never let a handwritten number override total_bill_amount — that field is always the vendor's own printed total.
+- If a required number is genuinely illegible or missing, use "" and describe it in issues — do not estimate or round to a "plausible" figure.
+
+Return STRICT JSON only, no markdown, no commentary, matching exactly this schema:
+
+{
+  "vendor_name": string,              // company issuing the invoice, e.g. "Pakistan Fruit Juice Co. (Hico)"
+  "customer_name": string,            // the branch/customer being billed, e.g. "Fazal Din's Pharma Plus - Bahria Town"
+  "invoice_number": string,           // invoice / voucher / delivery number — see mapping notes above
+  "order_number": string,             // order number if present, else ""
+  "order_date": string,               // YYYY-MM-DD if determinable, else raw text, else ""
+  "delivery_date": string,            // YYYY-MM-DD if determinable, else raw text (use this for day-wise grouping)
+  "category": string,                 // one of: "Ice Cream", "Chips/Snacks", "Other"
+  "items": [
+    {
+      "product_name": string,
+      "qty": string,                  // as printed, keep units like "50" or "2 CS / 0 PC"
+      "rate": string,                 // per-unit price, not a row total
+      "gst": string,                  // row's total GST amount
+      "discount": string,             // row's total discount amount
+      "net_amount": string            // row's final payable amount (last column)
+    }
+  ],
+  "gross_amount": string,
+  "total_gst": string,
+  "total_discount": string,
+  "advance_tax": string,
+  "total_bill_amount": string,        // the final payable figure — see mapping notes above
+  "handwritten_notes": string,        // any handwritten stamps/signatures/notes, e.g. "Stock Received, signed Faisal 11/07/2026"
+  "confidence": string,               // "high", "medium", or "low" based on how legible the image was overall
+  "issues": string,                   // anything unclear, missing, hard to read, or row/arithmetic concerns — empty string if none
+  "field_confidence": {               // your own honest confidence per field, based on legibility/certainty — NOT a formality
+    "vendor_name": string,            // "high", "medium", or "low"
+    "invoice_number": string,
+    "delivery_date": string,
+    "gross_amount": string,
+    "total_gst": string,
+    "total_discount": string,
+    "total_bill_amount": string,
+    "items": [string]                 // one "high"/"medium"/"low" entry per item, same order and length as "items" above
+  }
+}
+
+If a field cannot be determined, use an empty string "" (not null). Amounts should be the plain numbers as printed (you may keep commas). Do not summarize or omit line items — list every product row.
+`.trim();
+
+// Second pass: hands the model its own first-draft JSON alongside the same image and asks
+// it to check its own work — this catches skipped/merged rows and arithmetic slips that are
+// easy to miss on a single read-through, the same way a person double-checks a total before
+// sending it on. Kept as a separate, optional call so a slow/unavailable verification model
+// never blocks the primary extraction.
+function buildVerificationPrompt(firstPassJson){
+  return `
+You extracted the following data from this invoice photo on a first pass. Now RE-EXAMINE the image and verify or correct it — you are checking your own earlier work for mistakes, not re-reading from scratch, so focus your attention on the specific checks below.
+
+FIRST-PASS EXTRACTION:
+${JSON.stringify(firstPassJson)}
+
+Check specifically:
+1. LINE ITEMS: Count the product rows visible in the item table, top to bottom, and compare that count to the "items" array length. If a row was skipped, merged with another, or split across two entries, fix it. Every printed row must be its own entry.
+2. ARITHMETIC: Does gross_amount + total_gst - total_discount reasonably reconcile with total_bill_amount (or total_bill_amount minus advance_tax — re-check which total field is which using the column-position mapping rules)? Does the sum of the line items' net_amount reasonably match the invoice's own printed total? If numbers don't reconcile, re-read the specific printed digits rather than silently adjusting them to force a match — a genuine mismatch should be reported, not hidden.
+3. DATES: Is delivery_date a real calendar date (day 1–31, month 1–12), correctly read as DD/MM/YYYY and converted to YYYY-MM-DD?
+4. INVOICE NUMBER: Re-verify every character/digit against the image.
+5. VENDOR/CUSTOMER NAMES: Re-verify spelling against the image.
+
+Return STRICT JSON only (no markdown, no commentary) with this exact shape:
+{
+  "corrected": {
+    // the complete corrected record, same schema as the first-pass extraction above
+    // (vendor_name, customer_name, invoice_number, order_number, order_date, delivery_date,
+    // category, items[], gross_amount, total_gst, total_discount, advance_tax,
+    // total_bill_amount, handwritten_notes, confidence, issues)
+  },
+  "corrections_made": string,   // plain-language summary of what you changed and why — "" if nothing changed
+  "field_confidence": {
+    "vendor_name": string, "invoice_number": string, "delivery_date": string,
+    "gross_amount": string, "total_gst": string, "total_discount": string, "total_bill_amount": string,
+    "items": [string]             // one "high"/"medium"/"low" per item in "corrected.items", same order/length
+  }
+}
+If you find no errors, return "corrected" identical to the first pass and "corrections_made": "".
+`.trim();
+}
+
+async function callOpenRouterVision(apiKey, model, base64, mime, promptText){
+  const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://reports.duapharma.com',
+      'X-Title': 'Branch Invoice Desk'
+    },
+    body: JSON.stringify({
+      model: model,
+      messages:[{
+        role:'user',
+        content:[
+          { type:'text', text: promptText },
+          { type:'image_url', image_url:{ url: `data:${mime};base64,${base64}` } }
+        ]
+      }],
+      temperature:0.1
+    })
+  });
+  const data = await resp.json();
+  if(data.error){ throw new Error(data.error.message || `OpenRouter error (${model})`); }
+  const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if(!text){ throw new Error(`Empty response from ${model}`); }
+  return text;
+}
+
+// Calls through the model list in order, trying each until one returns usable text.
+// Shared by both the primary extraction pass and the verification pass.
+async function callVisionAcrossModels(apiKey, base64, mime, promptText){
+  let lastErr = null;
+  for(const model of OPENROUTER_VISION_MODELS){
+    try{
+      return await callOpenRouterVision(apiKey, model, base64, mime, promptText);
+    }catch(modelErr){
+      lastErr = modelErr;
+      console.warn('OpenRouter model failed, trying next:', model, modelErr.message);
+    }
+  }
+  throw lastErr || new Error('All AI models failed');
+}
+
+/* ---------------- Robust JSON recovery ----------------
+   Vision models occasionally wrap JSON in markdown fences, add a stray sentence before/after
+   it, leave a trailing comma, or use smart quotes copy-pasted from somewhere. Rather than
+   fail the whole extraction on a cosmetic formatting slip, try a series of increasingly
+   aggressive repairs and parse the first one that succeeds. */
+function repairAndParseJson(rawText){
+  const original = (rawText||'').trim();
+  let stripped = original.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+
+  const candidates = [stripped];
+  const firstBrace = stripped.indexOf('{');
+  const lastBrace = stripped.lastIndexOf('}');
+  if(firstBrace>=0 && lastBrace>firstBrace){
+    candidates.push(stripped.slice(firstBrace, lastBrace+1));
+  }
+
+  function fixups(s){
+    return s
+      .replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'")   // smart quotes -> straight
+      .replace(/,\s*([}\]])/g,'$1')                                    // trailing commas
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'');        // stray control chars
+  }
+
+  const attempts = [];
+  candidates.forEach(c=>{ attempts.push(c); attempts.push(fixups(c)); });
+
+  let lastErr = null;
+  for(const attempt of attempts){
+    try{ return JSON.parse(attempt); }catch(e){ lastErr = e; }
+  }
+
+  // Last resort: treat it as a JS-object-literal (single-quoted / unquoted keys) and coerce.
+  try{
+    const base = fixups(candidates[candidates.length-1] || stripped);
+    const jsish = base
+      .replace(/'/g,'"')
+      .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
+    return JSON.parse(jsish);
+  }catch(e){ lastErr = e; }
+
+  const err = new Error('Could not parse the AI response as JSON (' + (lastErr && lastErr.message) + ')');
+  err.rawText = original;
+  throw err;
+}
+
+/* ---------------- Extraction post-processing: normalize, merge verification, validate ---------------- */
+
+// Coerces whatever shape the model returned into the exact record shape the rest of the
+// app expects — every string field present (even if empty), items always an array of
+// well-formed rows, and a field_confidence object whose "items" array always matches
+// items.length so the review screen can zip them together without out-of-bounds checks.
+function normalizeExtractedRecord(parsed){
+  const p = Object.assign({}, parsed||{});
+  const stringKeys = ['vendor_name','customer_name','invoice_number','order_number','order_date',
+    'delivery_date','category','gross_amount','total_gst','total_discount','advance_tax',
+    'total_bill_amount','handwritten_notes','confidence','issues'];
+  stringKeys.forEach(k=>{ p[k] = (p[k]==null) ? '' : String(p[k]); });
+
+  p.items = Array.isArray(p.items) ? p.items.map(function(it){
+    it = it || {};
+    return {
+      product_name: it.product_name!=null ? String(it.product_name) : '',
+      qty: it.qty!=null ? String(it.qty) : '',
+      rate: it.rate!=null ? String(it.rate) : '',
+      gst: it.gst!=null ? String(it.gst) : '',
+      discount: it.discount!=null ? String(it.discount) : '',
+      net_amount: it.net_amount!=null ? String(it.net_amount) : ''
+    };
+  }) : [];
+
+  const fc = (p.field_confidence && typeof p.field_confidence==='object') ? p.field_confidence : {};
+  const itemsConf = Array.isArray(fc.items) ? fc.items.slice(0, p.items.length) : [];
+  while(itemsConf.length < p.items.length) itemsConf.push('');
+  p.field_confidence = {
+    vendor_name: fc.vendor_name||'', invoice_number: fc.invoice_number||'', delivery_date: fc.delivery_date||'',
+    gross_amount: fc.gross_amount||'', total_gst: fc.total_gst||'', total_discount: fc.total_discount||'',
+    total_bill_amount: fc.total_bill_amount||'', items: itemsConf
+  };
+  return p;
+}
+
+// Merges the verification pass's "corrected" record over the first-pass record: a
+// corrected field wins whenever the model actually supplied a non-empty value; an empty
+// correction falls back to the first-pass value rather than wiping it out. Items are
+// replaced wholesale when the verifier supplied any (row-level fixes — skips/merges —
+// can't be reconciled field-by-field against the original array).
+function mergeVerifiedData(original, corrected){
+  const merged = Object.assign({}, original);
+  Object.keys(corrected||{}).forEach(function(k){
+    const v = corrected[k];
+    if(k==='items'){
+      if(Array.isArray(v) && v.length) merged.items = v;
+      return;
+    }
+    if(v!=null && String(v).trim()!=='') merged[k] = v;
+  });
+  return merged;
+}
+
+function parseAmountNum(s){
+  if(s==null) return null;
+  const n = parseFloat(String(s).replace(/,/g,'').trim());
+  return isFinite(n) ? n : null;
+}
+
+// Looks for an already-saved invoice that's plausibly the same physical document: either
+// the same vendor + invoice number, or the same vendor + delivery date + total amount
+// (covers invoices where the printed number was misread but everything else matches).
+function findPossibleDuplicate(parsed, existingList, excludeId){
+  const normId = function(s){ return (s||'').toString().trim().toLowerCase().replace(/[^a-z0-9]/g,''); };
+  const pInv = normId(parsed.invoice_number);
+  const pVendor = (parsed.vendor_name||'').trim().toLowerCase();
+  const pTotal = parseAmountNum(parsed.total_bill_amount);
+  const pDayKey = normalizeDayKey(parsed.delivery_date);
+
+  for(let i=0;i<existingList.length;i++){
+    const r = existingList[i];
+    if(excludeId && r.id===excludeId) continue;
+    const rd = r.data || {};
+    const rInv = normId(rd.invoice_number);
+    const rVendor = (rd.vendor_name||'').trim().toLowerCase();
+    const rTotal = parseAmountNum(rd.total_bill_amount);
+
+    if(pInv && rInv && pInv===rInv && pVendor && rVendor && pVendor===rVendor){
+      return { record:r, reason:'Same vendor and invoice number as an invoice already saved.' };
+    }
+    if(pVendor && rVendor && pVendor===rVendor && pTotal!=null && rTotal!=null &&
+       Math.abs(pTotal-rTotal) < 0.5 && pDayKey && r.dayKey===pDayKey){
+      return { record:r, reason:'Same vendor, delivery date, and total amount as an invoice already saved.' };
+    }
+  }
+  return null;
+}
+
+// Deterministic, non-AI validation: cross-checks arithmetic (line items vs. printed
+// totals, gross+GST-discount vs. total), sanity-checks formats (date, required fields),
+// and flags possible duplicates against what's already saved. Runs both right after
+// extraction and live as the person edits the review form, so it always reflects what's
+// actually in the fields — not just what the AI originally guessed.
+function validateInvoiceData(parsed, existingList, excludeId){
+  const issues = [];
+
+  if(!parsed.vendor_name) issues.push({ field:'vendor_name', severity:'warning', message:'Vendor name is empty.' });
+  if(!parsed.invoice_number) issues.push({ field:'invoice_number', severity:'warning', message:'Invoice number is empty — harder to track and close later.' });
+  if(parsed.delivery_date && !normalizeDayKey(parsed.delivery_date)){
+    issues.push({ field:'delivery_date', severity:'warning', message:'Delivery date "'+parsed.delivery_date+'" doesn\'t look like a recognizable date.' });
+  }
+
+  const items = parsed.items||[];
+  let itemSum = 0, allNumeric = items.length>0;
+  items.forEach(function(it){
+    const n = parseAmountNum(it.net_amount);
+    if(n==null) allNumeric = false; else itemSum += n;
+  });
+  const totalBill = parseAmountNum(parsed.total_bill_amount);
+  const advTax = parseAmountNum(parsed.advance_tax) || 0;
+  if(allNumeric && totalBill!=null){
+    const tolerance = Math.max(2, itemSum*0.015);
+    const diffPretax = Math.abs(itemSum - (totalBill-advTax));
+    const diffTotal = Math.abs(itemSum - totalBill);
+    if(diffPretax>tolerance && diffTotal>tolerance){
+      issues.push({ field:'total_bill_amount', severity:'error',
+        message:'Line items add up to Rs '+itemSum.toLocaleString()+', which doesn\'t match the printed total (Rs '+totalBill.toLocaleString()+'). Worth re-checking the totals and item rows.' });
+    }
+  }
+
+  const gross=parseAmountNum(parsed.gross_amount), gst=parseAmountNum(parsed.total_gst), disc=parseAmountNum(parsed.total_discount);
+  if(gross!=null && gst!=null && disc!=null && totalBill!=null){
+    const computed = gross + gst - disc;
+    const tolerance = Math.max(2, Math.abs(totalBill)*0.015);
+    if(Math.abs(computed-totalBill)>tolerance && Math.abs(computed-(totalBill-advTax))>tolerance){
+      issues.push({ field:'gross_amount', severity:'warning',
+        message:'Gross + GST − Discount = Rs '+computed.toLocaleString()+', which doesn\'t line up with the printed total — numbers may be in the wrong fields.' });
+    }
+  }
+
+  const duplicate = findPossibleDuplicate(parsed, existingList||[], excludeId);
+  return { issues, duplicate };
+}
+
+async function submitForExtraction(){
+  const settings = loadSettings();
+  if(!settings.aiKey){
+    alert('Add your free OpenRouter API key in Settings first.');
+    showTab('settings');
+    return;
+  }
+  previewCard.style.display='none';
+  progressCard.style.display='block';
+  progressText.textContent = 'Reading invoice with AI…';
+
+  const base64 = currentImageDataUrl.split(',')[1];
+  const mimeMatch = currentImageDataUrl.match(/data:(.*?);base64/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const capturedImageDataUrl = currentImageDataUrl;
+  const capturedWasBlurry = !currentSharp;
+
+  try{
+    const rawText = await callVisionAcrossModels(settings.aiKey, base64, mime, EXTRACTION_INSTRUCTIONS);
+    let parsed = normalizeExtractedRecord(repairAndParseJson(rawText));
+
+    // The scan cleanup image and the (optional) AI self-verification pass are independent
+    // of each other — run them concurrently instead of making the person wait twice.
+    const scanImagePromise = enhanceToScan(capturedImageDataUrl).catch(function(e){
+      console.warn('Scan cleanup failed, saving without an enhanced copy', e);
+      return '';
+    });
+
+    progressText.textContent = 'Double-checking totals & fields…';
+    let verified = false;
+    try{
+      const verifyText = await callVisionAcrossModels(settings.aiKey, base64, mime, buildVerificationPrompt(parsed));
+      const verifyParsed = repairAndParseJson(verifyText);
+      if(verifyParsed && verifyParsed.corrected && typeof verifyParsed.corrected==='object'){
+        const merged = normalizeExtractedRecord(mergeVerifiedData(parsed, verifyParsed.corrected));
+        merged.field_confidence = normalizeExtractedRecord({field_confidence: verifyParsed.field_confidence, items: merged.items}).field_confidence;
+        merged.corrections_made = (verifyParsed.corrections_made||'').toString();
+        parsed = merged;
+        verified = true;
+      }
+    }catch(verifyErr){
+      // Verification is a nice-to-have, not a hard requirement — if the second call fails,
+      // times out, or the free model is unavailable, fall straight through with pass-1 data.
+      console.warn('Self-verification pass skipped/failed, using first-pass extraction', verifyErr);
+    }
+
+    progressText.textContent = 'Cleaning up scan for printing…';
+    const scanImage = await scanImagePromise;
+
+    progressCard.style.display='none';
+    openReviewForExtractedData(parsed, {
+      image: capturedImageDataUrl,
+      scanImage: scanImage,
+      wasBlurryOnCapture: capturedWasBlurry,
+      verified: verified
+    });
+  }catch(err){
+    progressCard.style.display='none';
+    showManualFallback(err.message);
+  }
+}
+
+const MONTH_NAMES = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+
+/* ---------------- Manual entry fallback ---------------- */
+const manualCard = document.getElementById('manualCard');
+const manualBanner = document.getElementById('manualBanner');
+const manualItemsWrap = document.getElementById('manualItems');
+
+// Fields the review/manual form can highlight or reset confidence styling on.
+const REVIEW_FIELD_IDS = ['m_vendor','m_customer','m_invoice_number','m_order_number','m_order_date',
+  'm_delivery_date','m_category','m_gross','m_gst','m_discount','m_advtax','m_total','m_notes'];
+
+// 'manual' (blank form, no AI involved) or 'review' (pre-filled from an AI extraction,
+// awaiting the person's confirmation before anything is saved).
+let reviewMode = 'manual';
+let reviewMeta = null;                                     // { image, scanImage, wasBlurryOnCapture, verified }
+let reviewStaticNotes = { aiIssues:'', corrections:'', confidence:'', fieldConfidence:null };
+let revalidateTimer = null;
+
+function clearFieldConfidenceClasses(){
+  REVIEW_FIELD_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('conf-low','conf-med'); });
+}
+function applyFieldConfidence(id, level){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(level==='low') el.classList.add('conf-low');
+  else if(level==='medium') el.classList.add('conf-med');
+}
+
+function addManualItemRow(vals={}, confidence){
+  const row = document.createElement('div');
+  row.className = 'manual-item-row' + (confidence==='low' ? ' conf-low' : confidence==='medium' ? ' conf-med' : '');
+  row.innerHTML = `
+    <input type="text" placeholder="Product name" class="mi-name" value="${escapeHtml(vals.product_name||'')}">
+    <div class="mi-grid">
+      <input type="text" placeholder="Qty" class="mi-qty" value="${escapeHtml(vals.qty||'')}">
+      <input type="text" placeholder="Rate" class="mi-rate" value="${escapeHtml(vals.rate||'')}">
+      <input type="text" placeholder="GST" class="mi-gst" value="${escapeHtml(vals.gst||'')}">
+      <input type="text" placeholder="Disc" class="mi-disc" value="${escapeHtml(vals.discount||'')}">
+      <input type="text" placeholder="Net" class="mi-net" value="${escapeHtml(vals.net_amount||'')}">
+      <button type="button" class="mi-remove" title="Remove row">×</button>
+    </div>
+  `;
+  row.querySelector('.mi-remove').addEventListener('click', ()=> { row.remove(); scheduleRevalidate(); });
+  manualItemsWrap.appendChild(row);
+}
+document.getElementById('addManualItemBtn').addEventListener('click', ()=> addManualItemRow());
+document.getElementById('captureCardManualBtn').addEventListener('click', ()=> openManualEntry());
+
+function resetManualForm(){
+  clearFieldConfidenceClasses();
+  document.getElementById('manualCardTitle').textContent = 'Enter invoice manually';
+  document.getElementById('manualCardHint').textContent = 'Fill in what you can read. Leave anything unknown blank — you can still print, email, or close this record later.';
+  document.getElementById('confLegend').style.display = 'none';
+  document.getElementById('valBanner').innerHTML = '';
+  document.getElementById('reviewThumb').style.display = 'none';
+  document.getElementById('saveManualBtn').textContent = 'Save invoice';
+
+  ['m_vendor','m_invoice_number','m_order_number','m_order_date','m_gross','m_gst','m_discount','m_advtax','m_total','m_notes']
+    .forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('m_category').value = 'Other';
+  manualItemsWrap.innerHTML = '';
+  addManualItemRow();
+  const customerEl = document.getElementById('m_customer');
+  if(!customerEl.value) customerEl.value = "Fazal Din's Pharma Plus · Bahria Town Sector B";
+  const dateEl = document.getElementById('m_delivery_date');
+  if(!dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
+
+  reviewMode = 'manual';
+  reviewMeta = null;
+  reviewStaticNotes = { aiIssues:'', corrections:'', confidence:'', fieldConfidence:null };
+}
+
+function openManualEntry(){
+  manualBanner.style.display='none';
+  document.getElementById('captureCard').style.display='none';
+  previewCard.style.display='none';
+  progressCard.style.display='none';
+  manualCard.style.display='block';
+  resetManualForm();
+}
+
+function showManualFallback(errMsg){
+  manualBanner.textContent = '⚠ AI could not read this invoice (' + errMsg + '). Enter the details below instead — the photo is still attached.';
+  manualBanner.style.display='block';
+  document.getElementById('captureCard').style.display='none';
+  previewCard.style.display='none';
+  manualCard.style.display='block';
+  resetManualForm();
+}
+
+// Pre-fills the same form with an AI extraction for the person to check and edit —
+// nothing from this pass is saved until they tap "Confirm & save invoice". Fields the
+// model itself flagged as medium/low confidence are highlighted so attention goes where
+// it's most likely needed, and a validation pass (arithmetic + duplicate check) runs
+// immediately and again live as fields are edited.
+function openReviewForExtractedData(parsed, meta){
+  reviewMode = 'review';
+  reviewMeta = meta || {};
+  reviewStaticNotes = {
+    aiIssues: parsed.issues || '',
+    corrections: parsed.corrections_made || '',
+    confidence: parsed.confidence || '',
+    fieldConfidence: parsed.field_confidence || null
+  };
+
+  manualBanner.style.display = 'none';
+  document.getElementById('captureCard').style.display='none';
+  previewCard.style.display='none';
+  progressCard.style.display='none';
+  manualCard.style.display='block';
+
+  document.getElementById('manualCardTitle').textContent = 'Review extracted invoice';
+  document.getElementById('manualCardHint').textContent = 'Check the highlighted fields against the photo, edit anything that needs it, then confirm — nothing is saved yet.';
+  document.getElementById('saveManualBtn').textContent = 'Confirm & save invoice';
+
+  const thumb = document.getElementById('reviewThumb');
+  const thumbSrc = reviewMeta.scanImage || reviewMeta.image;
+  if(thumbSrc){ thumb.src = thumbSrc; thumb.style.display='block'; } else { thumb.style.display='none'; }
+
+  clearFieldConfidenceClasses();
+  const fc = parsed.field_confidence || {};
+
+  document.getElementById('m_vendor').value = parsed.vendor_name||'';
+  applyFieldConfidence('m_vendor', fc.vendor_name);
+  document.getElementById('m_customer').value = parsed.customer_name || "Fazal Din's Pharma Plus · Bahria Town Sector B";
+  document.getElementById('m_invoice_number').value = parsed.invoice_number||'';
+  applyFieldConfidence('m_invoice_number', fc.invoice_number);
+  document.getElementById('m_order_number').value = parsed.order_number||'';
+  document.getElementById('m_order_date').value = normalizeDayKey(parsed.order_date) || '';
+  document.getElementById('m_delivery_date').value = normalizeDayKey(parsed.delivery_date) || '';
+  applyFieldConfidence('m_delivery_date', fc.delivery_date);
+  document.getElementById('m_category').value = ['Ice Cream','Chips/Snacks','Other'].includes(parsed.category) ? parsed.category : 'Other';
+
+  manualItemsWrap.innerHTML = '';
+  const items = (parsed.items && parsed.items.length) ? parsed.items : [{}];
+  const itemsConf = fc.items || [];
+  items.forEach((it,i)=> addManualItemRow(it, itemsConf[i]));
+
+  document.getElementById('m_gross').value = parsed.gross_amount||'';
+  applyFieldConfidence('m_gross', fc.gross_amount);
+  document.getElementById('m_gst').value = parsed.total_gst||'';
+  applyFieldConfidence('m_gst', fc.total_gst);
+  document.getElementById('m_discount').value = parsed.total_discount||'';
+  applyFieldConfidence('m_discount', fc.total_discount);
+  document.getElementById('m_advtax').value = parsed.advance_tax||'';
+  document.getElementById('m_total').value = parsed.total_bill_amount||'';
+  applyFieldConfidence('m_total', fc.total_bill_amount);
+  document.getElementById('m_notes').value = parsed.handwritten_notes||'';
+
+  const hasLowOrMed = Object.keys(fc).some(k=> k!=='items' && (fc[k]==='low'||fc[k]==='medium')) ||
+                       (fc.items||[]).some(v=> v==='low'||v==='medium');
+  document.getElementById('confLegend').style.display = hasLowOrMed ? 'flex' : 'none';
+
+  renderValidationBanner(parsed);
+}
+
+// Reads the form's current values into the same shape validateInvoiceData/saving expect.
+function collectFormData(){
+  const items = Array.from(manualItemsWrap.querySelectorAll('.manual-item-row')).map(row=>({
+    product_name: row.querySelector('.mi-name').value.trim(),
+    qty: row.querySelector('.mi-qty').value.trim(),
+    rate: row.querySelector('.mi-rate').value.trim(),
+    gst: row.querySelector('.mi-gst').value.trim(),
+    discount: row.querySelector('.mi-disc').value.trim(),
+    net_amount: row.querySelector('.mi-net').value.trim(),
+  })).filter(it => it.product_name || it.qty || it.rate || it.gst || it.discount || it.net_amount);
+
+  return {
+    vendor_name: document.getElementById('m_vendor').value.trim(),
+    customer_name: document.getElementById('m_customer').value.trim(),
+    invoice_number: document.getElementById('m_invoice_number').value.trim(),
+    order_number: document.getElementById('m_order_number').value.trim(),
+    order_date: document.getElementById('m_order_date').value.trim(),
+    delivery_date: document.getElementById('m_delivery_date').value.trim(),
+    category: document.getElementById('m_category').value,
+    items: items,
+    gross_amount: document.getElementById('m_gross').value.trim(),
+    total_gst: document.getElementById('m_gst').value.trim(),
+    total_discount: document.getElementById('m_discount').value.trim(),
+    advance_tax: document.getElementById('m_advtax').value.trim(),
+    total_bill_amount: document.getElementById('m_total').value.trim(),
+    handwritten_notes: document.getElementById('m_notes').value.trim()
+  };
+}
+
+// Renders the AI's own notes (static — captured once at extraction time) plus a fresh
+// deterministic validation pass (arithmetic + duplicate check) against whatever is
+// currently in the form. Returns the validation result so the save handler can act on it.
+function renderValidationBanner(parsedForValidation){
+  const valBanner = document.getElementById('valBanner');
+  const existing = loadInvoices();
+  const excludeId = reviewMeta && reviewMeta.excludeId;
+  const validation = validateInvoiceData(parsedForValidation, existing, excludeId);
+
+  const blocks = [];
+  if(reviewStaticNotes.aiIssues){
+    blocks.push('<div class="val-banner warn">⚠ AI noted: ' + escapeHtml(reviewStaticNotes.aiIssues) + '</div>');
+  }
+  if(reviewStaticNotes.corrections){
+    blocks.push('<div class="val-banner" style="background:#eef1fb;border:1px solid #ccd6f2;color:#3a4a8a;">✓ Self-check corrected: ' + escapeHtml(reviewStaticNotes.corrections) + '</div>');
+  }
+  if(validation.issues.length){
+    const hasError = validation.issues.some(i=>i.severity==='error');
+    const list = validation.issues.map(i=>'<li>'+escapeHtml(i.message)+'</li>').join('');
+    blocks.push('<div class="val-banner ' + (hasError?'error':'warn') + '">' + (hasError?'⚠ Please double-check:':'ℹ Worth a look:') + '<ul>' + list + '</ul></div>');
+  }
+  if(validation.duplicate){
+    const dr = validation.duplicate.record;
+    blocks.push('<div class="val-banner dup">⚠ Possible duplicate — ' + escapeHtml(validation.duplicate.reason) +
+      ' Existing: ' + escapeHtml(dr.data.vendor_name||'Unknown vendor') + ' · ' + escapeHtml(dr.data.invoice_number||'no #') +
+      ' · Rs ' + escapeHtml(dr.data.total_bill_amount||'—') + ' · ' + escapeHtml(formatDay(dr.dayKey)) + '.</div>');
+  }
+  valBanner.innerHTML = blocks.join('');
+  return validation;
+}
+
+function scheduleRevalidate(){
+  clearTimeout(revalidateTimer);
+  revalidateTimer = setTimeout(()=>{
+    if(manualCard.style.display==='none') return;
+    renderValidationBanner(collectFormData());
+  }, 450);
+}
+manualCard.addEventListener('input', scheduleRevalidate);
+
+document.getElementById('cancelManualBtn').addEventListener('click', ()=>{
+  manualCard.style.display='none';
+  reviewMode = 'manual';
+  reviewMeta = null;
+  if(currentImageDataUrl){
+    previewCard.style.display='block';
+    renderCaptureActions();
+  } else {
+    document.getElementById('captureCard').style.display='block';
+  }
+});
+
+document.getElementById('saveManualBtn').addEventListener('click', async ()=>{
+  const collected = collectFormData();
+
+  if(!collected.vendor_name && !collected.invoice_number && !collected.total_bill_amount){
+    alert('Enter at least a vendor name, invoice number, or total amount before saving.');
+    return;
+  }
+
+  // Final check at the moment of truth — the person may have edited fields since the
+  // banner last rendered, so re-validate against exactly what's about to be saved.
+  const validation = renderValidationBanner(collected);
+  const hasError = validation.issues.some(i=>i.severity==='error');
+  if(hasError || validation.duplicate){
+    const parts = [];
+    if(hasError) parts.push("the totals don't reconcile");
+    if(validation.duplicate) parts.push('this looks like it might already be saved');
+    const proceed = confirm('Before saving: ' + parts.join(' and ') + '. Save anyway?');
+    if(!proceed) return;
+  }
+
+  const isReview = reviewMode === 'review';
+  const parsed = Object.assign({}, collected, {
+    confidence: isReview ? (reviewStaticNotes.confidence || 'medium') : 'manual',
+    issues: isReview ? reviewStaticNotes.aiIssues : 'Entered manually (AI reading was skipped or unavailable).',
+    corrections_made: isReview ? reviewStaticNotes.corrections : '',
+    field_confidence: isReview ? reviewStaticNotes.fieldConfidence : null
+  });
+
+  const saveBtn = document.getElementById('saveManualBtn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  let image = '', scanImage = '';
+  if(isReview && reviewMeta){
+    image = reviewMeta.image || '';
+    scanImage = reviewMeta.scanImage || '';
+  } else if(currentImageDataUrl){
+    image = currentImageDataUrl;
+    try{ scanImage = await enhanceToScan(currentImageDataUrl); }catch(e){ scanImage=''; }
+  }
+
+  const record = {
+    id: 'inv_' + Date.now(),
+    capturedAt: new Date().toISOString(),
+    dayKey: normalizeDayKey(parsed.delivery_date) || new Date().toISOString().slice(0,10),
+    image: image,
+    scanImage: scanImage,
+    status: 'extracted',
+    strNumber: '',
+    wasBlurryOnCapture: isReview ? !!(reviewMeta && reviewMeta.wasBlurryOnCapture) : !currentSharp,
+    dropboxPath: '',
+    manualEntry: !isReview,
+    aiVerified: isReview ? !!(reviewMeta && reviewMeta.verified) : false,
+    data: parsed
+  };
+
+  saveInvoiceRecord(record);
+
+  const settings = loadSettings();
+  if(settings.dropboxKey && (record.image || record.scanImage)){
+    try{
+      await uploadToDropbox(record, settings.dropboxKey);
+      const meta = loadSyncMeta();
+      meta.lastPushAt = new Date().toISOString();
+      meta.lastError = '';
+      saveSyncMeta(meta);
+      renderDropboxBadge();
+      toast('Invoice synced to Dropbox');
+    }catch(dbErr){
+      console.warn('Dropbox upload failed', dbErr);
+      updateRecord(record.id, rec=>{ rec.dropboxError = dbErr.message; });
+      const meta = loadSyncMeta();
+      meta.lastError = dbErr.message;
+      saveSyncMeta(meta);
+      renderDropboxBadge();
+      toast('Dropbox sync failed — ' + dbErr.message, 'error');
+    }
+  }
+
+  saveBtn.disabled = false;
+  saveBtn.textContent = isReview ? 'Confirm & save invoice' : 'Save invoice';
+  manualCard.style.display='none';
+  resetCapture();
+  showTab('invoices');
+  openDetail(record.id);
+});
+
+
+function normalizeDayKey(raw){
+  if(!raw) return null;
+  const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // text-month formats like "16-Jun-2026" or "16 June 2026" (seen on Z&Z Taqseemkar vouchers)
+  const textMonth = raw.match(/(\d{1,2})[\s\-]([A-Za-z]{3})[A-Za-z]*[\s\-](\d{4})/);
+  if(textMonth){
+    const mon = MONTH_NAMES[textMonth[2].toLowerCase().slice(0,3)];
+    if(mon) return `${textMonth[3]}-${mon}-${textMonth[1].padStart(2,'0')}`;
+  }
+  const dmy = raw.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(dmy){
+    let [_, d, m, y] = dmy;
+    if(y.length===2) y = '20'+y;
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  return null;
+}
+
+function saveInvoiceRecord(record){
+  const list = loadInvoices();
+  list.unshift(record);
+  saveInvoices(list);
+}
+
+/* ---------------- Dropbox sync ---------------- */
+const LS_SYNC_META = 'bid_dropbox_meta_v1';
+const DROPBOX_BACKUP_PATH = '/InvoiceDeskBackup/invoices.json';
+
+function loadSyncMeta(){ try{ return JSON.parse(localStorage.getItem(LS_SYNC_META)) || {}; }catch(e){ return {}; } }
+function saveSyncMeta(m){ localStorage.setItem(LS_SYNC_META, JSON.stringify(m)); }
+
+function timeAgo(iso){
+  if(!iso) return '';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs/60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return mins + 'm ago';
+  const hrs = Math.round(mins/60);
+  if(hrs < 24) return hrs + 'h ago';
+  return Math.round(hrs/24) + 'd ago';
+}
+
+// Persistent, visible status — replaces the old setup where success/failure was never
+// shown anywhere and the Dropbox card gave no indication of whether it was working.
+function renderDropboxBadge(status){
+  const el = document.getElementById('dropboxStatusBadge');
+  if(!el) return;
+  const settings = loadSettings();
+  const meta = loadSyncMeta();
+
+  if(!settings.dropboxKey){
+    el.className = 'sync-badge sync-off';
+    el.textContent = '○ Not connected';
+    return;
+  }
+  if(status==='syncing'){
+    el.className = 'sync-badge sync-syncing';
+    el.textContent = '⏳ Syncing…';
+    return;
+  }
+  if(meta.lastError){
+    el.className = 'sync-badge sync-error';
+    el.textContent = '✕ Sync error — ' + meta.lastError;
+    return;
+  }
+  const when = meta.lastPushAt || meta.lastPullAt;
+  el.className = 'sync-badge sync-ok';
+  el.textContent = '✓ Connected' + (meta.accountName ? ' as ' + meta.accountName : '') + (when ? ' · last synced ' + timeAgo(when) : ' · not synced yet');
+}
+
+async function dropboxAccountCheck(token){
+  const resp = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+    method:'POST',
+    headers:{ 'Authorization':'Bearer ' + token }
+  });
+  if(!resp.ok){
+    throw new Error(resp.status===401 ? 'Token invalid or expired.' : `HTTP ${resp.status}`);
+  }
+  const account = await resp.json();
+  return (account.name && account.name.display_name) || account.email || 'your account';
+}
+
+async function connectDropbox(){
+  const token = document.getElementById('dropboxKey').value.trim();
+  if(!token){ toast('Paste a Dropbox access token first', 'error'); return; }
+  const btn = document.getElementById('connectDropboxBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  renderDropboxBadge('syncing');
+  try{
+    const name = await dropboxAccountCheck(token);
+    saveSettings(Object.assign(loadSettings(), { dropboxKey: token }));
+    const meta = loadSyncMeta();
+    meta.accountName = name;
+    meta.lastError = '';
+    saveSyncMeta(meta);
+    renderDropboxBadge();
+    toast('Connected to Dropbox as ' + name + '. Use Push or Pull to sync invoices.');
+  }catch(err){
+    const meta = loadSyncMeta();
+    meta.lastError = err.message;
+    saveSyncMeta(meta);
+    renderDropboxBadge();
+    toast('Dropbox connection failed — ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+function disconnectDropbox(){
+  if(!confirm('Disconnect Dropbox on this device? Your token will be removed. Invoices already backed up to Dropbox are not deleted, and local invoice data is unaffected.')) return;
+  saveSettings(Object.assign(loadSettings(), { dropboxKey: '' }));
+  document.getElementById('dropboxKey').value = '';
+  saveSyncMeta({});
+  renderDropboxBadge();
+  toast('Dropbox disconnected on this device');
+}
+
+// Sanitizes a single path *segment* (vendor name, invoice number) — strips slashes so
+// user-entered text can never inject extra folder levels into the Dropbox path.
+function sanitizeDropboxSegment(s){
+  const cleaned = (s||'').toString().replace(/[\/\\]/g,'-').replace(/[^a-zA-Z0-9\-_. ]/g,'_').trim();
+  return cleaned || 'Invoice';
+}
+
+async function uploadToDropbox(record, token){
+  const vendor = sanitizeDropboxSegment(record.data.vendor_name);
+  const invNum = sanitizeDropboxSegment(record.data.invoice_number || record.id);
+  const path = `/Invoices/${record.dayKey}/${vendor}_${invNum}.jpg`;
+
+  // Prefer the cleaned-up scan (what the app treats as "the" image everywhere else);
+  // fall back to the raw capture if no scan was generated.
+  const imageSrc = record.scanImage || record.image;
+  if(!imageSrc) throw new Error('No image to upload');
+  const base64 = imageSrc.split(',')[1];
+  const binary = Uint8Array.from(atob(base64), c=>c.charCodeAt(0));
+
+  const resp = await fetch('https://content.dropboxapi.com/2/files/upload', {
+    method:'POST',
+    headers:{
+      'Authorization': 'Bearer ' + token,
+      'Dropbox-API-Arg': JSON.stringify({ path, mode:'add', autorename:true, mute:true }),
+      'Content-Type':'application/octet-stream'
+    },
+    body: binary
+  });
+
+  // The previous version never checked resp.ok, so an invalid/expired token (401),
+  // a malformed API-Arg (400/409), or a quota error would return a JSON body with no
+  // path_display — the upload would silently do nothing with no error surfaced anywhere.
+  if(!resp.ok){
+    let detail = '';
+    try{ detail = (await resp.text()).slice(0,220); }catch(e){}
+    let msg = `Dropbox upload failed (HTTP ${resp.status})`;
+    if(resp.status===401) msg = 'Dropbox token is invalid or expired — reconnect in Settings.';
+    else if(detail) msg += `: ${detail}`;
+    throw new Error(msg);
+  }
+
+  const result = await resp.json();
+  if(!result.path_display){
+    throw new Error('Dropbox accepted the request but returned no file path — please retry.');
+  }
+
+  record.dropboxPath = result.path_display;
+  record.dropboxError = '';
+  const list = loadInvoices();
+  const idx = list.findIndex(r=>r.id===record.id);
+  if(idx>-1){ list[idx] = record; saveInvoices(list); }
+}
+
+async function downloadDropboxFile(path, token){
+  const resp = await fetch('https://content.dropboxapi.com/2/files/download', {
+    method:'POST',
+    headers:{
+      'Authorization': 'Bearer ' + token,
+      'Dropbox-API-Arg': JSON.stringify({ path })
+    }
+  });
+  if(resp.status===409) return null; // file doesn't exist yet
+  if(!resp.ok){
+    let detail = '';
+    try{ detail = (await resp.text()).slice(0,220); }catch(e){}
+    throw new Error(`Dropbox download failed (HTTP ${resp.status})${detail ? ': '+detail : ''}`);
+  }
+  return resp;
+}
+
+function blobToDataUrl(blob){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Fetches a single invoice photo from Dropbox on demand — used when a record was pulled
+// from another device and only has a dropboxPath (no local image data yet).
+async function fetchInvoiceImageFromDropbox(record, token){
+  const resp = await downloadDropboxFile(record.dropboxPath, token);
+  if(!resp) throw new Error('Photo not found on Dropbox');
+  const blob = await resp.blob();
+  return await blobToDataUrl(blob);
+}
+
+// Builds the full-device backup bundle. Photos already individually uploaded (dropboxPath
+// set) are stripped out to keep the bundle small — they're recovered on pull via
+// fetchInvoiceImageFromDropbox(). Anything not yet backed up keeps its image inline so a
+// Push never loses data even if the per-photo upload previously failed.
+function buildInvoiceBundle(){
+  const invoices = loadInvoices().map(r=>{
+    const copy = Object.assign({}, r);
+    if(copy.dropboxPath){ copy.image = ''; copy.scanImage = ''; }
+    return copy;
+  });
+  return { app:'invoice-desk', exportedAt: new Date().toISOString(), invoices };
+}
+
+async function pushToDropbox(){
+  const settings = loadSettings();
+  const token = settings.dropboxKey;
+  if(!token){ toast('Connect Dropbox first', 'error'); return; }
+  const btn = document.getElementById('pushDropboxBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Pushing…';
+  renderDropboxBadge('syncing');
+  try{
+    // 1) Back up any photos that haven't been individually uploaded yet
+    //    (e.g. a previous auto-upload failed, or records arrived via Pull).
+    const list = loadInvoices();
+    let photosSynced = 0, photoErrors = 0;
+    for(const r of list){
+      if(!r.dropboxPath && (r.image || r.scanImage)){
+        try{ await uploadToDropbox(r, token); photosSynced++; }
+        catch(e){ photoErrors++; console.warn('Photo backup failed for', r.id, e); }
+      }
+    }
+
+    // 2) Push the full metadata bundle so other devices can Pull the invoice list.
+    const bundle = buildInvoiceBundle();
+    const resp = await fetch('https://content.dropboxapi.com/2/files/upload', {
+      method:'POST',
+      headers:{
+        'Authorization': 'Bearer ' + token,
+        'Dropbox-API-Arg': JSON.stringify({ path: DROPBOX_BACKUP_PATH, mode:'overwrite', mute:true }),
+        'Content-Type':'application/octet-stream'
+      },
+      body: JSON.stringify(bundle)
+    });
+    if(!resp.ok){
+      let detail = '';
+      try{ detail = (await resp.text()).slice(0,220); }catch(e){}
+      throw new Error(`Bundle upload failed (HTTP ${resp.status})${detail ? ': '+detail : ''}`);
+    }
+
+    const meta = loadSyncMeta();
+    meta.lastPushAt = new Date().toISOString();
+    meta.lastError = '';
+    saveSyncMeta(meta);
+    renderDropboxBadge();
+    toast(`Pushed ${list.length} invoice${list.length===1?'':'s'} to Dropbox` + (photoErrors ? ` (${photoErrors} photo${photoErrors===1?'':'s'} failed — will retry next push)` : ''));
+    renderInvoiceList();
+  }catch(err){
+    const meta = loadSyncMeta();
+    meta.lastError = err.message;
+    saveSyncMeta(meta);
+    renderDropboxBadge();
+    toast('Push failed — ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+async function pullFromDropbox(){
+  const settings = loadSettings();
+  const token = settings.dropboxKey;
+  if(!token){ toast('Connect Dropbox first', 'error'); return; }
+  const btn = document.getElementById('pullDropboxBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Pulling…';
+  renderDropboxBadge('syncing');
+  try{
+    const resp = await downloadDropboxFile(DROPBOX_BACKUP_PATH, token);
+    if(!resp){
+      toast('No backup found on Dropbox yet — push from a device that has invoices first', 'error');
+      renderDropboxBadge();
+      return;
+    }
+    const text = await resp.text();
+    let bundle;
+    try{ bundle = JSON.parse(text); }catch(e){ throw new Error('Backup file is not valid JSON'); }
+    if(!bundle || !Array.isArray(bundle.invoices)) throw new Error('Backup file has an unexpected format');
+
+    // Merge by id: never overwrite a record that already exists locally (so in-progress
+    // edits — like an STR number just entered — are never clobbered by a pull), only add
+    // ones this device doesn't have yet.
+    const local = loadInvoices();
+    const localIds = new Set(local.map(r=>r.id));
+    const incoming = bundle.invoices.filter(r=>!localIds.has(r.id));
+
+    if(incoming.length===0){
+      toast('Already up to date — no new invoices on Dropbox');
+    }else{
+      saveInvoices(local.concat(incoming));
+      toast(`Pulled ${incoming.length} new invoice${incoming.length===1?'':'s'} from Dropbox`);
+      renderInvoiceList();
+    }
+
+    const meta = loadSyncMeta();
+    meta.lastPullAt = new Date().toISOString();
+    meta.lastError = '';
+    saveSyncMeta(meta);
+    renderDropboxBadge();
+  }catch(err){
+    const meta = loadSyncMeta();
+    meta.lastError = err.message;
+    saveSyncMeta(meta);
+    renderDropboxBadge();
+    toast('Pull failed — ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+/* ---------------- Share connection (setup code) ---------------- */
+function copyDropboxSetupCode(){
+  const settings = loadSettings();
+  if(!settings.dropboxKey){ toast('Connect Dropbox first', 'error'); return; }
+  const code = btoa(JSON.stringify({ dropboxKey: settings.dropboxKey, gmailTo: settings.gmailTo || '' }));
+  const finish = ()=> toast('Setup code copied — paste it into Settings on the other device');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code).then(finish).catch(()=>{
+      document.getElementById('setupCodeInput').value = code;
+      toast('Could not auto-copy — code is filled in below, copy it manually', 'error');
+    });
+  }else{
+    document.getElementById('setupCodeInput').value = code;
+    toast('Code is filled in below — copy it manually');
+  }
+}
+
+function applyDropboxSetupCode(){
+  const raw = document.getElementById('setupCodeInput').value.trim();
+  if(!raw){ toast('Paste a setup code first', 'error'); return; }
+  try{
+    const parsed = JSON.parse(atob(raw));
+    if(!parsed.dropboxKey) throw new Error('missing token');
+    saveSettings(Object.assign(loadSettings(), { dropboxKey: parsed.dropboxKey, gmailTo: parsed.gmailTo || loadSettings().gmailTo || '' }));
+    fillSettingsForm();
+    document.getElementById('setupCodeInput').value = '';
+    toast('Setup code applied — press Connect to verify');
+  }catch(e){
+    toast('That doesn\'t look like a valid setup code', 'error');
+  }
+}
+
+document.getElementById('connectDropboxBtn').addEventListener('click', connectDropbox);
+document.getElementById('disconnectDropboxBtn').addEventListener('click', disconnectDropbox);
+document.getElementById('pushDropboxBtn').addEventListener('click', pushToDropbox);
+document.getElementById('pullDropboxBtn').addEventListener('click', pullFromDropbox);
+document.getElementById('copySetupCodeBtn').addEventListener('click', copyDropboxSetupCode);
+document.getElementById('applySetupCodeBtn').addEventListener('click', applyDropboxSetupCode);
+
+/* ---------------- Invoice list ---------------- */
+function renderInvoiceList(){
+  const list = loadInvoices();
+  const container = document.getElementById('invoiceList');
+  if(list.length===0){
+    container.innerHTML = '<div class="empty">No invoices captured yet.<br>Go to the Capture tab to add one.</div>';
+    return;
+  }
+  const groups = {};
+  list.forEach(r=>{
+    groups[r.dayKey] = groups[r.dayKey] || [];
+    groups[r.dayKey].push(r);
+  });
+  const days = Object.keys(groups).sort().reverse();
+  container.innerHTML = days.map(day=>{
+    const rows = groups[day].map(r=>invoiceRowHtml(r)).join('');
+    const dayTotal = groups[day].reduce((s,r)=> s + (parseFloat((r.data.total_bill_amount||'0').replace(/,/g,''))||0), 0);
+    return `<div class="daygroup">
+      <div class="daylabel"><span>${formatDay(day)}</span><span>Rs ${dayTotal.toLocaleString()}</span></div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.inv-row').forEach(el=>{
+    el.addEventListener('click', ()=> openDetail(el.dataset.id));
+  });
+}
+
+function formatDay(dayKey){
+  const d = new Date(dayKey+'T00:00:00');
+  if(isNaN(d)) return dayKey;
+  return d.toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+}
+
+function invoiceRowHtml(r){
+  const amt = r.data.total_bill_amount || '—';
+  const pillMap = { received:'received', extracted:'extracted', sent:'sent', closed:'closed', error:'error' };
+  const pillLabel = { received:'Received', extracted:'Ready to send', sent:'Sent · awaiting STR', closed:'Closed', error:'Needs review' };
+  const thumb = r.scanImage || r.image;
+  const placeholderGlyph = (!thumb && r.dropboxPath) ? '☁' : '✎'; // cloud = pulled from another device, photo not downloaded yet
+  const img = thumb ? `<img src="${thumb}">` : `<div style="width:46px;height:46px;border-radius:6px;border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--brand-dim);">${placeholderGlyph}</div>`;
+  return `<div class="inv-row" data-id="${r.id}">
+    ${img}
+    <div class="inv-main">
+      <div class="vend">${escapeHtml(r.data.vendor_name||'Unknown vendor')}</div>
+      <div class="meta">${escapeHtml(r.data.invoice_number||'no #')} · ${escapeHtml(r.data.category||'')}</div>
+      <span class="pill ${pillMap[r.status]||'received'}">${pillLabel[r.status]||r.status}</span>${r.manualEntry ? '<span class="pill manual">Manual</span>' : ''}
+    </div>
+    <div class="inv-amt"><div class="rs">Rs ${escapeHtml(amt)}</div></div>
+  </div>`;
+}
+
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- Detail view ---------------- */
+let currentDetailId = null;
+
+function openDetail(id){
+  currentDetailId = id;
+  const list = loadInvoices();
+  const r = list.find(x=>x.id===id);
+  if(!r) return;
+  document.getElementById('tab-invoices').style.display='none';
+  document.getElementById('tab-detail').style.display='block';
+  document.getElementById('detailBody').innerHTML = detailHtml(r);
+  wireDetailActions(r);
+
+  // Records pulled from another device only carry a dropboxPath, not the image bytes
+  // (kept out of the sync bundle to keep it small). Fetch the photo on first view.
+  if(!r.image && !r.scanImage && r.dropboxPath){
+    const settings = loadSettings();
+    if(settings.dropboxKey){
+      fetchInvoiceImageFromDropbox(r, settings.dropboxKey).then(dataUrl=>{
+        updateRecord(r.id, rec=>{ rec.image = dataUrl; });
+        if(currentDetailId===id) openDetail(id);
+      }).catch(err=> console.warn('Could not load photo from Dropbox', err));
+    }
+  }
+}
+
+document.getElementById('backToList').addEventListener('click', ()=>{
+  document.getElementById('tab-detail').style.display='none';
+  document.getElementById('tab-invoices').style.display='block';
+  renderInvoiceList();
+});
+
+function confDot(level){
+  if(level==='low') return '<span title="Low AI confidence — verify against the photo" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:middle;"></span>';
+  if(level==='medium') return '<span title="Medium AI confidence" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:5px;vertical-align:middle;"></span>';
+  return '';
+}
+
+function dropboxStatusHtml(r){
+  const settings = loadSettings();
+  if(r.dropboxPath){
+    return `<p class="hint" style="margin-top:8px;">Synced to Dropbox: ${escapeHtml(r.dropboxPath)}</p>`;
+  }
+  if(!settings.dropboxKey || !(r.image || r.scanImage)) return '';
+  const failMsg = r.dropboxError
+    ? `Dropbox sync failed: ${escapeHtml(r.dropboxError)}`
+    : 'Not yet synced to Dropbox.';
+  return `<p class="hint" style="margin-top:8px; color:#8a2f1f;">${failMsg}<br>
+    <button class="secondary no-print" id="retryDropboxBtn" style="margin-top:6px; width:auto; padding:6px 12px;">Retry Dropbox upload</button></p>`;
+}
+
+function detailHtml(r){
+  const d = r.data;
+  const fc = d.field_confidence || {};
+  const itemConf = fc.items || [];
+  const itemRows = (d.items||[]).map((it,i)=>`
+    <tr>
+      <td>${confDot(itemConf[i])}${escapeHtml(it.product_name)}</td>
+      <td class="num">${escapeHtml(it.qty)}</td>
+      <td class="num">${escapeHtml(it.rate)}</td>
+      <td class="num">${escapeHtml(it.gst)}</td>
+      <td class="num">${escapeHtml(it.discount)}</td>
+      <td class="num">${escapeHtml(it.net_amount)}</td>
+    </tr>`).join('');
+
+  const bannerMsgs = [];
+  if(d.issues) bannerMsgs.push(d.issues);
+  if(d.corrections_made) bannerMsgs.push('AI self-check corrected: ' + d.corrections_made);
+  const issueBanner = bannerMsgs.length
+    ? `<div class="banner"${r.manualEntry ? ' style="background:#eef1fb;border-color:#ccd6f2;color:#3a4a8a;"' : ''}>${r.manualEntry ? '✎' : '⚠'} ${escapeHtml(bannerMsgs.join(' · '))}</div>`
+    : '';
+  const mainImg = r.scanImage || r.image;
+
+  return `
+    ${issueBanner}
+    <div class="card">
+      ${mainImg ? `<img src="${mainImg}" id="detailMainImg" data-scan="${r.scanImage||''}" data-orig="${r.image}" style="width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:8px;">` : ''}
+      ${r.scanImage ? '<button class="secondary no-print" id="toggleImgBtn" style="margin-top:0;">View original photo</button>' : ''}
+      <div class="kv" style="margin-top:12px;">
+        <b>Vendor</b><span>${confDot(fc.vendor_name)}${escapeHtml(d.vendor_name)}</span>
+        <b>Branch</b><span>${escapeHtml(d.customer_name)}</span>
+        <b>Invoice #</b><span>${confDot(fc.invoice_number)}${escapeHtml(d.invoice_number)}</span>
+        <b>Order #</b><span>${escapeHtml(d.order_number)||'—'}</span>
+        <b>Order date</b><span>${escapeHtml(d.order_date)}</span>
+        <b>Delivery date</b><span>${confDot(fc.delivery_date)}${escapeHtml(d.delivery_date)}</span>
+        <b>Category</b><span>${escapeHtml(d.category)}</span>
+        <b>Notes</b><span>${escapeHtml(d.handwritten_notes)||'—'}</span>
+      </div>
+      <table class="items">
+        <tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">GST</th><th class="num">Disc</th><th class="num">Net</th></tr>
+        ${itemRows}
+      </table>
+      <div class="totals">
+        <div><span>${confDot(fc.gross_amount)}Gross amount</span><span>${escapeHtml(d.gross_amount)}</span></div>
+        <div><span>${confDot(fc.total_gst)}Total GST</span><span>${escapeHtml(d.total_gst)}</span></div>
+        <div><span>${confDot(fc.total_discount)}Total discount</span><span>${escapeHtml(d.total_discount)}</span></div>
+        <div><span>Advance tax</span><span>${escapeHtml(d.advance_tax)}</span></div>
+        <div class="grand"><span>${confDot(fc.total_bill_amount)}Total bill amount</span><span>Rs ${escapeHtml(d.total_bill_amount)}</span></div>
+      </div>
+    </div>
+
+    <div class="card no-print">
+      <h2>Actions</h2>
+      <button class="primary" id="sendGmailBtn">Send to Gmail (warehouse)</button>
+      <button class="secondary" id="printBtn">Print this invoice</button>
+      <div class="str-box">
+        <input type="text" id="strInput" placeholder="Enter STR number to close" value="${escapeHtml(r.strNumber)}">
+        <button class="secondary" id="saveStrBtn" style="width:auto; margin:0; padding:9px 16px;">Save</button>
+      </div>
+      ${dropboxStatusHtml(r)}
+      <button class="secondary danger-outline" id="deleteBtn" style="margin-top:14px;">Delete this invoice record</button>
+    </div>
+  `;
+}
+
+function wireDetailActions(r){
+  const toggleBtn = document.getElementById('toggleImgBtn');
+  if(toggleBtn){
+    let showingOriginal = false;
+    toggleBtn.addEventListener('click', ()=>{
+      const img = document.getElementById('detailMainImg');
+      showingOriginal = !showingOriginal;
+      img.src = showingOriginal ? img.dataset.orig : img.dataset.scan;
+      toggleBtn.textContent = showingOriginal ? 'View cleaned-up scan' : 'View original photo';
+    });
+  }
+  document.getElementById('sendGmailBtn').addEventListener('click', ()=> sendToGmail(r));
+  document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+  const retryDropboxBtn = document.getElementById('retryDropboxBtn');
+  if(retryDropboxBtn){
+    retryDropboxBtn.addEventListener('click', async ()=>{
+      const settings = loadSettings();
+      if(!settings.dropboxKey){ toast('Add a Dropbox token in Settings first', 'error'); return; }
+      retryDropboxBtn.disabled = true;
+      retryDropboxBtn.textContent = 'Syncing…';
+      try{
+        await uploadToDropbox(r, settings.dropboxKey);
+        const meta = loadSyncMeta();
+        meta.lastPushAt = new Date().toISOString();
+        meta.lastError = '';
+        saveSyncMeta(meta);
+        renderDropboxBadge();
+        toast('Invoice synced to Dropbox');
+      }catch(err){
+        updateRecord(r.id, rec=>{ rec.dropboxError = err.message; });
+        const meta = loadSyncMeta();
+        meta.lastError = err.message;
+        saveSyncMeta(meta);
+        renderDropboxBadge();
+        toast('Dropbox sync failed — ' + err.message, 'error');
+      }
+      openDetail(r.id);
+    });
+  }
+  document.getElementById('saveStrBtn').addEventListener('click', ()=>{
+    const val = document.getElementById('strInput').value.trim();
+    updateRecord(r.id, rec=>{ rec.strNumber = val; rec.status = val ? 'closed' : rec.status; });
+    openDetail(r.id);
+  });
+  document.getElementById('deleteBtn').addEventListener('click', ()=>{
+    if(confirm('Delete this invoice record? This cannot be undone.')){
+      const list = loadInvoices().filter(x=>x.id!==r.id);
+      saveInvoices(list);
+      document.getElementById('tab-detail').style.display='none';
+      document.getElementById('tab-invoices').style.display='block';
+      renderInvoiceList();
+    }
+  });
+}
+
+function updateRecord(id, mutateFn){
+  const list = loadInvoices();
+  const idx = list.findIndex(x=>x.id===id);
+  if(idx>-1){ mutateFn(list[idx]); saveInvoices(list); }
+}
+
+/* ---------------- Gmail send ---------------- */
+async function sendToGmail(r){
+  const settings = loadSettings();
+  const d = r.data;
+  const subject = `BT | ${d.vendor_name||'Invoice'} | ${d.invoice_number||'no-number'} | ${d.delivery_date||d.order_date||''}`;
+  const itemLines = (d.items||[]).map(it=>`- ${it.product_name}: qty ${it.qty}, rate ${it.rate}, net ${it.net_amount}`).join('\n');
+  const body = `Branch: ${d.customer_name}\nVendor: ${d.vendor_name}\nInvoice #: ${d.invoice_number}\nDelivery date: ${d.delivery_date}\n\nItems:\n${itemLines}\n\nTotal bill amount: Rs ${d.total_bill_amount}\nAdvance tax: ${d.advance_tax}\n\nNotes: ${d.handwritten_notes||'—'}\n\n(Sent from Branch Invoice Desk)`;
+
+  const shareImage = r.scanImage || r.image;
+
+  // Try native share sheet first (mobile) — lets Gmail app receive the image as an attachment
+  if(navigator.canShare){
+    try{
+      const blob = await (await fetch(shareImage)).blob();
+      const file = new File([blob], `${(d.invoice_number||'invoice')}.jpg`, { type: blob.type });
+      if(navigator.canShare({ files:[file] })){
+        await navigator.share({
+          files:[file],
+          title: subject,
+          text: body
+        });
+        markSent(r.id);
+        return;
+      }
+    }catch(shareErr){
+      console.warn('Share failed or cancelled', shareErr);
+      // fall through to compose link below
+    }
+  }
+
+  // Fallback: open Gmail compose pre-filled, image must be attached manually
+  const to = settings.gmailTo || '';
+  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n(Attach the invoice photo manually — your browser could not attach it automatically.)')}`;
+  window.open(url, '_blank');
+  markSent(r.id);
+}
+
+function markSent(id){
+  updateRecord(id, rec=>{ if(rec.status!=='closed') rec.status='sent'; });
+  openDetail(id);
+}
+
+/* ---------------- Reports ---------------- */
+document.getElementById('runReport').addEventListener('click', ()=>{
+  const from = document.getElementById('repFrom').value;
+  const to = document.getElementById('repTo').value;
+  const list = loadInvoices().filter(r=>{
+    if(from && r.dayKey < from) return false;
+    if(to && r.dayKey > to) return false;
+    return true;
+  });
+  const out = document.getElementById('reportOutput');
+  out.style.display='block';
+  if(list.length===0){
+    out.innerHTML = '<div class="empty">No invoices in this range.</div>';
+    return;
+  }
+  const byVendor = {};
+  let grandTotal = 0;
+  list.forEach(r=>{
+    const v = r.data.vendor_name || 'Unknown';
+    const amt = parseFloat((r.data.total_bill_amount||'0').replace(/,/g,'')) || 0;
+    byVendor[v] = (byVendor[v]||0) + amt;
+    grandTotal += amt;
+  });
+  const rows = Object.keys(byVendor).sort((a,b)=>byVendor[b]-byVendor[a]).map(v=>
+    `<div><span>${escapeHtml(v)}</span><span>Rs ${byVendor[v].toLocaleString()}</span></div>`
+  ).join('');
+  out.innerHTML = `
+    <h2>Summary: ${from||'earliest'} to ${to||'latest'}</h2>
+    <div class="totals">
+      ${rows}
+      <div class="grand"><span>Grand total (${list.length} invoices)</span><span>Rs ${grandTotal.toLocaleString()}</span></div>
+    </div>
+  `;
+});
+document.getElementById('printReport').addEventListener('click', ()=> window.print());
+
+/* ---------------- init ---------------- */
+renderInvoiceList();
+renderDropboxBadge();
+</script>
+</body>
+</html>
