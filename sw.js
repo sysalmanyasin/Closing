@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.3
+   Pharma Plus Closing App — Service Worker  v5.4
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
 
@@ -13,7 +13,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.3';
+const CACHE_NAME = 'pharmpos-closing-v5.4';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
