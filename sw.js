@@ -2,6 +2,15 @@
    Pharma Plus Closing App — Service Worker  v5.2
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.2 — Added js/auth.js and js/bt-bridge.js to APP_SHELL. Both are
+   real ES modules app.js has imported for a while now (phone+PIN
+   login/presence, and the BT sync bridge) but were missing from this
+   list — meaning a fresh install, or any device whose cache had
+   already been cleared, had no offline copy of either and could fail
+   to load them. Also covers this round's index.html/pages.js/state.js/
+   actions.js/app.js changes (whoami bar, shift-collision banner,
+   JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
 const CACHE_NAME = 'pharmpos-closing-v5.2';
@@ -31,6 +40,8 @@ const APP_SHELL = [
   './js/closing-book.js',
   './js/sync.js',
   './js/activity-log.js',
+  './js/auth.js',
+  './js/bt-bridge.js',
   /* ── Icons ── */
   './icons/icon.svg',
   './icons/icon-192.png',
