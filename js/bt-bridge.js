@@ -23,14 +23,22 @@ const SUPA_URL_KEY  = 'supabase_url';
 const SUPA_ANON_KEY = 'supabase_anon_key';
 const PUSHED_KEY    = 'bt_bridge_pushed_ids'; /* localStorage: JSON array of composite ids already forwarded */
 
+/* Same baked-in default as sync.js/auth.js — see sync.js's
+   DEFAULT_SUPA_URL/DEFAULT_SUPA_ANON_KEY comment for why this is safe
+   to commit. Duplicated here rather than imported, matching how this
+   file already duplicates the storage keys instead of importing
+   sync.js's getters. */
+const DEFAULT_SUPA_URL      = 'https://wetbugzzchkghpzmowod.supabase.co';
+const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM';
+
 let _client = null;
 let _staffCache = null;       /* [{id, name, active}] */
 let _staffCacheAt = 0;
 
 function getClient() {
   if (_client) return _client;
-  const url = (repoGetLocal(SUPA_URL_KEY) || '').trim();
-  const key = (repoGetLocal(SUPA_ANON_KEY) || '').trim();
+  const url = (repoGetLocal(SUPA_URL_KEY) || '').trim() || DEFAULT_SUPA_URL;
+  const key = (repoGetLocal(SUPA_ANON_KEY) || '').trim() || DEFAULT_SUPA_ANON_KEY;
   if (!url || !key || typeof window.supabase?.createClient !== 'function') return null;
   _client = window.supabase.createClient(url, key);
   return _client;

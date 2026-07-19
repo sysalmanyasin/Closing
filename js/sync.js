@@ -23,6 +23,16 @@ import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.j
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const SUPA_URL_KEY   = 'supabase_url';
 const SUPA_ANON_KEY  = 'supabase_anon_key';
+
+/* Baked-in default connection — every device/install auto-connects to
+   this project without needing to open Settings and paste the Project
+   URL + anon key first (that manual step is still there, and still
+   wins if the user ever saves a different key — see dbxGetAppKey()/
+   getAnonKey() below). Safe to commit: it's the anon/publishable key,
+   not a service-role key — Row Level Security is the real boundary,
+   same trust model documented in BT's audit-bridge.js. */
+const DEFAULT_SUPA_URL      = 'https://wetbugzzchkghpzmowod.supabase.co';
+const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM';
 /* How many of this device's local db.activityLog entries have
    already been INSERTed into the activity_log table. Persisted so a
    page reload doesn't re-push (harmless, just noisy) duplicates. */
@@ -34,10 +44,10 @@ const QUICK_DELAY_MS = 5000;
 const BACKOFF_DELAYS = [30000, 120000, 300000];
 
 export function dbxGetAppKey() {
-  return (repoGetLocal(SUPA_URL_KEY) || '').trim();
+  return (repoGetLocal(SUPA_URL_KEY) || '').trim() || DEFAULT_SUPA_URL;
 }
 function getAnonKey() {
-  return (repoGetLocal(SUPA_ANON_KEY) || '').trim();
+  return (repoGetLocal(SUPA_ANON_KEY) || '').trim() || DEFAULT_SUPA_ANON_KEY;
 }
 
 /* ── STATE ──────────────────────────────────────────────── */
