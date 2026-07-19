@@ -395,7 +395,7 @@ export function insertHandoverClosing(ds) {
   if(slot.error) { alert(slot.error); return; }
   const { key, shift, seq } = slot;
 
-  db.sheets[key] = { seq, shiftLabel: 'Handover', draft: true, profileMode: 'shift' };
+  db.sheets[key] = { seq, shiftLabel: 'Handover', draft: true, profileMode: 'shift', _updatedAt: Date.now() };
   persist();
 
   session.activeKey  = key;
@@ -978,6 +978,7 @@ export function saveSheet(silent=false) {
   record.draft    = false;
   record.locked   = true;
   record.savedAt  = Date.now();
+  record._updatedAt = record.savedAt;
   /* seq/shiftLabel are slot-identity metadata (which Handover number
      this is, its assigned order) — not something buildSheetRecord()
      can derive from the DOM, so they'd otherwise be silently wiped
@@ -1191,6 +1192,7 @@ export function scheduleAutoSave() {
       const record = buildSheetRecord();
       record.draft  = true;
       record.locked = false;
+      record._updatedAt = Date.now();
       db.sheets[session.activeKey] = record;
       persist();
     } catch(e) { /* silent — draft save is best-effort */ }
@@ -1237,6 +1239,7 @@ export function saveDraft() {
   const rec = buildSheetRecord();
   rec.draft  = true;
   rec.locked = false;
+  rec._updatedAt = Date.now();
   /* Same seq/shiftLabel preservation as saveSheet() above — see its
      comment for why buildSheetRecord() alone can't carry these. */
   const existing = db.sheets[session.activeKey];
@@ -1302,6 +1305,7 @@ export function deleteSheet(key) {
 export function setSheetProfileMode(key, mode) {
   if(db.sheets[key] && db.sheets[key].profileMode !== mode) {
     db.sheets[key].profileMode = mode;
+    db.sheets[key]._updatedAt = Date.now();
     persist();
   }
 }

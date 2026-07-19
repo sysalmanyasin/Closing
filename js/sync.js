@@ -223,7 +223,7 @@ export async function dbxInit() {
 function _openRealtimeChannel() {
   if(!supaState.client || supaState.channel) return;
   const channel = supaState.client.channel('closing-app-sync');
-  ['settings', 'sheets', 'credit_ledger', 'activity_log'].forEach(table => {
+  ['settings', 'sheets', 'credit_ledger', 'activity_log', 'deleted_records'].forEach(table => {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
       clearTimeout(supaState.pullDebounce);
       supaState.pullDebounce = setTimeout(() => {
@@ -421,9 +421,47 @@ export async function syncPushToCloud(manual = false) {
 
 /* ── PULL: Cloud → Local ─────────────────────────────────────
    Reassembles the same `{settings, sheets, creditLedger,
-   activityLog}` shape state.js/actions.js already expect, then reuses
-   the exact conflict-resolution rule the Dropbox version used: cloud
-   wins on sheet count unless local settings are strictly newer. ──── */
+   activityLog, deletedKeys}` shape state.js/actions.js already
+   expect.
+
+   MERGE STRATEGY — per-record last-write-wins, NOT the old "cloud
+   wins whenever its sheet COUNT is >= local's" rule. The count-based
+   rule looked plausible but silently threw away data in ordinary
+   use: editing an ALREADY-saved sheet (or re-saving a shift so its
+   credit_ledger snapshot gets replaced) never changes the sheet
+   COUNT, so a same-count/higher-count pull would wholesale-replace
+   db.sheets/db.creditLedger with the older cloud copy and your just-
+   made, not-yet-pushed edit would vanish with no error — exactly the
+   kind of thing that must never happen to closing/cash data. The old
+   "local count is higher → just push" branch had the mirror problem:
+   it never actually pulled anything down, so any record that existed
+   ONLY in the cloud (added by another device) could get permanently
+   stranded — invisible on this device forever — as long as this
+   device's local count stayed higher.
+   Every sheet/credit-ledger key is now compared individually using
+   its own `_updatedAt` (sheets) / `savedAt` (credit ledger, always
+   set — these only exist for non-draft saves) timestamp, and
+   whichever side is newer wins FOR THAT KEY ONLY. Settings keeps its
+   existing single-timestamp rule (it's one object, not a keyed
+   collection). Activity log is append-only, so it's a straight
+   union instead of a pick-one-side comparison. */
+function _mergeByKey(localMap, cloudMap, tsOf) {
+  const merged = {};
+  let localWonSomething = false;
+  const allKeys = new Set([...Object.keys(localMap), ...Object.keys(cloudMap)]);
+  allKeys.forEach(key => {
+    const l = localMap[key], c = cloudMap[key];
+    if(l && !c)      { merged[key] = l; localWonSomething = true; }
+    else if(!l && c) { merged[key] = c; }
+    else {
+      const lt = tsOf(l) || 0, ct = tsOf(c) || 0;
+      if(lt > ct) { merged[key] = l; localWonSomething = true; }
+      else        { merged[key] = c; }
+    }
+  });
+  return { merged, localWonSomething };
+}
+
 export async function syncPullFromCloud(_manual = false) {
   if(!supaState.client) return;
   dbxSetBusy(true);
@@ -455,50 +493,59 @@ export async function syncPullFromCloud(_manual = false) {
       if(!tombstones.has(d.key)) tombstones.set(d.key, new Date(d.deletedAt).toISOString());
     });
 
+    const cloudSheetsRaw = Object.fromEntries((sheetsRes.data || []).filter(r => !tombstones.has(r.key)).map(r => [r.key, r.data]));
+    const cloudCLRaw     = Object.fromEntries((clRes.data || []).filter(r => !tombstones.has(r.key)).map(r => [r.key, r.data]));
+    const localSheets     = { ...(db.sheets || {}) };
+    const localCL         = Object.fromEntries((db.creditLedger || []).map(r => [r.key, r]));
+    tombstones.forEach((_v, key) => { delete localSheets[key]; delete localCL[key]; });
+
+    const sheetMerge = _mergeByKey(localSheets, cloudSheetsRaw, r => r._updatedAt || r.savedAt || 0);
+    const clMerge     = _mergeByKey(localCL, cloudCLRaw, r => r.savedAt || 0);
+
+    /* Activity log: append-only, so union by identity (ts+actor+key+action)
+       rather than picking one side — a not-yet-pushed local entry must
+       never be discarded just because a pull happened to land first. */
+    const localAl  = Array.isArray(db.activityLog) ? db.activityLog : [];
+    const cloudAl  = alRes.data || [];
+    const alPushedCount = parseInt(repoGetLocal(SUPA_AL_PUSHED_KEY) || '0', 10);
+    const unpushedLocalAl = localAl.slice(alPushedCount);
+    const mergedAl = cloudAl.concat(unpushedLocalAl);
+
     const cloudDb = {
       settings:     settingsRes.data?.data || null,
-      sheets:       Object.fromEntries((sheetsRes.data || []).filter(r => !tombstones.has(r.key)).map(r => [r.key, r.data])),
-      creditLedger: (clRes.data || []).filter(r => !tombstones.has(r.key)).map(r => r.data),
-      activityLog:  alRes.data || [],
+      sheets:       sheetMerge.merged,
+      creditLedger: Object.values(clMerge.merged),
+      activityLog:  mergedAl,
       deletedKeys:  Array.from(tombstones.entries()).map(([key, deleted_at]) => ({ key, deletedAt: new Date(deleted_at).getTime() }))
     };
 
-    const localSheetCount = Object.keys(db.sheets || {}).length;
-    const cloudSheetCount = Object.keys(cloudDb.sheets).length;
-
-    /* First run on a brand-new project: nothing in the cloud yet —
-       seed it with whatever is on this device (mirrors the old
-       Dropbox "not_found → upload baseline" path). */
-    if(cloudSheetCount === 0 && !cloudDb.settings && localSheetCount > 0) {
-      dbxSetStatus('No cloud data yet — uploading baseline…', 'busy', true);
-      dbxSetBusy(false);
-      await syncPushToCloud(false);
-      return;
+    let keptLocalSettings = false;
+    const localUpdatedAt = db.settings?._updatedAt || 0;
+    const cloudUpdatedAt = cloudDb.settings?._updatedAt || 0;
+    if(localUpdatedAt > cloudUpdatedAt) {
+      cloudDb.settings = db.settings;
+      keptLocalSettings = true;
     }
+    if(!cloudDb.settings) cloudDb.settings = db.settings; /* nothing in cloud yet — keep local */
 
-    if(cloudSheetCount >= localSheetCount) {
-      let keptLocalSettings = false;
-      const localUpdatedAt = db.settings?._updatedAt || 0;
-      const cloudUpdatedAt = cloudDb.settings?._updatedAt || 0;
-      if(localUpdatedAt > cloudUpdatedAt) {
-        cloudDb.settings = db.settings;
-        keptLocalSettings = true;
-      }
-      if(!cloudDb.settings) cloudDb.settings = db.settings; /* nothing in cloud yet — keep local */
-      repoReplaceDB(cloudDb);
-      /* This device now "knows about" every activity_log row that
-         came back, so it won't re-push them as if they were new. */
-      repoSetLocal(SUPA_AL_PUSHED_KEY, String(cloudDb.activityLog.length));
+    repoReplaceDB(cloudDb);
+    /* Only entries that actually came back FROM the cloud are "known
+       pushed" — the unpushed local tail we just re-appended above is
+       still pending, so the next push must still send it. */
+    repoSetLocal(SUPA_AL_PUSHED_KEY, String(cloudAl.length));
 
-      buildCalendar();
-      renderManifest();
-      renderFinalSummaryCard();
-      const ts = new Date().toLocaleTimeString('en-PK');
-      dbxSetStatus(`Pulled from cloud at ${ts} (${cloudSheetCount} records)`, 'ok');
-      if(keptLocalSettings) syncPushToCloud(false);
-    } else {
-      dbxSetStatus('Local data is newer — uploading…', 'busy', true);
-      dbxSetBusy(false);
+    buildCalendar();
+    renderManifest();
+    renderFinalSummaryCard();
+    const ts = new Date().toLocaleTimeString('en-PK');
+    const recordCount = Object.keys(cloudDb.sheets).length;
+    dbxSetStatus(`Synced at ${ts} (${recordCount} records)`, 'ok');
+
+    /* If local had anything the merge kept (an unpushed edit, a
+       record cloud didn't have yet, a pending tombstone, unpushed
+       settings, or unpushed log lines), push it back up now so the
+       cloud — and every other device — converges on the same state. */
+    if(sheetMerge.localWonSomething || clMerge.localWonSomething || keptLocalSettings || unpushedLocalAl.length || (db.deletedKeys || []).length) {
       await syncPushToCloud(false);
     }
 
