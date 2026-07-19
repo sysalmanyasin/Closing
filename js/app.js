@@ -160,6 +160,7 @@ Object.assign(window, {
   // auth.js
   authLogin:            Auth.authLogin,
   authLogout:           Auth.authLogout,
+  confirmLogout:        Auth.confirmLogout,
 
   // bt-bridge.js
   loadTierNamesFromBtStaff: BtBridge.loadTierNamesFromBtStaff,

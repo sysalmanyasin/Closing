@@ -135,6 +135,7 @@ function applySettingsDefaults(dbObj) {
   dbObj.settings.namedCredits.forEach(nc => {
     if(!nc.syncTarget) nc.syncTarget = 'none'; /* 'none' | 'jazzcash' | 'expense' */
     if(!nc.expenseCategory) nc.expenseCategory = 'bill';
+    if(!nc.jazzcashCategory) nc.jazzcashCategory = 'credit'; /* 'credit'|'debit'|'withdrawal'|'commission'|'transfer' */
   });
   if(!Array.isArray(dbObj.settings.subTiers)) dbObj.settings.subTiers = [
     {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},

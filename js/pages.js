@@ -15,6 +15,7 @@ import {
   stopAutoDraft
 } from './actions.js';
 import { alAllEntries } from './activity-log.js';
+import { checkShiftCollision, showCollisionBanner } from './auth.js';
 import {
   clAllLabels, clBackfillSnapshots, clEnsureArray, clGroupByDate,
   countRecordsOlderThan, mlAllSnapshots
@@ -1011,6 +1012,8 @@ export function openSheetFromPicker() {
   session.activeKey   = key;
   session.overrides   = db.sheets[session.activeKey]?.overrides || {};
   initLedger(ds, shift, session.activeMode);
+  showCollisionBanner(null); /* clear any stale banner from a previous shift immediately */
+  checkShiftCollision(key).then(showCollisionBanner);
 }
 
 /* ═══════════════════════════════════════════
@@ -1225,6 +1228,11 @@ export function renderSettingsNamedCredits() {
     ['refresh','Refreshment'], ['extra','Extra'], ['guardIncentive','Guard Incentive'],
     ['pattyHO','Patty H/O (received)']
   ];
+  const JAZZCASH_CATS = [
+    ['credit','Received (+)'], ['debit','Patty Incentive (−)'],
+    ['withdrawal','Generic Incentive (−)'], ['commission','Strips / Adjustments (−)'],
+    ['transfer','Transfer (−)']
+  ];
   db.settings.namedCredits.forEach((nc, idx) => {
     const div = document.createElement('div');
     div.className = "settings-item";
@@ -1239,6 +1247,10 @@ export function renderSettingsNamedCredits() {
       ${target==='expense' ? `
       <select onchange="settingsSetNamedCreditSync(${idx}, 'expenseCategory', this.value)" style="margin-left:6px;">
         ${EXPENSE_CATS.map(([id,label]) => `<option value="${id}" ${nc.expenseCategory===id?'selected':''}>${label}</option>`).join('')}
+      </select>` : ''}
+      ${target==='jazzcash' ? `
+      <select onchange="settingsSetNamedCreditSync(${idx}, 'jazzcashCategory', this.value)" style="margin-left:6px;">
+        ${JAZZCASH_CATS.map(([id,label]) => `<option value="${id}" ${nc.jazzcashCategory===id?'selected':''}>${label}</option>`).join('')}
       </select>` : ''}
       <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})" aria-label="Remove account">✕</button>`;
     box.appendChild(div);
@@ -1371,7 +1383,8 @@ export function saveSettings() {
 
   const namedCreditSyncData = db.settings.namedCredits.map(nc => ({
     syncTarget: nc.syncTarget || 'none',
-    expenseCategory: nc.expenseCategory || 'bill'
+    expenseCategory: nc.expenseCategory || 'bill',
+    jazzcashCategory: nc.jazzcashCategory || 'credit'
   }));
 
   const subTiersData = [];
@@ -1400,6 +1413,8 @@ export function loadKey(key) {
   session.activeMode = db.sheets[key]?.profileMode || 'shift';
   session.overrides  = db.sheets[key]?.overrides || {};
   initLedger(p[0], p[1], session.activeMode);
+  showCollisionBanner(null);
+  checkShiftCollision(key).then(showCollisionBanner);
 }
 
 /* ═══════════════════════════════════════════

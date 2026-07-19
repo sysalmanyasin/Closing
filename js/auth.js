@@ -68,6 +68,22 @@ function showGate(show) {
   if (app)  app.classList.toggle('hidden', show);
 }
 
+/* "Signed in as X" strip under the sync topbar — see index.html's
+   #whoami-bar. Hidden entirely when nobody's logged in (e.g. Cloud
+   Sync/login isn't set up on this install), matching how the auth
+   gate itself stays out of the way in that case. */
+function updateWhoAmI() {
+  const bar  = document.getElementById('whoami-bar');
+  const name = document.getElementById('whoami-name');
+  if (!bar || !name) return;
+  if (session.loggedInStaff) {
+    name.textContent = session.loggedInStaff.name;
+    bar.classList.remove('hidden');
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+
 export function authShowError(msg) {
   const el = document.getElementById('auth-error');
   if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
@@ -97,6 +113,7 @@ export async function authInit() {
       session.currentActor  = null;
       _stopPresenceHeartbeat();
       showGate(true);
+      updateWhoAmI();
     }
   });
 }
@@ -124,6 +141,7 @@ async function _hydrateLoggedInStaff(client, authUserId) {
   session.currentActor = session.loggedInStaff.name;
 
   _startPresenceHeartbeat(client, session.loggedInStaff.staffId, session.loggedInStaff.name);
+  updateWhoAmI();
 }
 
 /* ── PRESENCE — see supabase/staff_presence.sql ───────────────────
@@ -135,7 +153,7 @@ function _startPresenceHeartbeat(client, staffId, name) {
   _stopPresenceHeartbeat();
   const beat = () => {
     client.from('staff_presence')
-      .upsert({ staff_id: staffId, name, last_seen: new Date().toISOString() }, { onConflict: 'staff_id' })
+      .upsert({ staff_id: staffId, name, last_seen: new Date().toISOString(), active_key: session.activeKey || null }, { onConflict: 'staff_id' })
       .then(({ error }) => { if (error) console.warn('[Auth] Presence heartbeat failed:', error.message); });
   };
   beat();
@@ -143,6 +161,43 @@ function _startPresenceHeartbeat(client, staffId, name) {
 }
 function _stopPresenceHeartbeat() {
   if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+}
+
+/* ── SHIFT COLLISION CHECK ──────────────────────────────────────
+   Called by pages.js right after session.activeKey is set (opening
+   a shift for editing). Looks for any OTHER staff member whose own
+   presence row currently has the same active_key — i.e. someone
+   else already has this exact shift open. A false negative just
+   means the warning doesn't show (heartbeat is every 30s, so worst
+   case is a ~30s blind spot); this is advisory, not a lock, so that's
+   an acceptable tradeoff rather than adding real server-side locking. */
+export async function checkShiftCollision(key) {
+  const client = getClient();
+  if (!client || !key) return null;
+  const myStaffId = session.loggedInStaff?.staffId;
+  const { data, error } = await client
+    .from('staff_presence')
+    .select('staff_id, name, last_seen, active_key')
+    .eq('active_key', key);
+  if (error || !data) return null;
+  const now = Date.now();
+  const others = data.filter(r =>
+    r.staff_id !== myStaffId && (now - new Date(r.last_seen).getTime()) < PRESENCE_HEARTBEAT_MS * 3
+  );
+  return others.length ? others : null;
+}
+
+/* Renders/hides the red "Also open elsewhere" bar on the ledger page
+   (#collision-bar in index.html). Exported so pages.js can call it
+   directly without re-implementing the DOM bits. */
+export function showCollisionBanner(others) {
+  const bar  = document.getElementById('collision-bar');
+  const text = document.getElementById('collision-bar-text');
+  if (!bar || !text) return;
+  if (!others || !others.length) { bar.classList.add('hidden'); return; }
+  text.textContent = others.map(o => o.name).join(', ') +
+    (others.length === 1 ? ' has' : ' have') + ' this shift open right now.';
+  bar.classList.remove('hidden');
 }
 
 /* Reads the login form (#auth-phone, #auth-pin) and attempts login. */
@@ -190,6 +245,15 @@ export async function authLogin() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+/* Settings page "Log Out" button — confirms first since it's a full
+   sign-out (kills the session + presence row), not a lightweight
+   PIN re-lock. */
+export async function confirmLogout() {
+  if (!session.loggedInStaff) { alert('You are not signed in.'); return; }
+  if (!confirm('Log out of this device? You\'ll need your phone number and PIN to sign in again.')) return;
+  await authLogout();
 }
 
 export async function authLogout() {

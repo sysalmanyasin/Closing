@@ -111,7 +111,7 @@ export async function btBridgeSyncRecord(key, record) {
     if (target === 'none') continue;
 
     const row = target === 'jazzcash'
-      ? { ledger_type: 'jazzcash', category_id: 'credit', amount: nc.val, description: nc.desc || '', group_label: nc.lbl || account.label, shift, entry_date: entryDate }
+      ? { ledger_type: 'jazzcash', category_id: account.jazzcashCategory || 'credit', amount: nc.val, description: nc.desc || '', group_label: nc.lbl || account.label, shift, entry_date: entryDate }
       : { ledger_type: 'expense', category_id: account.expenseCategory || 'bill', amount: nc.val, description: nc.desc || '', group_label: nc.lbl || account.label, shift: null, entry_date: entryDate };
 
     const { error } = await client.from('bt_inbox_ledger').insert(row);

@@ -1342,10 +1342,10 @@ export function settingsSetStaffPin(i, pin) {
   return true;
 }
 
-export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account", syncTarget:'none', expenseCategory:'bill'}); }
+export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account", syncTarget:'none', expenseCategory:'bill', jazzcashCategory:'credit'}); }
 export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); }
 export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = v; }
-/* field is 'syncTarget' ('none'|'jazzcash'|'expense') or 'expenseCategory'
+/* field is 'syncTarget' ('none'|'jazzcash'|'expense'), 'expenseCategory', or 'jazzcashCategory'
    (BT's expense category id) — staged like the others, committed by
    settingsCommitAll(). See js/bt-bridge.js for where this is read. */
 export function settingsSetNamedCreditSync(i, field, v) {
@@ -1394,8 +1394,9 @@ export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData, 
   if(Array.isArray(namedCreditSyncData)) {
     namedCreditSyncData.forEach((sync, i) => {
       if(db.settings.namedCredits[i] && sync) {
-        db.settings.namedCredits[i].syncTarget      = sync.syncTarget || 'none';
-        db.settings.namedCredits[i].expenseCategory = sync.expenseCategory || 'bill';
+        db.settings.namedCredits[i].syncTarget       = sync.syncTarget || 'none';
+        db.settings.namedCredits[i].expenseCategory  = sync.expenseCategory || 'bill';
+        db.settings.namedCredits[i].jazzcashCategory = sync.jazzcashCategory || 'credit';
       }
     });
   }
