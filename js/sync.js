@@ -231,7 +231,17 @@ function _openRealtimeChannel() {
       }, 800);
     });
   });
-  channel.subscribe();
+  channel.subscribe((status, err) => {
+    console.log('[Supabase Realtime] channel status:', status, err || '');
+    if(status === 'SUBSCRIBED') {
+      dbxSetStatus('Live sync connected', 'ok');
+    } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      dbxSetStatus('Live sync unavailable — ' + (err?.message || status) + ' (still syncing on save/reload)', 'error');
+      supaState.channel = null; /* let a future dbxHealConnection() retry cleanly */
+    } else if(status === 'CLOSED') {
+      supaState.channel = null;
+    }
+  });
   supaState.channel = channel;
 }
 
