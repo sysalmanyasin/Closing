@@ -1253,12 +1253,27 @@ export function saveDraft() {
   setTimeout(()=>{ status.style.display='none'; }, 1500);
 }
 
+/* Records a tombstone for `key` and drops its credit-ledger snapshot
+   (if any). Every delete path (single-sheet, bulk archive) must call
+   this — it's the only way sync.js finds out a record was removed
+   locally so it can (a) remove the row from the cloud tables and
+   (b) stop a later pull from resurrecting it on this or any other
+   device. Without this, deleting locally only shrinks db.sheets —
+   the cloud copy is untouched, and the very next pull sees the cloud
+   as "having more records" and restores it. */
+function markKeyDeleted(key) {
+  if(!Array.isArray(db.deletedKeys)) db.deletedKeys = [];
+  db.deletedKeys.push({ key, deletedAt: Date.now() });
+  db.creditLedger = (db.creditLedger || []).filter(r => r.key !== key);
+}
+
 export function deleteCurrentSheet() {
   if(!session.activeKey) return;
   if(!db.sheets[session.activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = session.activeKey.split('_');
   if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
   alLog('delete', session.activeKey);
+  markKeyDeleted(session.activeKey);
   delete db.sheets[session.activeKey];
   persist();
   goToDashboard();
@@ -1273,6 +1288,7 @@ export function deleteSheet(key) {
   if(!checkPin(pin)) { alert('Incorrect PIN.'); return; }
   if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
   alLog('delete', key);
+  markKeyDeleted(key);
   delete db.sheets[key];
   persist();
   if(session.activeKey === key) { session.activeKey = null; goToDashboard(); }
@@ -1342,14 +1358,19 @@ export function settingsSetStaffPin(i, pin) {
   return true;
 }
 
-export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account", syncTarget:'none', expenseCategory:'bill', jazzcashCategory:'credit'}); }
-export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); }
-export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = v; }
+export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account", syncTarget:'none', expenseCategory:'bill', jazzcashCategory:'credit'}); persist(); }
+export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); persist(); }
+export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) { db.settings.namedCredits[i].label = v; persist(); } }
 /* field is 'syncTarget' ('none'|'jazzcash'|'expense'), 'expenseCategory', or 'jazzcashCategory'
-   (BT's expense category id) — staged like the others, committed by
-   settingsCommitAll(). See js/bt-bridge.js for where this is read. */
+   (BT's expense category id). This drives real money movement into BT's
+   JazzCash/Expense ledger (see js/bt-bridge.js), so — unlike the other
+   staged Settings fields committed only by the Save Settings button —
+   it persists (and pushes to cloud) the instant it's changed. Leaving
+   it unsaved in memory only meant a reload, or any background realtime
+   pull landing first, silently reverted the account back to "Don't
+   sync to BT" with no warning. */
 export function settingsSetNamedCreditSync(i, field, v) {
-  if(db.settings.namedCredits[i]) db.settings.namedCredits[i][field] = v;
+  if(db.settings.namedCredits[i]) { db.settings.namedCredits[i][field] = v; persist(); }
 }
 
 export function settingsAddStrip() {
@@ -1428,9 +1449,8 @@ export function archiveOldRecords() {
   const pin = prompt('Enter PIN to confirm deletion:');
   if(!checkPin(pin)) { alert('Incorrect PIN.'); return; }
 
-  staleKeys.forEach(key => { alLog('archive', key); delete db.sheets[key]; });
+  staleKeys.forEach(key => { alLog('archive', key); markKeyDeleted(key); delete db.sheets[key]; });
   clEnsureArray();
-  db.creditLedger = db.creditLedger.filter(s => !staleKeys.includes(s.key));
   /* Misc/Ongoing Ledger needs no separate cleanup — it's derived
      live from db.sheets, so it's already clean now too. */
   persist();

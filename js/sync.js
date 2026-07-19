@@ -371,6 +371,26 @@ export async function syncPushToCloud(manual = false) {
     );
     if(setErr) throw setErr;
 
+    /* Tombstones: keys deleted locally. Upserted (never appended blindly,
+       so re-pushing after a reload doesn't duplicate rows) to a small
+       `deleted_records` table, THEN best-effort hard-deleted from the
+       real tables. The upsert happens first and unconditionally — even
+       if the hard-delete below fails or is blocked by RLS, the tombstone
+       still lets every pull (this device's and everyone else's) filter
+       the record out, which is what actually prevents resurrection. */
+    const delRows = (db.deletedKeys || []).map(d => ({
+      key: d.key, deleted_at: new Date(d.deletedAt).toISOString()
+    }));
+    if(delRows.length) {
+      const { error } = await supaState.client.from('deleted_records').upsert(delRows, { onConflict: 'key' });
+      if(error) throw error;
+      const keys = delRows.map(r => r.key);
+      /* Best-effort — ignore errors here (e.g. no DELETE policy yet);
+         the tombstone above is what actually guarantees correctness. */
+      try { await supaState.client.from('sheets').delete().in('key', keys); } catch(e) { /* tombstone still covers it */ }
+      try { await supaState.client.from('credit_ledger').delete().in('key', keys); } catch(e) { /* tombstone still covers it */ }
+    }
+
     /* Activity log: only push entries this device hasn't pushed yet */
     const alAll = Array.isArray(db.activityLog) ? db.activityLog : [];
     const pushedCount = parseInt(repoGetLocal(SUPA_AL_PUSHED_KEY) || '0', 10);
@@ -410,22 +430,37 @@ export async function syncPullFromCloud(_manual = false) {
   dbxSetStatus('Checking for updates…', 'busy', true);
 
   try {
-    const [sheetsRes, clRes, settingsRes, alRes] = await Promise.all([
+    const [sheetsRes, clRes, settingsRes, alRes, delRes] = await Promise.all([
       supaState.client.from('sheets').select('key, data'),
       supaState.client.from('credit_ledger').select('key, data'),
       supaState.client.from('settings').select('data, updated_at').eq('id', 1).maybeSingle(),
-      supaState.client.from('activity_log').select('ts, actor, key, action, changes').order('ts', { ascending: true })
+      supaState.client.from('activity_log').select('ts, actor, key, action, changes').order('ts', { ascending: true }),
+      supaState.client.from('deleted_records').select('key, deleted_at')
     ]);
     if(sheetsRes.error) throw sheetsRes.error;
     if(clRes.error) throw clRes.error;
     if(settingsRes.error) throw settingsRes.error;
     if(alRes.error) throw alRes.error;
+    /* deleted_records is a newer table — if it hasn't been created yet
+       in this project, treat "missing table" as "no tombstones" rather
+       than failing the whole pull, so nothing breaks before the SQL
+       migration has been run. */
+    if(delRes.error && delRes.error.code !== '42P01') throw delRes.error;
+
+    /* Union of cloud tombstones and any not-yet-pushed local ones —
+       covers the case where this device deleted something while
+       offline and hasn't successfully pushed the tombstone yet. */
+    const tombstones = new Map((delRes.data || []).map(r => [r.key, r.deleted_at]));
+    (db.deletedKeys || []).forEach(d => {
+      if(!tombstones.has(d.key)) tombstones.set(d.key, new Date(d.deletedAt).toISOString());
+    });
 
     const cloudDb = {
       settings:     settingsRes.data?.data || null,
-      sheets:       Object.fromEntries((sheetsRes.data || []).map(r => [r.key, r.data])),
-      creditLedger: (clRes.data || []).map(r => r.data),
-      activityLog:  alRes.data || []
+      sheets:       Object.fromEntries((sheetsRes.data || []).filter(r => !tombstones.has(r.key)).map(r => [r.key, r.data])),
+      creditLedger: (clRes.data || []).filter(r => !tombstones.has(r.key)).map(r => r.data),
+      activityLog:  alRes.data || [],
+      deletedKeys:  Array.from(tombstones.entries()).map(([key, deleted_at]) => ({ key, deletedAt: new Date(deleted_at).getTime() }))
     };
 
     const localSheetCount = Object.keys(db.sheets || {}).length;

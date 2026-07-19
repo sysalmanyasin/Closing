@@ -153,6 +153,12 @@ function applySettingsDefaults(dbObj) {
      touched Settings yet), plus an empty staff list ready to grow. */
   if(!dbObj.settings.adminPin) dbObj.settings.adminPin = "1218";
   if(!Array.isArray(dbObj.settings.staff)) dbObj.settings.staff = [];
+  /* Tombstones for deleted sheets/credit-ledger entries — {key, deletedAt}.
+     Needed so a delete survives a cloud round-trip: sync.js pushes these
+     as upserts to a `deleted_records` table and filters them out of every
+     pull, instead of a deleted record silently reappearing because the
+     cloud copy was never told it was gone. See sync.js for the other half. */
+  if(!Array.isArray(dbObj.deletedKeys)) dbObj.deletedKeys = [];
   return dbObj;
 }
 
