@@ -128,6 +128,14 @@ function applySettingsDefaults(dbObj) {
   if(!Array.isArray(dbObj.settings.namedCredits)) dbObj.settings.namedCredits = [
     {label:"Corporate Account"}, {label:"Wholesale Ledger"}, {label:"Third Party Tab"}
   ];
+  /* BT Sale Data bridge: each named account can optionally forward its
+     entries into BT's shared JazzCash or Expense ledger. Defaults keep
+     every existing account exactly as before (syncTarget:'none') until
+     someone deliberately turns one on in Settings. */
+  dbObj.settings.namedCredits.forEach(nc => {
+    if(!nc.syncTarget) nc.syncTarget = 'none'; /* 'none' | 'jazzcash' | 'expense' */
+    if(!nc.expenseCategory) nc.expenseCategory = 'bill';
+  });
   if(!Array.isArray(dbObj.settings.subTiers)) dbObj.settings.subTiers = [
     {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
     {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
@@ -280,6 +288,7 @@ export const session = {
   calViewDate:    new Date(),
   isSheetLocked:  false, /* true = view-only snapshot, false = editable */
   currentActor:   null,  /* "Admin" or a staff name — set by checkPin() on the most recent successful PIN entry; read by the Activity Log */
+  loggedInStaff:  null,  /* {staffId, name} — set by auth.js on successful phone+PIN login; separate from currentActor's per-action confirmation */
 
   /* dynamic row counters */
   auxCreditCount: 0,

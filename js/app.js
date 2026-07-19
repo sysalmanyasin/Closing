@@ -27,6 +27,8 @@ import * as Pages       from './pages.js';
 import * as LedgerNav   from './ledger-nav.js';
 import * as ClosingBook from './closing-book.js';
 import * as Sync        from './sync.js';
+import * as Auth        from './auth.js';
+import * as BtBridge     from './bt-bridge.js';
 /* state.js and ledger-engine.js aren't imported directly here — they
    still load correctly since actions.js (and others) already import
    from them, which is enough to bring them into the module graph. */
@@ -154,6 +156,13 @@ Object.assign(window, {
   dbxShowKeyError:      Sync.dbxShowKeyError,
   syncPullFromCloud:    Sync.syncPullFromCloud,
   syncPushToCloud:      Sync.syncPushToCloud,
+
+  // auth.js
+  authLogin:            Auth.authLogin,
+  authLogout:           Auth.authLogout,
+
+  // bt-bridge.js
+  loadTierNamesFromBtStaff: BtBridge.loadTierNamesFromBtStaff,
 });
 
 /* One-time boot check: if a saved db blob existed but failed to
@@ -162,7 +171,7 @@ Object.assign(window, {
    didn't just vanish on its own. The raw corrupted text is preserved
    under a backup key (see repository.js) in case it's recoverable. */
 if(Repository.repoLoadHadCorruption()) {
-  alert('⚠️ Your saved closing data could not be read (it appears corrupted) and this device is starting fresh. The original data was NOT deleted — it\'s preserved in this browser\'s storage under a backup key. If you have Dropbox sync connected, reconnect it to restore your records from the cloud.');
+  alert('⚠️ Your saved closing data could not be read (it appears corrupted) and this device is starting fresh. The original data was NOT deleted — it\'s preserved in this browser\'s storage under a backup key. If you have Supabase sync connected, reconnect it to restore your records from the cloud.');
 }
 
 /* ── Escape-to-close for modals ──────────────────────────────

@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    Pharma Plus Closing App — Service Worker  v1.0
    Strategy: Cache-first for app shell.
-   Dropbox API calls always go to network (never cached).
+   Supabase API calls always go to network (never cached).
 ═══════════════════════════════════════════════════════════════ */
 
 const CACHE_NAME = 'pharmpos-closing-v1.5';
@@ -41,16 +41,14 @@ const APP_SHELL = [
 /* ── CDN libraries — cached on first use ── */
 const CDN_ORIGINS = [
   'https://cdnjs.cloudflare.com',
+  'https://cdn.jsdelivr.net',
   'https://fonts.googleapis.com',
   'https://fonts.gstatic.com',
 ];
 
-/* ── Dropbox API — always network, never cache ── */
+/* ── Supabase API — always network, never cache ── */
 const NETWORK_ONLY_ORIGINS = [
-  'https://api.dropboxapi.com',
-  'https://content.dropboxapi.com',
-  'https://www.dropbox.com',
-  'https://notify.dropboxapi.com',
+  '.supabase.co',
 ];
 
 /* ────────────────────────────────────────────────
@@ -91,8 +89,8 @@ self.addEventListener('fetch', event => {
 
   if (request.method !== 'GET') return;
 
-  /* Dropbox — always network */
-  if (NETWORK_ONLY_ORIGINS.some(o => request.url.startsWith(o))) return;
+  /* Supabase (http + realtime websocket) — always network */
+  if (NETWORK_ONLY_ORIGINS.some(o => request.url.includes(o))) return;
 
   /* CDN fonts/libraries — stale while revalidate */
   if (CDN_ORIGINS.some(o => request.url.startsWith(o))) {

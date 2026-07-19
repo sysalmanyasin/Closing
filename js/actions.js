@@ -5,6 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
+import { btBridgeSyncRecord } from './bt-bridge.js';
 import { checkPin, daySlots, db, escHtml, genRowId, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
@@ -989,6 +990,7 @@ export function saveSheet(silent=false) {
   db.sheets[session.activeKey] = record;
   clSaveSnapshot(session.activeKey, record);  /* ← credit ledger snapshot */
   alCommit(session.activeMode === 'final' ? 'save-final' : 'save', session.activeKey, record);
+  btBridgeSyncRecord(session.activeKey, record).catch(e => console.warn('[BT Bridge] push failed:', e));
   persist();
   session.isSavedSheet = true;
   if(!silent) {
@@ -1340,9 +1342,15 @@ export function settingsSetStaffPin(i, pin) {
   return true;
 }
 
-export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); }
+export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account", syncTarget:'none', expenseCategory:'bill'}); }
 export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); }
 export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = v; }
+/* field is 'syncTarget' ('none'|'jazzcash'|'expense') or 'expenseCategory'
+   (BT's expense category id) — staged like the others, committed by
+   settingsCommitAll(). See js/bt-bridge.js for where this is read. */
+export function settingsSetNamedCreditSync(i, field, v) {
+  if(db.settings.namedCredits[i]) db.settings.namedCredits[i][field] = v;
+}
 
 export function settingsAddStrip() {
   db.settings.strips.push({name:"New Item",price:0,group:""});
@@ -1378,11 +1386,19 @@ export function settingsRemoveStripGroup(i) {
 /* Commits the staged fields (finalEveryN, named-credit labels,
    sub-tiers) that pages.js's Save Settings button reads from the
    DOM, then persists once. */
-export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) {
+export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData, namedCreditSyncData) {
   db.settings.finalEveryN = finalEveryN;
   namedCreditLabels.forEach((label, i) => {
     if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = label;
   });
+  if(Array.isArray(namedCreditSyncData)) {
+    namedCreditSyncData.forEach((sync, i) => {
+      if(db.settings.namedCredits[i] && sync) {
+        db.settings.namedCredits[i].syncTarget      = sync.syncTarget || 'none';
+        db.settings.namedCredits[i].expenseCategory = sync.expenseCategory || 'bill';
+      }
+    });
+  }
   subTiersData.forEach((t, i) => { db.settings.subTiers[i] = t; });
   persist();
 }

@@ -1206,7 +1206,11 @@ export function buildSettingsUI() {
     div.style.marginBottom = "14px";
     div.innerHTML = `
       <div class="form-field"><label for="cfg-tier-type-${i+1}">Group ${i+1} Name</label><input type="text" id="cfg-tier-type-${i+1}" value="${escHtml(t?.type||'')}"></div>
-      <div class="form-field"><label for="cfg-tier-names-${i+1}">Members (comma separated)</label><input type="text" id="cfg-tier-names-${i+1}" value="${escHtml(t?.names?.join(', ')||'')}"></div>`;
+      <div class="form-field">
+        <label for="cfg-tier-names-${i+1}">Members (comma separated)</label>
+        <input type="text" id="cfg-tier-names-${i+1}" value="${escHtml(t?.names?.join(', ')||'')}">
+        <button type="button" class="btn btn-sm" style="margin-top:6px;" onclick="loadTierNamesFromBtStaff(${i})">🔄 Load active names from BT Staff</button>
+      </div>`;
     sf.appendChild(div);
   }
   renderSettingsStripGroups();
@@ -1216,11 +1220,26 @@ export function buildSettingsUI() {
 export function renderSettingsNamedCredits() {
   const box = document.getElementById('settings-named-credits');
   box.innerHTML = "";
+  const EXPENSE_CATS = [
+    ['bill','Bill Amount'], ['fuel','Fuel/HO'], ['soap','Soap/Tissue'],
+    ['refresh','Refreshment'], ['extra','Extra'], ['guardIncentive','Guard Incentive'],
+    ['pattyHO','Patty H/O (received)']
+  ];
   db.settings.namedCredits.forEach((nc, idx) => {
     const div = document.createElement('div');
     div.className = "settings-item";
+    const target = nc.syncTarget || 'none';
     div.innerHTML = `
       <input type="text" value="${escHtml(nc.label)}" placeholder="Account name" onchange="settingsSetNamedCreditLabel(${idx}, this.value)">
+      <select onchange="settingsSetNamedCreditSync(${idx}, 'syncTarget', this.value); renderSettingsNamedCredits();" style="margin-left:6px;">
+        <option value="none" ${target==='none'?'selected':''}>Don't sync to BT</option>
+        <option value="jazzcash" ${target==='jazzcash'?'selected':''}>→ BT JazzCash</option>
+        <option value="expense" ${target==='expense'?'selected':''}>→ BT Expense</option>
+      </select>
+      ${target==='expense' ? `
+      <select onchange="settingsSetNamedCreditSync(${idx}, 'expenseCategory', this.value)" style="margin-left:6px;">
+        ${EXPENSE_CATS.map(([id,label]) => `<option value="${id}" ${nc.expenseCategory===id?'selected':''}>${label}</option>`).join('')}
+      </select>` : ''}
       <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})" aria-label="Remove account">✕</button>`;
     box.appendChild(div);
   });
@@ -1350,6 +1369,11 @@ export function saveSettings() {
     return el ? el.value : nc.label;
   });
 
+  const namedCreditSyncData = db.settings.namedCredits.map(nc => ({
+    syncTarget: nc.syncTarget || 'none',
+    expenseCategory: nc.expenseCategory || 'bill'
+  }));
+
   const subTiersData = [];
   for(let i=1;i<=3;i++) {
     const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
@@ -1360,7 +1384,7 @@ export function saveSettings() {
     });
   }
 
-  settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData);
+  settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData, namedCreditSyncData);
   alert("Settings saved.");
   goToDashboard();
 

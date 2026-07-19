@@ -13,6 +13,7 @@ import {
 import { buildCalendar, goToDashboard, renderManifest, sheetSortKey } from './pages.js';
 import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
 import { dbxInit } from './sync.js';
+import { authInit } from './auth.js';
 
 /* Floor 4's own transient UI state — file-local, never read by
    another floor. One object instead of scattered globals. */
@@ -111,6 +112,7 @@ window.onload = () => {
   buildCalendar();
   renderManifest();
   dbxInit(); /* ── Cloud sync: parse token & init on load ── */
+  authInit(); /* ── Login gate: phone + PIN, only once Cloud Sync is set up ── */
   if (typeof initLedgerSwipeNav === 'function') initLedgerSwipeNav(); /* mobile swipe-to-navigate */
 };
 

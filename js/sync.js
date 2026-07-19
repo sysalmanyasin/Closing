@@ -1,7 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════
-   FLOOR 1 (Extension) — DROPBOX CLOUD SYNC ENGINE
-   OAuth2 PKCE, client-side only, no backend.
-   Reads/writes via repoReplaceDB() / repoPersist() only.
+   FLOOR 1 (Extension) — SUPABASE CLOUD SYNC ENGINE
+   Client-side only, no OAuth (Project URL + anon key, like the old
+   Dropbox App Key). Reads/writes via repoReplaceDB()/repoPersist()
+   only — same contract the Dropbox version had.
+
+   STORAGE MODEL — db.sheets / db.creditLedger / db.settings /
+   db.activityLog are decomposed into real Postgres tables (see
+   supabase/schema.sql) instead of one JSON blob file. Every function
+   here still takes the FULL in-memory `db` object as input/output —
+   nothing in state.js/actions.js/pages.js changed — this file is
+   just the translation layer between that shape and four tables.
+
+   REALTIME — a single channel subscribes to changes on all four
+   tables and triggers a debounced pull, so other devices update
+   within ~1s instead of only on tab-focus/reconnect.
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
@@ -9,39 +21,42 @@ import { db } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
 
 /* ── CONFIGURATION ─────────────────────────────────────── */
-const DBX_APP_KEY_STORE   = 'dropbox_app_key';
-const DBX_SYNC_PATH       = '/pharmpos_sync_data.json';
-const DBX_REFRESH_KEY     = 'dropbox_refresh_token';
-const DBX_ACCOUNT_KEY     = 'dropbox_account_name';
-const DBX_VERIFIER_KEY    = 'dropbox_pkce_verifier';
+const SUPA_URL_KEY   = 'supabase_url';
+const SUPA_ANON_KEY  = 'supabase_anon_key';
+/* How many of this device's local db.activityLog entries have
+   already been INSERTed into the activity_log table. Persisted so a
+   page reload doesn't re-push (harmless, just noisy) duplicates. */
+const SUPA_AL_PUSHED_KEY = 'supabase_al_pushed_count';
 
-/* ── RETRY CONFIG ───────────────────────────────────────── */
-const DBX_QUICK_RETRIES   = 3;    /* fast retries on load */
-const DBX_QUICK_DELAY_MS  = 5000; /* 5s between quick retries */
-/* After quick retries: exponential backoff — 30s, 2min, 5min */
-const DBX_BACKOFF_DELAYS  = [30000, 120000, 300000];
+/* ── RETRY CONFIG (same shape as the old Dropbox version) ── */
+const QUICK_RETRIES  = 3;
+const QUICK_DELAY_MS = 5000;
+const BACKOFF_DELAYS = [30000, 120000, 300000];
 
 export function dbxGetAppKey() {
-  return (repoGetLocal(DBX_APP_KEY_STORE) || '').trim();
+  return (repoGetLocal(SUPA_URL_KEY) || '').trim();
+}
+function getAnonKey() {
+  return (repoGetLocal(SUPA_ANON_KEY) || '').trim();
 }
 
 /* ── STATE ──────────────────────────────────────────────── */
-const dbxState = {
-  client:          null,  /* Dropbox API client (files, account info) */
-  auth:            null,  /* DropboxAuth instance — holds refresh-token renewal logic */
+const supaState = {
+  client:          null,  /* supabase-js client */
+  channel:         null,  /* realtime channel */
   busy:            false,
-  retryTimer:      null,  /* handle for clearTimeout */
-  backoffIndex:    0,     /* which backoff step we're on */
-  quickRetryCount: 0
+  retryTimer:      null,
+  backoffIndex:    0,
+  quickRetryCount: 0,
+  pullDebounce:    null
 };
 
 /* Accessor for Actions (Floor 3) — see scheduleSyncPush() in
-   actions.js — instead of it reaching into dbxState directly. */
-export function syncIsReady() { return !!dbxState.client; }
+   actions.js — instead of it reaching into supaState directly. */
+export function syncIsReady() { return !!supaState.client; }
 
-/* ── UI HELPERS ─────────────────────────────────────────── */
+/* ── UI HELPERS (unchanged from the Dropbox version) ────── */
 export function dbxSetStatus(text, type = 'ok', spinner = false) {
-  /* ── in-card status ── */
   const line = document.getElementById('sync-status-line');
   const icon = document.getElementById('sync-status-icon');
   const msg  = document.getElementById('sync-status-text');
@@ -52,7 +67,6 @@ export function dbxSetStatus(text, type = 'ok', spinner = false) {
       : (type === 'ok' ? '✓' : type === 'error' ? '✕' : '⟳');
     msg.textContent = text;
   }
-  /* ── top mini-bar ── */
   const tb     = document.getElementById('sync-topbar');
   const tbIcon = document.getElementById('sync-tb-icon');
   const tbText = document.getElementById('sync-tb-text');
@@ -67,20 +81,20 @@ export function dbxSetStatus(text, type = 'ok', spinner = false) {
 }
 
 export function dbxSetBusy(busy) {
-  dbxState.busy = busy;
+  supaState.busy = busy;
   const btnPull = document.getElementById('btn-pull');
   const btnPush = document.getElementById('btn-push');
   if(btnPull) btnPull.disabled = busy;
   if(btnPush) btnPush.disabled = busy;
 }
 
-export function dbxShowLinked(accountName) {
+export function dbxShowLinked(label) {
   const u = document.getElementById('sync-state-unlinked');
   const l = document.getElementById('sync-state-linked');
   const a = document.getElementById('sync-account-name');
   if(u) u.classList.add('hidden');
   if(l) l.classList.remove('hidden');
-  if(a) a.textContent = accountName || '';
+  if(a) a.textContent = label || 'Connected';
 }
 
 export function dbxShowUnlinked() {
@@ -90,273 +104,169 @@ export function dbxShowUnlinked() {
   if(l) l.classList.add('hidden');
 }
 
-/* ── REFRESH-TOKEN STORAGE ──────────────────────────────────
-   Only the refresh token is persisted. It does not expire and
-   is not single-use, so capturing it once at connect time is
-   enough — the SDK mints short-lived access tokens from it in
-   memory for the lifetime of the page, and we re-supply it to
-   a fresh DropboxAuth on every app load. ──────────────────── */
-export function dbxSaveRefreshToken(token) {
-  repoSetLocal(DBX_REFRESH_KEY, token);
-}
-export function dbxGetRefreshToken() {
-  return repoGetLocal(DBX_REFRESH_KEY) || null;
-}
+/* ── CREDENTIAL STORAGE ─────────────────────────────────────
+   Project URL + anon key are the whole trust model — anyone who has
+   both can read/write, same as the old Dropbox App Key + refresh
+   token. Keep the anon key off public repos/screenshots. ────────── */
 export function dbxClearToken() {
-  repoRemoveLocal(DBX_REFRESH_KEY);
-  repoRemoveLocal(DBX_ACCOUNT_KEY);
-  repoRemoveLocal(DBX_VERIFIER_KEY);
-  /* Note: DBX_APP_KEY_STORE is intentionally NOT cleared here — user keeps their key */
+  repoRemoveLocal(SUPA_ANON_KEY);
+  /* SUPA_URL_KEY intentionally NOT cleared — matches old "user keeps their key" behavior */
 }
 
-/* ── APP KEY SETUP ──────────────────────────────────────── */
 export function dbxShowKeyError(msg) {
   const el = document.getElementById('dbx-key-error');
   if(el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
 }
 
+/* Reads the two connect-card inputs (Project URL + anon key) and
+   connects immediately — no OAuth redirect needed for Supabase. */
 export function dbxSaveAppKey() {
-  const inp = document.getElementById('dbx-app-key-input');
-  const key = (inp?.value || '').trim();
-  if(!key) { dbxShowKeyError('Please paste your App Key first.'); return; }
-  repoSetLocal(DBX_APP_KEY_STORE, key);
+  const urlInp  = document.getElementById('dbx-app-key-input');
+  const keyInp  = document.getElementById('supa-anon-key-input');
+  const url     = (urlInp?.value || '').trim().replace(/\/+$/, '');
+  const anonKey = (keyInp?.value || '').trim();
+  if(!url || !anonKey) { dbxShowKeyError('Please paste both the Project URL and the anon key.'); return; }
+  if(!/^https:\/\/.+\.supabase\.co$/.test(url)) {
+    dbxShowKeyError('That doesn\'t look like a Supabase Project URL (should end in .supabase.co).');
+    return;
+  }
+  repoSetLocal(SUPA_URL_KEY, url);
+  repoSetLocal(SUPA_ANON_KEY, anonKey);
   dbxShowKeyError('');
-  /* Immediately start auth */
-  dbxAuthStart();
-}
-
-/* ── OAUTH2 PKCE START ───────────────────────────────────────
-   Requests offline access so Dropbox issues a refresh token
-   alongside the short-lived access token. The PKCE code
-   verifier must survive the full-page redirect, so it's saved
-   to localStorage (the SDK only keeps it in memory). ───────── */
-export async function dbxAuthStart() {
-  const appKey = dbxGetAppKey();
-  if(!appKey) {
-    /* Show the App Key input panel instead of the connect button */
-    document.getElementById('sync-setup-step').classList.remove('hidden');
-    document.getElementById('sync-connect-step').classList.add('hidden');
-    return;
-  }
-  const redirectUri = window.location.href.split('#')[0].split('?')[0];
-  const auth = new Dropbox.DropboxAuth({ clientId: appKey });
-
-  const authUrl = await auth.getAuthenticationUrl(
-    redirectUri,
-    undefined,        // state
-    'code',           // response_type — authorization code, not implicit token
-    'offline',        // token_access_type — REQUESTS THE REFRESH TOKEN
-    undefined,         // scope (use app's configured default scopes)
-    undefined,
-    true              // usePKCE
-  );
-
-  /* Persist the verifier the SDK just generated so we can hand it
-     back to a brand-new DropboxAuth instance after the redirect. */
-  repoSetLocal(DBX_VERIFIER_KEY, auth.getCodeVerifier());
-  window.location.href = authUrl.toString ? authUrl.toString() : authUrl;
-}
-
-export function dbxShowConnectStep() {
-  document.getElementById('sync-setup-step').classList.add('hidden');
-  document.getElementById('sync-connect-step').classList.remove('hidden');
-}
-
-export function dbxClearAppKey() {
-  repoRemoveLocal(DBX_APP_KEY_STORE);
-  dbxClearToken();
-  dbxState.client = null;
-  dbxState.auth = null;
-  dbxShowUnlinked();
-  document.getElementById('sync-setup-step').classList.add('hidden');
-  document.getElementById('sync-connect-step').classList.remove('hidden');
-}
-
-/* ── OAUTH2 REDIRECT: pull ?code= from the URL ──────────── */
-export function dbxParseCodeFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  if(code) {
-    /* Strip the code from the URL bar immediately so refresh/back-nav can't resubmit it */
-    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
-  }
-  return code || null;
-}
-
-/* ── CLIENT INITIALISATION ──────────────────────────────────
-   Runs on every app load and on retry.
-   NEVER clears the refresh token on network errors —
-   only on confirmed 401 invalid_grant from Dropbox. ───────── */
-export async function dbxInit() {
-  const appKey = dbxGetAppKey();
-
-  const keyInput = document.getElementById('dbx-app-key-input');
-  if(keyInput && appKey) keyInput.value = appKey;
-  const hintEl = document.getElementById('dbx-redirect-hint');
-  if(hintEl) hintEl.textContent = window.location.href.split('#')[0].split('?')[0];
-
-  /* 1. Returning from the OAuth redirect with a one-time code? */
-  const code = dbxParseCodeFromUrl();
-  if(code && appKey) {
-    try {
-      dbxSetStatus('Finishing Dropbox connection…', 'busy', true);
-      const verifier = repoGetLocal(DBX_VERIFIER_KEY);
-      const auth = new Dropbox.DropboxAuth({ clientId: appKey });
-      if(verifier) auth.setCodeVerifier(verifier);
-      const redirectUri = window.location.href.split('#')[0].split('?')[0];
-      const tokenResult = await auth.getAccessTokenFromCode(redirectUri, code);
-      const refreshToken = tokenResult?.result?.refresh_token;
-      repoRemoveLocal(DBX_VERIFIER_KEY);
-      if(refreshToken) dbxSaveRefreshToken(refreshToken);
-    } catch(err) {
-      console.warn('[DBX] Code exchange failed:', err);
-      dbxSetStatus('Dropbox connection failed — please try Link again.', 'error');
-    }
-  }
-
-  /* 2. Do we have a refresh token to resume from? */
-  const refreshToken = dbxGetRefreshToken();
-  if(!refreshToken) {
-    dbxShowUnlinked();
-    if(appKey) {
-      document.getElementById('sync-setup-step')?.classList.add('hidden');
-      document.getElementById('sync-connect-step')?.classList.remove('hidden');
-    }
-    return;
-  }
-  if(!appKey) { dbxShowUnlinked(); return; }
-
-  /* 3. Build auth + client — trust the token, don't verify via account call.
-        The SDK will silently refresh the access token on first API use. */
-  try {
-    dbxState.auth = new Dropbox.DropboxAuth({
-      clientId:     appKey,
-      refreshToken: refreshToken
-    });
-    dbxState.client = new Dropbox.Dropbox({ auth: dbxState.auth });
-
-    /* 4. Show linked immediately using cached name — no network call needed */
-    const cachedName = repoGetLocal(DBX_ACCOUNT_KEY) || 'Dropbox';
-    dbxShowLinked(cachedName);
-    dbxSetStatus('Checking for updates…', 'busy', true);
-
-    /* 5. Background pull — this is where the token gets truly exercised */
-    await syncPullFromCloud(false);
-
-    /* Success — reset backoff */
-    dbxState.backoffIndex = 0;
-    if(dbxState.retryTimer) { clearTimeout(dbxState.retryTimer); dbxState.retryTimer = null; }
-
-    /* 6. Refresh account name silently in background (non-blocking) */
-    dbxState.client.usersGetCurrentAccount().then(account => {
-      const name = account.result?.name?.display_name || account.result?.email || 'Dropbox User';
-      repoSetLocal(DBX_ACCOUNT_KEY, name);
-      const el = document.getElementById('sync-account-name');
-      if(el) el.textContent = name;
-    }).catch(() => { /* non-critical — ignore */ });
-
-  } catch(err) {
-    console.warn('[DBX] Init failed:', err);
-    const summary = err?.error?.error_summary || err?.message || '';
-
-    /* Only a genuine auth rejection should force reconnect */
-    const isAuthError = err?.status === 401 ||
-      (typeof summary === 'string' && (summary.includes('invalid_grant') || summary.includes('expired_access_token')));
-
-    if(isAuthError) {
-      /* Token truly revoked — must re-authenticate */
-      dbxClearToken();
-      dbxState.client = null;
-      dbxState.auth   = null;
-      dbxShowUnlinked();
-      dbxSetStatus('Session expired — please reconnect Dropbox.', 'error');
-    } else {
-      /* Network/transient error — keep token, schedule retry */
-      dbxSetStatus('Dropbox unreachable — retrying…', 'error');
-      dbxScheduleRetry();
-    }
-  }
-}
-
-/* ── SMART RETRY SCHEDULER ──────────────────────────────────
-   3 quick retries (5s apart), then exponential backoff
-   (30s → 2min → 5min). Also retries when tab regains focus. ─ */
-
-export function dbxScheduleRetry() {
-  if(dbxState.retryTimer) clearTimeout(dbxState.retryTimer);
-
-  let delay;
-  if(dbxState.quickRetryCount < DBX_QUICK_RETRIES) {
-    delay = DBX_QUICK_DELAY_MS;
-    dbxState.quickRetryCount++;
-    console.log(`[DBX] Quick retry ${dbxState.quickRetryCount}/${DBX_QUICK_RETRIES} in ${delay/1000}s`);
-  } else {
-    delay = DBX_BACKOFF_DELAYS[Math.min(dbxState.backoffIndex, DBX_BACKOFF_DELAYS.length - 1)];
-    dbxState.backoffIndex++;
-    console.log(`[DBX] Backoff retry in ${delay/1000}s`);
-  }
-
-  dbxState.retryTimer = setTimeout(() => {
-    dbxState.retryTimer = null;
-    if(dbxGetRefreshToken()) dbxInit();
-  }, delay);
-}
-
-/* Shared "heal now" path — resets backoff state and re-runs dbxInit().
-   Called from every reconnect signal below so they all behave the
-   same way instead of each hand-rolling the reset + call. */
-function dbxHealConnection(reason) {
-  if(!dbxGetRefreshToken() || dbxState.client) return; /* nothing to heal, or already connected */
-  console.log(`[DBX] ${reason} — healing connection…`);
-  if(dbxState.retryTimer) { clearTimeout(dbxState.retryTimer); dbxState.retryTimer = null; }
-  dbxState.quickRetryCount = 0;
-  dbxState.backoffIndex    = 0;
   dbxInit();
 }
 
-/* Tab-focus heal: instantly retry when user switches back to the tab.
-   Covers backgrounding/foregrounding, but NOT a network change that
-   happens while the app stays in the foreground (see 'online' below —
-   that's the common case on a phone: walking out of WiFi range,
-   losing cell signal in an elevator, etc, without ever backgrounding
-   the app or locking the screen). */
+/* Kept so index.html doesn't need to drop the "Change key" link
+   wiring — just re-shows the setup form. */
+export function dbxShowConnectStep() {
+  document.getElementById('sync-setup-step')?.classList.remove('hidden');
+  document.getElementById('sync-connect-step')?.classList.add('hidden');
+}
+export async function dbxAuthStart() {
+  /* No OAuth step for Supabase — Save & Connect (dbxSaveAppKey) does
+     the whole job. Kept as a no-op alias in case anything still calls it. */
+  dbxShowConnectStep();
+}
+
+export function dbxClearAppKey() {
+  repoRemoveLocal(SUPA_URL_KEY);
+  dbxClearToken();
+  _teardownClient();
+  dbxShowUnlinked();
+  document.getElementById('sync-setup-step')?.classList.remove('hidden');
+  document.getElementById('sync-connect-step')?.classList.add('hidden');
+}
+
+function _teardownClient() {
+  if(supaState.channel) {
+    try { supaState.client?.removeChannel(supaState.channel); } catch(e) { /* ignore */ }
+  }
+  supaState.client  = null;
+  supaState.channel = null;
+}
+
+/* ── CLIENT INIT ──────────────────────────────────────────
+   Runs on every app load and on retry. Builds the client, does an
+   initial pull, and opens the realtime channel. ─────────────────── */
+export async function dbxInit() {
+  const url     = dbxGetAppKey();
+  const anonKey = getAnonKey();
+
+  const urlInput = document.getElementById('dbx-app-key-input');
+  if(urlInput && url) urlInput.value = url;
+  const keyInput = document.getElementById('supa-anon-key-input');
+  if(keyInput && anonKey) keyInput.value = anonKey;
+
+  if(!url || !anonKey) { dbxShowUnlinked(); return; }
+
+  try {
+    if(typeof window.supabase?.createClient !== 'function') {
+      dbxSetStatus('Supabase library failed to load — check your connection.', 'error');
+      return;
+    }
+    supaState.client = window.supabase.createClient(url, anonKey, {
+      realtime: { params: { eventsPerSecond: 5 } }
+    });
+
+    dbxShowLinked('Connected');
+    dbxSetStatus('Checking for updates…', 'busy', true);
+
+    await syncPullFromCloud(false);
+
+    supaState.backoffIndex = 0;
+    if(supaState.retryTimer) { clearTimeout(supaState.retryTimer); supaState.retryTimer = null; }
+
+    _openRealtimeChannel();
+
+  } catch(err) {
+    console.warn('[Supabase] Init failed:', err);
+    dbxSetStatus('Supabase unreachable — retrying…', 'error');
+    dbxScheduleRetry();
+  }
+}
+
+/* ── REALTIME ─────────────────────────────────────────────
+   One channel, four tables. Any change anywhere triggers a debounced
+   pull rather than reasoning about the individual payload — the
+   existing conflict logic in syncPullFromCloud() already knows how
+   to merge safely, so we just ask it to run again. */
+function _openRealtimeChannel() {
+  if(!supaState.client || supaState.channel) return;
+  const channel = supaState.client.channel('closing-app-sync');
+  ['settings', 'sheets', 'credit_ledger', 'activity_log'].forEach(table => {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+      clearTimeout(supaState.pullDebounce);
+      supaState.pullDebounce = setTimeout(() => {
+        syncPullFromCloud(false).catch(() => {});
+      }, 800);
+    });
+  });
+  channel.subscribe();
+  supaState.channel = channel;
+}
+
+/* ── RETRY SCHEDULER (same shape as the old Dropbox version) ── */
+export function dbxScheduleRetry() {
+  if(supaState.retryTimer) clearTimeout(supaState.retryTimer);
+  let delay;
+  if(supaState.quickRetryCount < QUICK_RETRIES) {
+    delay = QUICK_DELAY_MS;
+    supaState.quickRetryCount++;
+  } else {
+    delay = BACKOFF_DELAYS[Math.min(supaState.backoffIndex, BACKOFF_DELAYS.length - 1)];
+    supaState.backoffIndex++;
+  }
+  supaState.retryTimer = setTimeout(() => {
+    supaState.retryTimer = null;
+    if(dbxGetAppKey() && getAnonKey()) dbxInit();
+  }, delay);
+}
+
+function dbxHealConnection(reason) {
+  if(!dbxGetAppKey() || !getAnonKey() || supaState.client) return;
+  console.log(`[Supabase] ${reason} — healing connection…`);
+  if(supaState.retryTimer) { clearTimeout(supaState.retryTimer); supaState.retryTimer = null; }
+  supaState.quickRetryCount = 0;
+  supaState.backoffIndex    = 0;
+  dbxInit();
+}
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible') dbxHealConnection('Tab focused');
 });
-
-/* Network-change heal: fires the moment the OS reports connectivity
-   is back, regardless of whether the app was ever backgrounded.
-   This is the primary fix for intermittent mobile connectivity —
-   without it, a WiFi↔cellular handoff has to wait out whatever step
-   of the retry backoff (up to 5 minutes) happened to be in flight. */
 window.addEventListener('online', () => dbxHealConnection('Network back online'));
-
-/* iOS Safari back-forward cache restore: iOS suspends timers (like
-   the retry backoff's setTimeout) when a page is put in the bfcache
-   — e.g. switching apps and coming back via the app switcher rather
-   than a full reload. Neither 'visibilitychange' nor 'online' is
-   guaranteed to fire in that exact case, so this catches it directly. */
 window.addEventListener('pageshow', (e) => {
   if(e.persisted) dbxHealConnection('Page restored from bfcache');
 });
 
-/* ── EXPORT / IMPORT CONNECTION TOKEN ───────────────────────
-   Lets the user move their refresh token to another device
-   without going through the full OAuth flow again. The token
-   is base64-encoded (not encrypted) so treat it like a password.
-   It only works with the same App Key. ───────────────────────── */
+/* ── EXPORT / IMPORT CONNECTION (move credentials to another device,
+   same idea as the old Dropbox token export) ────────────────────── */
 export function dbxExportConnection() {
-  const appKey      = dbxGetAppKey();
-  const refreshToken = dbxGetRefreshToken();
-  if(!refreshToken || !appKey) {
-    alert('No active connection to export.');
-    return;
-  }
-  const payload = btoa(JSON.stringify({ appKey, refreshToken }));
+  const url = dbxGetAppKey(), anonKey = getAnonKey();
+  if(!url || !anonKey) { alert('No active connection to export.'); return; }
+  const payload = btoa(JSON.stringify({ url, anonKey }));
   navigator.clipboard.writeText(payload).then(() => {
     dbxSetStatus('Connection token copied! Paste it on your other device.', 'ok');
   }).catch(() => {
-    /* Fallback: show in a prompt so user can copy manually */
     prompt('Copy this connection token:', payload);
   });
 }
@@ -368,72 +278,89 @@ export function dbxShowImport() {
 
 export async function dbxImportConnection() {
   const raw = (document.getElementById('sync-import-input')?.value || '').trim();
-  await _dbxApplyImportToken(raw);
+  await _applyImportToken(raw);
 }
-
 export async function dbxImportConnectionUnlinked() {
   const raw = (document.getElementById('sync-import-input-unlinked')?.value || '').trim();
-  await _dbxApplyImportToken(raw);
+  await _applyImportToken(raw);
 }
-
-export async function _dbxApplyImportToken(raw) {
+async function _applyImportToken(raw) {
   if(!raw) { alert('Please paste a connection token first.'); return; }
   let parsed;
-  try {
-    parsed = JSON.parse(atob(raw));
-  } catch(e) {
-    alert('Invalid token — please copy it again from the source device.');
-    return;
-  }
-  const { appKey, refreshToken } = parsed;
-  if(!appKey || !refreshToken) {
-    alert('Token is incomplete. Please export again from the source device.');
-    return;
-  }
-  /* Save both key and token */
-  repoSetLocal(DBX_APP_KEY_STORE, appKey);
-  dbxSaveRefreshToken(refreshToken);
-  /* Clear import inputs */
+  try { parsed = JSON.parse(atob(raw)); }
+  catch(e) { alert('Invalid token — please copy it again from the source device.'); return; }
+  const { url, anonKey } = parsed;
+  if(!url || !anonKey) { alert('Token is incomplete. Please export again from the source device.'); return; }
+  repoSetLocal(SUPA_URL_KEY, url);
+  repoSetLocal(SUPA_ANON_KEY, anonKey);
   const i1 = document.getElementById('sync-import-input');
   const i2 = document.getElementById('sync-import-input-unlinked');
   if(i1) i1.value = '';
   if(i2) i2.value = '';
   const box = document.getElementById('sync-import-box');
   if(box) box.style.display = 'none';
-  /* Re-init with imported credentials */
-  dbxState.quickRetryCount = 0;
-  dbxState.backoffIndex    = 0;
+  supaState.quickRetryCount = 0;
+  supaState.backoffIndex    = 0;
   await dbxInit();
 }
 
 /* ── DISCONNECT ─────────────────────────────────────────── */
 export function dbxDisconnect() {
-  if(!confirm('Disconnect Dropbox?\n\nYour local data will not be deleted. You can re-link at any time.')) return;
+  if(!confirm('Disconnect Supabase sync?\n\nYour local data will not be deleted. You can re-link at any time.')) return;
   dbxClearToken();
-  dbxState.client = null;
-  dbxState.auth = null;
+  _teardownClient();
   dbxShowUnlinked();
 }
 
-/* ── PUSH: Local → Cloud ────────────────────────────────── */
+/* ── PUSH: Local → Cloud ────────────────────────────────────
+   sheets / credit_ledger / settings are upserted wholesale each push
+   (cheap, idempotent, same "latest wins" semantics the blob had).
+   activity_log is APPEND-ONLY — only rows not yet pushed by this
+   device are inserted, tracked by a locally-persisted counter. ──── */
 export async function syncPushToCloud(manual = false) {
-  if(!dbxState.client) return;
-  if(dbxState.busy && !manual) return;     /* skip silent push if already busy */
+  if(!supaState.client) return;
+  if(supaState.busy && !manual) return;
   dbxSetBusy(true);
-  dbxSetStatus('Uploading to cloud…', 'busy', true);
+  dbxSetStatus('Syncing to cloud…', 'busy', true);
 
   try {
-    const payload = JSON.stringify(db);
-    const blob    = new Blob([payload], { type: 'application/json' });
-    const file    = new File([blob], 'pharmpos_sync_data.json');
+    const sheetRows = Object.entries(db.sheets || {}).map(([key, rec]) => ({
+      key,
+      date: key.split('_')[0],
+      shift: key.split('_').slice(1).join('_'),
+      draft: !!rec.draft, data: rec, updated_at: new Date().toISOString()
+    }));
+    if(sheetRows.length) {
+      const { error } = await supaState.client.from('sheets').upsert(sheetRows, { onConflict: 'key' });
+      if(error) throw error;
+    }
 
-    await dbxState.client.filesUpload({
-      path:       DBX_SYNC_PATH,
-      contents:   file,
-      mode:       { '.tag': 'overwrite' },
-      autorename: false,
-      mute:       true
-    });
+    const clRows = (db.creditLedger || []).map(rec => ({
+      key: rec.key, date: rec.date, shift: rec.shift, data: rec,
+      saved_at: rec.savedAt ? new Date(rec.savedAt).toISOString() : null,
+      updated_at: new Date().toISOString()
+    }));
+    if(clRows.length) {
+      const { error } = await supaState.client.from('credit_ledger').upsert(clRows, { onConflict: 'key' });
+      if(error) throw error;
+    }
+
+    const { error: setErr } = await supaState.client.from('settings').upsert(
+      { id: 1, data: db.settings || {}, updated_at: db.settings?._updatedAt || 0 },
+      { onConflict: 'id' }
+    );
+    if(setErr) throw setErr;
+
+    /* Activity log: only push entries this device hasn't pushed yet */
+    const alAll = Array.isArray(db.activityLog) ? db.activityLog : [];
+    const pushedCount = parseInt(repoGetLocal(SUPA_AL_PUSHED_KEY) || '0', 10);
+    const newEntries = alAll.slice(pushedCount);
+    if(newEntries.length) {
+      const alRows = newEntries.map(e => ({ ts: e.ts, actor: e.actor, key: e.key, action: e.action, changes: e.changes }));
+      const { error } = await supaState.client.from('activity_log').insert(alRows);
+      if(error) throw error;
+      repoSetLocal(SUPA_AL_PUSHED_KEY, String(alAll.length));
+    }
 
     const ts = new Date().toLocaleTimeString('en-PK');
     dbxSetStatus(`Synced at ${ts}`, 'ok');
@@ -445,86 +372,85 @@ export async function syncPushToCloud(manual = false) {
       }
     }
   } catch(err) {
-    console.error('[DBX] Push failed:', err);
-    const status = err?.status || err?.error?.status;
-    const msg = err?.error?.error_summary || err?.message || 'Unknown error';
-    if(status === 400 || (typeof msg === 'string' && msg.includes('400'))) {
-      dbxSetStatus('Upload failed: Missing file permissions — go to apps.dropbox.com → Permissions tab → enable files.content.write', 'error');
-    } else {
-      dbxSetStatus(`Upload failed: ${msg.substring(0,50)}`, 'error');
-    }
+    console.error('[Supabase] Push failed:', err);
+    dbxSetStatus(`Upload failed: ${(err?.message || 'Unknown error').substring(0,50)}`, 'error');
   } finally {
     dbxSetBusy(false);
   }
 }
 
-/* ── PULL: Cloud → Local ────────────────────────────────── */
+/* ── PULL: Cloud → Local ─────────────────────────────────────
+   Reassembles the same `{settings, sheets, creditLedger,
+   activityLog}` shape state.js/actions.js already expect, then reuses
+   the exact conflict-resolution rule the Dropbox version used: cloud
+   wins on sheet count unless local settings are strictly newer. ──── */
 export async function syncPullFromCloud(_manual = false) {
-  if(!dbxState.client) return;
+  if(!supaState.client) return;
   dbxSetBusy(true);
   dbxSetStatus('Checking for updates…', 'busy', true);
 
   try {
-    const response = await dbxState.client.filesDownload({ path: DBX_SYNC_PATH });
-    const fileBlob = response.result.fileBlob;
+    const [sheetsRes, clRes, settingsRes, alRes] = await Promise.all([
+      supaState.client.from('sheets').select('key, data'),
+      supaState.client.from('credit_ledger').select('key, data'),
+      supaState.client.from('settings').select('data, updated_at').eq('id', 1).maybeSingle(),
+      supaState.client.from('activity_log').select('ts, actor, key, action, changes').order('ts', { ascending: true })
+    ]);
+    if(sheetsRes.error) throw sheetsRes.error;
+    if(clRes.error) throw clRes.error;
+    if(settingsRes.error) throw settingsRes.error;
+    if(alRes.error) throw alRes.error;
 
-    const text     = await fileBlob.text();
-    const cloudDb  = JSON.parse(text);
+    const cloudDb = {
+      settings:     settingsRes.data?.data || null,
+      sheets:       Object.fromEntries((sheetsRes.data || []).map(r => [r.key, r.data])),
+      creditLedger: (clRes.data || []).map(r => r.data),
+      activityLog:  alRes.data || []
+    };
 
-    /* ── Conflict Resolution ── */
     const localSheetCount = Object.keys(db.sheets || {}).length;
-    const cloudSheetCount = Object.keys(cloudDb.sheets || {}).length;
+    const cloudSheetCount = Object.keys(cloudDb.sheets).length;
+
+    /* First run on a brand-new project: nothing in the cloud yet —
+       seed it with whatever is on this device (mirrors the old
+       Dropbox "not_found → upload baseline" path). */
+    if(cloudSheetCount === 0 && !cloudDb.settings && localSheetCount > 0) {
+      dbxSetStatus('No cloud data yet — uploading baseline…', 'busy', true);
+      dbxSetBusy(false);
+      await syncPushToCloud(false);
+      return;
+    }
 
     if(cloudSheetCount >= localSheetCount) {
-      /* Cloud is equal or ahead on records — adopt cloud sheets, but
-         settings are a SEPARATE clock. A pull can be triggered any
-         time this tab regains focus (see visibilitychange below), so
-         if it fires in the few seconds between a local settings edit
-         and that edit's push actually landing in Dropbox, blindly
-         adopting the cloud file would silently erase the edit (Admin
-         PIN, staff, inventory items, named credits, etc) with the
-         older copy still sitting there. Only take cloud's settings if
-         cloud's settings are truly newer than what's already local. */
       let keptLocalSettings = false;
       const localUpdatedAt = db.settings?._updatedAt || 0;
       const cloudUpdatedAt = cloudDb.settings?._updatedAt || 0;
       if(localUpdatedAt > cloudUpdatedAt) {
-        cloudDb.settings = db.settings; /* keep the newer local settings, take cloud's sheets */
+        cloudDb.settings = db.settings;
         keptLocalSettings = true;
       }
+      if(!cloudDb.settings) cloudDb.settings = db.settings; /* nothing in cloud yet — keep local */
       repoReplaceDB(cloudDb);
-      /* Refresh live UI */
+      /* This device now "knows about" every activity_log row that
+         came back, so it won't re-push them as if they were new. */
+      repoSetLocal(SUPA_AL_PUSHED_KEY, String(cloudDb.activityLog.length));
+
       buildCalendar();
       renderManifest();
       renderFinalSummaryCard();
       const ts = new Date().toLocaleTimeString('en-PK');
       dbxSetStatus(`Pulled from cloud at ${ts} (${cloudSheetCount} records)`, 'ok');
-      if(keptLocalSettings) syncPushToCloud(false); /* cloud's settings were stale — push the corrected copy back up */
+      if(keptLocalSettings) syncPushToCloud(false);
     } else {
-      /* Local is ahead — push local up to cloud */
       dbxSetStatus('Local data is newer — uploading…', 'busy', true);
-      dbxSetBusy(false);      /* release lock before recursive push */
+      dbxSetBusy(false);
       await syncPushToCloud(false);
     }
 
   } catch(err) {
-    /* Handle file not found (first run) — seed cloud with local data */
-    const summary = err?.error?.error_summary || '';
-    if(summary.includes('not_found') || summary.includes('path/not_found') || err?.status === 409) {
-      dbxSetStatus('No cloud file yet — uploading baseline…', 'busy', true);
-      dbxSetBusy(false);
-      await syncPushToCloud(false);
-    } else {
-      console.error('[DBX] Pull failed:', err);
-      const status = err?.status || err?.error?.status;
-      const msg = err?.error?.error_summary || err?.message || 'Network error';
-      if(status === 400 || (typeof msg === 'string' && msg.includes('400'))) {
-        dbxSetStatus('Sync error: Missing permissions — go to apps.dropbox.com → Permissions tab → enable files.content.read & files.content.write, then Disconnect & reconnect here', 'error');
-      } else {
-        dbxSetStatus(`Sync error: ${msg.substring(0,50)}`, 'error');
-      }
-      dbxSetBusy(false);
-    }
+    console.error('[Supabase] Pull failed:', err);
+    dbxSetStatus(`Sync error: ${(err?.message || 'Network error').substring(0,50)}`, 'error');
+    dbxScheduleRetry();
   } finally {
     dbxSetBusy(false);
   }
