@@ -24,12 +24,11 @@
      *executing* the way a nonce/hash-based policy could. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+  script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
   img-src 'self' data: blob:;
-  connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://notify.dropboxapi.com https://www.dropbox.com;
-  frame-src https://www.dropbox.com;
+  connect-src 'self' https://*.supabase.co wss://*.supabase.co;
   object-src 'none';
   base-uri 'self';
 ">
@@ -52,7 +51,7 @@
 <!-- ── External Libraries ── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.11.0/Dropbox-sdk.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
 <!--
   This is now a single ES module entry point (js/app.js), which
@@ -68,7 +67,22 @@
 
 <body>
 
-<!-- ══ SYNC MINI TOP STATUS BAR ══ -->
+<!-- ══ AUTH GATE — phone + PIN login, blocks the app until signed in ══ -->
+<div id="auth-gate" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#0f172a;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:340px;">
+    <h2 style="color:#fff;text-align:center;margin-bottom:24px;font-family:'Inter',sans-serif;">🔒 Sign in</h2>
+    <input type="tel" id="auth-phone" placeholder="Phone number" autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.95rem;margin-bottom:10px;outline:none;">
+    <input type="password" id="auth-pin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.95rem;margin-bottom:10px;outline:none;letter-spacing:0.3em;"
+      onkeydown="if(event.key==='Enter')authLogin()">
+    <div id="auth-error" style="display:none;color:#f87171;font-size:0.8rem;margin-bottom:10px;"></div>
+    <button id="auth-login-btn" onclick="authLogin()" style="width:100%;padding:12px;border-radius:8px;border:none;background:#0d9488;color:#fff;font-weight:600;font-size:0.95rem;cursor:pointer;">Sign in</button>
+    <p style="color:#64748b;font-size:0.72rem;text-align:center;margin-top:16px;">Ask your manager if your login isn't set up yet.</p>
+  </div>
+</div>
+
+<div id="app-root">
 <div id="sync-topbar" onclick="syncPullFromCloud(true)" title="Tap to sync now">
   <span id="sync-tb-icon">☁</span>
   <span id="sync-tb-text">Checking…</span>
@@ -134,7 +148,7 @@
             <div class="sync-card-icon" style="font-size:1.3rem;">☁️</div>
             <div>
               <h3 style="color:#e2e8f0;margin:0;font-size:0.95rem;">Cloud Synchronization</h3>
-              <p style="color:#64748b;margin:0;font-size:0.72rem;">Dropbox · Secure · Real-time</p>
+              <p style="color:#64748b;margin:0;font-size:0.72rem;">Supabase · Real-time · Tables</p>
             </div>
           </div>
           <span class="collapse-icon" style="color:#64748b;" aria-hidden="true">▶</span>
@@ -144,52 +158,27 @@
 
           <!-- STATE A: Not linked -->
           <div id="sync-state-unlinked">
-            <div id="sync-setup-step" class="hidden">
+            <div id="sync-setup-step">
               <p class="sync-unlinked-text" style="margin-bottom:10px;">
-                <strong>One-time setup:</strong> You need a free Dropbox App Key to enable sync.
+                <strong>One-time setup:</strong> paste your Supabase project's URL and anon key to enable sync.
               </p>
               <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
                 <p style="font-size:0.73rem;color:#94a3b8;line-height:1.7;margin:0;">
-                  <strong style="color:#e2e8f0;">How to get your App Key (3 min):</strong><br>
-                  1. Open <strong style="color:#60a5fa;">apps.dropbox.com</strong> on a computer<br>
-                  2. Click <strong style="color:#e2e8f0;">Create app</strong><br>
-                  3. Choose <strong style="color:#e2e8f0;">Scoped access → App folder</strong><br>
-                  4. Give it any name (e.g. PharmaSync)<br>
-                  5. Click the <strong style="color:#fbbf24;">Permissions</strong> tab → enable:<br>
-                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">account_info.read</strong><br>
-                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">files.content.read</strong><br>
-                  &nbsp;&nbsp;✅ <strong style="color:#4ade80;">files.content.write</strong><br>
-                  &nbsp;&nbsp;→ Click <strong style="color:#e2e8f0;">Submit</strong> to save<br>
-                  6. Go to <strong style="color:#e2e8f0;">Settings</strong> tab → under <strong style="color:#e2e8f0;">OAuth 2 → Redirect URIs</strong>, add:<br>
-                  <span style="color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:0.68rem;word-break:break-all;" id="dbx-redirect-hint"></span><br>
-                  7. Copy the <strong style="color:#e2e8f0;">App Key</strong> and paste below
+                  <strong style="color:#e2e8f0;">How to get these (2 min):</strong><br>
+                  1. Open <strong style="color:#60a5fa;">supabase.com</strong> → your project<br>
+                  2. Run <strong style="color:#e2e8f0;">supabase/schema.sql</strong> once in the SQL Editor<br>
+                  3. Go to <strong style="color:#e2e8f0;">Project Settings → API</strong><br>
+                  4. Copy the <strong style="color:#4ade80;">Project URL</strong> and the <strong style="color:#4ade80;">anon public</strong> key and paste them below
                 </p>
               </div>
-              <input type="text" id="dbx-app-key-input" placeholder="Paste App Key here (e.g. abc123xyz789)"
+              <input type="text" id="dbx-app-key-input" placeholder="Project URL (https://xxxx.supabase.co)"
+                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
+                oninput="dbxShowKeyError('')">
+              <input type="text" id="supa-anon-key-input" placeholder="anon public key"
                 style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
                 oninput="dbxShowKeyError('')">
               <div id="dbx-key-error" style="display:none;color:#f87171;font-size:0.75rem;margin-bottom:8px;"></div>
-              <div style="display:flex;gap:8px;">
-                <button class="btn-dropbox" style="flex:1;" onclick="dbxSaveAppKey()">✓ Save & Connect Dropbox</button>
-                <button onclick="dbxShowConnectStep()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#94a3b8;border-radius:8px;padding:10px 14px;font-size:0.8rem;cursor:pointer;font-family:'Inter',sans-serif;">Cancel</button>
-              </div>
-            </div>
-
-            <div id="sync-connect-step">
-              <p class="sync-unlinked-text">
-                Link your <strong>Dropbox account</strong> to automatically back up every closing to the cloud.
-                Your data stays safe across devices — one tap to restore anywhere.
-              </p>
-              <button class="btn-dropbox" onclick="dbxAuthStart()">
-                <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><path d="M8 2L16 7.5L8 13L0 7.5L8 2Z" fill="#fff"/><path d="M24 2L32 7.5L24 13L16 7.5L24 2Z" fill="#fff"/><path d="M0 18.5L8 13L16 18.5L8 24L0 18.5Z" fill="#fff"/><path d="M16 18.5L24 13L32 18.5L24 24L16 18.5Z" fill="#fff"/><path d="M8 25.5L16 20L24 25.5L16 31L8 25.5Z" fill="#fff"/></svg>
-                Link Dropbox Account
-              </button>
-              <div style="margin-top:8px;text-align:center;">
-                <button onclick="document.getElementById('sync-setup-step').classList.remove('hidden');document.getElementById('sync-connect-step').classList.add('hidden');document.getElementById('dbx-redirect-hint').textContent=window.location.href.split('#')[0].split('?')[0];"
-                  style="background:none;border:none;color:#64748b;font-size:0.72rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
-                  ⚙ Change App Key
-                </button>
-              </div>
+              <button class="btn-dropbox" style="width:100%;" onclick="dbxSaveAppKey()">✓ Save & Connect</button>
               <div style="margin-top:12px;border-top:1px solid #1e293b;padding-top:12px;">
                 <p class="sync-unlinked-text" style="margin-bottom:8px;font-size:0.75rem;">Already connected on another device? Paste your exported token instead:</p>
                 <textarea id="sync-import-input-unlinked" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
@@ -1103,6 +1092,7 @@
 </div>
 
 <div id="print-sheet" class="ps-sheet-scope"></div>
+</div><!-- /#app-root -->
 
 <!-- ── Service Worker Registration ── -->
 <script>
