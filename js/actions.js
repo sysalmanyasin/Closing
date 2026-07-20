@@ -988,6 +988,7 @@ export function saveSheet(silent=false) {
   const existing = db.sheets[session.activeKey];
   if(existing && typeof existing.seq === 'number') record.seq = existing.seq;
   if(existing && existing.shiftLabel) record.shiftLabel = existing.shiftLabel;
+  unmarkKeyDeleted(session.activeKey);
   db.sheets[session.activeKey] = record;
   clSaveSnapshot(session.activeKey, record);  /* ← credit ledger snapshot */
   alCommit(session.activeMode === 'final' ? 'save-final' : 'save', session.activeKey, record);
@@ -1193,6 +1194,7 @@ export function scheduleAutoSave() {
       record.draft  = true;
       record.locked = false;
       record._updatedAt = Date.now();
+      unmarkKeyDeleted(session.activeKey);
       db.sheets[session.activeKey] = record;
       persist();
     } catch(e) { /* silent — draft save is best-effort */ }
@@ -1245,6 +1247,7 @@ export function saveDraft() {
   const existing = db.sheets[session.activeKey];
   if(existing && typeof existing.seq === 'number') rec.seq = existing.seq;
   if(existing && existing.shiftLabel) rec.shiftLabel = existing.shiftLabel;
+  unmarkKeyDeleted(session.activeKey);
   db.sheets[session.activeKey] = rec;
   alCommit('save-draft', session.activeKey, rec);
   persist();
@@ -1268,6 +1271,22 @@ function markKeyDeleted(key) {
   if(!Array.isArray(db.deletedKeys)) db.deletedKeys = [];
   db.deletedKeys.push({ key, deletedAt: Date.now() });
   db.creditLedger = (db.creditLedger || []).filter(r => r.key !== key);
+}
+
+/* Reverses markKeyDeleted() for a key the person is deliberately
+   saving data into again. Without this, a key that was ever deleted
+   (or swept by Archive Old Records) stays in db.deletedKeys FOREVER —
+   nothing else in the codebase ever removes an entry from it. Since
+   sync.js treats every entry in db.deletedKeys as an active tombstone
+   on every push/pull, that means the very next sync after a re-save
+   deletes it right back out, forever, even on a brand new save this
+   device just made. Every explicit write to db.sheets[key] (saveSheet,
+   saveDraft) must call this first so a re-created record can actually
+   survive a sync round-trip. */
+function unmarkKeyDeleted(key) {
+  if(Array.isArray(db.deletedKeys) && db.deletedKeys.length) {
+    db.deletedKeys = db.deletedKeys.filter(d => d.key !== key);
+  }
 }
 
 export function deleteCurrentSheet() {

@@ -378,6 +378,20 @@ export async function syncPushToCloud(manual = false) {
        if the hard-delete below fails or is blocked by RLS, the tombstone
        still lets every pull (this device's and everyone else's) filter
        the record out, which is what actually prevents resurrection. */
+    /* Un-tombstone: any key that's currently a real sheet on this
+       device was, by definition, deliberately (re)saved — so if it
+       was ever deleted before (this device or another), that OLD
+       cloud tombstone must be cleared now, or the very next pull
+       would immediately wipe out the save that's just about to
+       happen below. actions.js already drops the LOCAL db.deletedKeys
+       entry when a key is re-saved, but the cloud row survives until
+       we explicitly delete it here — best-effort, same as the
+       hard-delete calls below. */
+    const liveKeys = Object.keys(db.sheets || {});
+    if(liveKeys.length) {
+      try { await supaState.client.from('deleted_records').delete().in('key', liveKeys); } catch(e) { /* best-effort */ }
+    }
+
     const delRows = (db.deletedKeys || []).map(d => ({
       key: d.key, deleted_at: new Date(d.deletedAt).toISOString()
     }));
