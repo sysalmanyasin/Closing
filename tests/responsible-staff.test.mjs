@@ -115,10 +115,16 @@ test('Responsible Closing Person + Staff Ledger — driven through the real app'
     assert.equal(Pages.signedVariance({ finalDiff: 0,   finalDiffLabel: '' }), 0);
   });
 
-  await t.test('renderStaffLedger() groups by staff, totals variance, and excludes drafts', () => {
+  await t.test('renderStaffLedger() computes variance correctly — cumulative total vs per-shift/staff deltas', () => {
     // Build a small controlled dataset directly (isolates the report
     // logic from the cash-math engine, which earlier sub-tests above
-    // already exercised for real).
+    // already exercised for real). None are 'final' mode, so these
+    // three chain together as ONE open period: finalDiff is a RUNNING
+    // CUMULATIVE total (see aggregateSinceLastFinal() in actions.js),
+    // not each shift's own standalone number — so:
+    //   07-18 Night:   cumulative +200 (first in the chain -> delta = +200)
+    //   07-18 Morning: cumulative -300 (delta = -300 - 200 = -500)
+    //   07-19 Night:   cumulative -100 (delta = -100 - (-300) = +200)
     db.sheets = {
       '2026-07-18_Night':   { draft: false, profileMode: 'shift', responsibleStaff: 'Ali Raza',  finalDiff: 200, finalDiffLabel: 'Plus (Final Audit)' },
       '2026-07-18_Morning': { draft: false, profileMode: 'shift', responsibleStaff: 'Sara Khan', finalDiff: 300, finalDiffLabel: 'Less (Final Audit)' },
@@ -136,9 +142,53 @@ test('Responsible Closing Person + Staff Ledger — driven through the real app'
     assert.match(box, /Sara Khan/);
     assert.doesNotMatch(box, /Not set/, 'the excluded draft\'s blank name must not leak into the grouped view');
 
-    // Ali Raza: +200 and -100 => net +100 (surplus). Sara Khan: -300.
-    // Grand total across the 3 finalized records: 200 - 300 - 100 = -200.
+    // Card A: "Total Variance (since last Final Closing)" is NOT a sum
+    // across rows — it's the latest record's own cumulative finalDiff
+    // (07-19 Night, -100), the same figure that shift's own Final
+    // Audit section already shows.
     const grand = document.getElementById('sl-grand-total').textContent;
-    assert.match(grand, /−\s*Rs\.\s*200/, `expected a net shortage of Rs. 200, got "${grand}"`);
+    assert.match(grand, /−\s*Rs\.\s*100/, `expected the latest record's own cumulative (-100), got "${grand}"`);
+
+    // No staff+full-range selected yet -> the staff-specific card stays hidden
+    assert.ok(document.getElementById('sl-staff-total-card').classList.contains('hidden'));
+
+    // Selecting a staff AND a full from/to range reveals Card B, summed
+    // from DELTAS (safe to add) rather than raw cumulative snapshots.
+    // Ali Raza's own two shifts contributed +200 and +200 = +400.
+    document.getElementById('sl-filter-staff').value = 'Ali Raza';
+    document.getElementById('sl-filter-from').value = '2026-07-18';
+    document.getElementById('sl-filter-to').value   = '2026-07-19';
+    Pages.renderStaffLedger();
+    assert.ok(!document.getElementById('sl-staff-total-card').classList.contains('hidden'));
+    const staffTotal = document.getElementById('sl-staff-total').textContent;
+    assert.match(staffTotal, /\+\s*Rs\.\s*400/, `expected Ali Raza's own delta-sum (+400), got "${staffTotal}"`);
+  });
+
+  await t.test('Card A respects the "To" date filter — shows the cumulative AS OF that date, not the latest overall', () => {
+    Pages.slClearFilters();
+    document.getElementById('sl-filter-to').value = '2026-07-18'; // stop before the 07-19 Night record
+    Pages.renderStaffLedger();
+    const grand = document.getElementById('sl-grand-total').textContent;
+    // As of 07-18, the latest record is 07-18 Morning, cumulative -300
+    assert.match(grand, /−\s*Rs\.\s*300/, `expected the 07-18 Morning cumulative (-300) as-of that date, got "${grand}"`);
+  });
+
+  await t.test('a Final Closing resets the delta baseline for the next shift', () => {
+    Pages.slClearFilters();
+    db.sheets = {
+      '2026-07-20_Night':   { draft: false, profileMode: 'shift', responsibleStaff: 'Ali Raza', finalDiff: 400, finalDiffLabel: 'Less (Final Audit)' },
+      '2026-07-20_Morning': { draft: false, profileMode: 'final', responsibleStaff: 'Ali Raza', finalDiff: 600, finalDiffLabel: 'Less (Final Audit)' },
+      '2026-07-20_Evening': { draft: false, profileMode: 'shift', responsibleStaff: 'Sara Khan', finalDiff: 50,  finalDiffLabel: 'Plus (Final Audit)' },
+    };
+    Pages.goToStaffLedger();
+    // Evening's delta should be its OWN cumulative (+50) since the
+    // Final Closing right before it reset the baseline to 0 — NOT
+    // (+50 - (-600)) which would wrongly re-include the final's total.
+    document.getElementById('sl-filter-staff').value = 'Sara Khan';
+    document.getElementById('sl-filter-from').value = '2026-07-20';
+    document.getElementById('sl-filter-to').value   = '2026-07-20';
+    Pages.renderStaffLedger();
+    const staffTotal = document.getElementById('sl-staff-total').textContent;
+    assert.match(staffTotal, /\+\s*Rs\.\s*50\b/, `expected Sara's Evening own delta (+50), got "${staffTotal}"`);
   });
 });
