@@ -12,7 +12,7 @@ import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.
 import {
   addAuxCreditRow, addAuxStripRow, addDepositRow, addHsRow, addMiscRow,
   addNamedAccountBlock, addNamedCreditEntryRow, addTierCreditRow,
-  attachNumpad, g, getRealSheet, set, showSaveAction, timelineStep, val
+  attachNumpad, g, getRealSheet, markRowDeleted, set, showSaveAction, timelineStep, val
 } from './components.js';
 import { buildCalendar, goToDashboard, refreshRetentionStatus, renderFinalSummaryCard, renderManifest, showPage } from './pages.js';
 import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
@@ -29,6 +29,22 @@ export function initLedger(ds, shift, mode, opts = {}) {
   /* close more menu if open */
   const mm = document.getElementById('ltb-more-menu');
   if(mm) mm.classList.add('hidden');
+
+  /* Responsible Closing Person — options rebuilt fresh every time a
+     shift register opens, since staff (db.settings.staff) can change
+     between saves. Actual value restore happens in hydrate() below
+     (existing record) or stays blank (new draft) — deliberately NOT
+     auto-filled from session.currentActor, since the person filling
+     the sheet (which may be a Manager on desktop, after the fact)
+     is not necessarily who was responsible for that shift's till. */
+  const respSel = document.getElementById('sel-responsible-staff');
+  if(respSel) {
+    const names = (db.settings.staff || []).map(s => s.name).filter(Boolean);
+    respSel.innerHTML = '<option value="">— Select staff —</option>' +
+      names.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+  }
+  const respWarn = document.getElementById('responsible-staff-warn');
+  if(respWarn) respWarn.classList.add('hidden');
 
   /* update Final Closing section labels to reflect current mode */
   const isFinalMode = (mode === 'final');
@@ -225,6 +241,15 @@ export function setLockedState(locked) {
     el.style.pointerEvents = locked ? 'none' : '';
   });
 
+  /* Responsible Closing Person select lives outside .page-body (in
+     the toolbar area, visible immediately on open) so it needs its
+     own lock handling here. */
+  const respSel = document.getElementById('sel-responsible-staff');
+  if(respSel) {
+    respSel.disabled = locked;
+    respSel.style.pointerEvents = locked ? 'none' : '';
+  }
+
   /* hide add-row / delete-row / sign-toggle controls while locked */
   scope.querySelectorAll('.add-row-btn-wrap, .del-row-btn').forEach(el => {
     el.classList.toggle('hidden', locked);
@@ -317,12 +342,15 @@ export function pullPreviousShift(ds, shift, mode) {
   }
 
   /* misc carry-over — carried in BOTH shift and final modes.
-     Always carries ALL rows from the previous sheet, as-is. */
+     Carries all NON-deleted rows from the previous sheet, as-is.
+     A row struck through (removed) on the previous shift is
+     deliberately left out here — that's the whole point of marking
+     it deleted rather than just zeroing its value. */
   if(hs.miscRows && hs.miscRows.length) {
     /* clear any default blank rows that flushInputs() added */
     document.getElementById('ledger-misc').innerHTML = "";
     session.miscCount = 0;
-    hs.miscRows.forEach(m => addMiscRow(m.label || "", m.val || 0));
+    hs.miscRows.filter(m => !m.deleted).forEach(m => addMiscRow(m.label || "", m.val || 0));
   }
 }
 
@@ -540,7 +568,7 @@ export function aggregateSinceLastFinal(ds, shift) {
 export function calc() {
   /* HS */
   let hsTotal = 0;
-  document.querySelectorAll('.hs-val').forEach(el => hsTotal += parseFloat(el.value)||0);
+  document.querySelectorAll('.row:not(.row-deleted) .hs-val').forEach(el => hsTotal += parseFloat(el.value)||0);
   set('out-total-hs', hsTotal);
   const badge_hs = document.getElementById('badge-hs');
   if(badge_hs) badge_hs.textContent = 'Rs. ' + hsTotal.toLocaleString();
@@ -563,7 +591,7 @@ export function calc() {
     const line = p*q;
     const tot  = document.querySelectorAll('.aux-strip-total')[i];
     if(tot) tot.value = line;
-    totalA += line;
+    if(!el.closest('.row-deleted')) totalA += line;
   });
   set('out-total-a', totalA);
   const badge_strips = document.getElementById('badge-strips');
@@ -644,7 +672,7 @@ export function calc() {
   let tierDebt = 0;
   for(let i=1;i<=3;i++) tierDebt += val(`in-nested-${i}`);
   let auxDebt = 0;
-  document.querySelectorAll('.aux-cred-val').forEach(el => auxDebt += parseFloat(el.value)||0);
+  document.querySelectorAll('.row:not(.row-deleted) .aux-cred-val').forEach(el => auxDebt += parseFloat(el.value)||0);
   const totalE = carriedCredit + namedDebt + tierDebt + auxDebt + val('in-credit-adj');
   set('out-total-e', totalE);
   const badge_credit = document.getElementById('badge-credit');
@@ -653,7 +681,7 @@ export function calc() {
   /* Deposits (F) */
   const carriedDep = val('out-prev-dep');
   let depTotal = 0;
-  document.querySelectorAll('.dep-val').forEach(el => depTotal += parseFloat(el.value)||0);
+  document.querySelectorAll('.row:not(.row-deleted) .dep-val').forEach(el => depTotal += parseFloat(el.value)||0);
   const totalF = carriedDep + depTotal;
   set('out-total-f', totalF);
   const badge_dep = document.getElementById('badge-deposits');
@@ -661,7 +689,7 @@ export function calc() {
 
   /* Misc (G) */
   let totalG = 0;
-  document.querySelectorAll('.misc-row input[type="number"]').forEach(el => {
+  document.querySelectorAll('.misc-row:not(.row-deleted) input[type="number"]').forEach(el => {
     totalG += parseFloat(el.value)||0;
   });
   set('out-total-g', totalG);
@@ -875,6 +903,7 @@ export function buildSheetRecord() {
   return {
     profileMode: session.activeMode,
     overrides:   session.overrides,
+    responsibleStaff: g('sel-responsible-staff')?.value || '',
     inSysCash:    val('in-sys-cash'),
     inLastBillAmt:val('in-last-bill-amt'),
     inLastBillNum:parseInt(g('in-last-bill-num')?.value)||0,
@@ -914,7 +943,8 @@ export function buildSheetRecord() {
     hsRows: Array.from(document.querySelectorAll('#hs-rows .row')).map(r=>({
       id:  r.dataset.rid || genRowId(),
       lbl: r.querySelector('.hs-lbl')?.value||'',
-      val: parseFloat(r.querySelector('.hs-val')?.value)||0
+      val: parseFloat(r.querySelector('.hs-val')?.value)||0,
+      deleted: r.classList.contains('row-deleted')
     })),
     stripQtys:  Array.from(document.querySelectorAll('.strip-qty')).map(e=>parseFloat(e.value)||0),
     stripPrices:Array.from(document.querySelectorAll('.strip-price')).map(e=>parseFloat(e.value)||0),
@@ -933,7 +963,8 @@ export function buildSheetRecord() {
         id:    row.dataset.rid || genRowId(),
         label: row.querySelector('.aux-strip-lbl')?.value || '',
         p:     parseFloat(row.querySelector('.aux-strip-price')?.value) || 0,
-        q:     parseFloat(row.querySelector('.aux-strip-qty')?.value) || 0
+        q:     parseFloat(row.querySelector('.aux-strip-qty')?.value) || 0,
+        deleted: row.classList.contains('row-deleted')
       })),
     tillValues:  Array.from(document.querySelectorAll('.till-cell')).map(e=>parseFloat(e.value)||0),
     vaultValues: Array.from(document.querySelectorAll('.vault-cell')).map(e=>parseFloat(e.value)||0),
@@ -956,17 +987,20 @@ export function buildSheetRecord() {
     auxCredits: Array.from(document.querySelectorAll('#ledger-aux-credits .row')).map(r=>({
       id:  r.dataset.rid || genRowId(),
       lbl: r.querySelector('.aux-cred-lbl')?.value||'',
-      val: parseFloat(r.querySelector('.aux-cred-val')?.value)||0
+      val: parseFloat(r.querySelector('.aux-cred-val')?.value)||0,
+      deleted: r.classList.contains('row-deleted')
     })),
     deposits: Array.from(document.querySelectorAll('#ledger-deposits .row')).map(r=>({
       id:  r.dataset.rid || genRowId(),
       lbl: r.querySelector('.dep-lbl')?.value||'',
-      val: parseFloat(r.querySelector('.dep-val')?.value)||0
+      val: parseFloat(r.querySelector('.dep-val')?.value)||0,
+      deleted: r.classList.contains('row-deleted')
     })),
     miscRows: Array.from(document.querySelectorAll('#ledger-misc .misc-row')).map(r => ({
       id:    r.dataset.rid || genRowId(),
       label: r.querySelector('.lbl-input')?.value||'',
-      val:   parseFloat(r.querySelector('input[type="number"]')?.value)||0
+      val:   parseFloat(r.querySelector('input[type="number"]')?.value)||0,
+      deleted: r.classList.contains('row-deleted')
     }))
   };
 }
@@ -1009,6 +1043,7 @@ export function saveSheet(silent=false) {
 export function hydrate(s) {
   const sv = (id, v) => { const el=g(id); if(el && v!==undefined) el.value=v; };
 
+  sv('sel-responsible-staff', s.responsibleStaff || '');
   sv('in-sys-cash',      s.inSysCash);
   sv('out-shift-sale',   s.outShiftSale);
   sv('out-curr-cc',      s.outCurrCC);
@@ -1029,7 +1064,10 @@ export function hydrate(s) {
   document.getElementById('hs-rows').innerHTML = "";
   session.hsRowCount = 0;
   if(s.hsRows && s.hsRows.length) {
-    s.hsRows.forEach(o => addHsRow(o.lbl, o.val, o.id));
+    s.hsRows.forEach(o => {
+      addHsRow(o.lbl, o.val, o.id);
+      if(o.deleted) markRowDeleted(document.getElementById('hs-rows').lastElementChild, true);
+    });
   } else if(s.hsRecords) { /* legacy */
     s.hsRecords.forEach(o => addHsRow(o.lbl, o.val));
   } else {
@@ -1055,7 +1093,10 @@ export function hydrate(s) {
        data someone entered. */
     s.auxStrips
       .filter(o => (o.label && o.label.trim()) || o.p || o.q)
-      .forEach(o => addAuxStripRow(o.label||'', o.p, o.q, o.id));
+      .forEach(o => {
+        addAuxStripRow(o.label||'', o.p, o.q, o.id);
+        if(o.deleted) markRowDeleted(document.getElementById('ledger-strips').lastElementChild, true);
+      });
   }
 
   /* till / vault */
@@ -1110,17 +1151,26 @@ export function hydrate(s) {
   /* aux credits */
   document.getElementById('ledger-aux-credits').innerHTML = "";
   session.auxCreditCount = 0;
-  if(s.auxCredits) s.auxCredits.forEach(o => addAuxCreditRow(o.lbl, o.val, o.id));
+  if(s.auxCredits) s.auxCredits.forEach(o => {
+    addAuxCreditRow(o.lbl, o.val, o.id);
+    if(o.deleted) markRowDeleted(document.getElementById('ledger-aux-credits').lastElementChild, true);
+  });
 
   /* deposits */
   document.getElementById('ledger-deposits').innerHTML = "";
   session.depositCount = 0;
-  if(s.deposits) s.deposits.forEach(o => addDepositRow(o.lbl, o.val, o.id));
+  if(s.deposits) s.deposits.forEach(o => {
+    addDepositRow(o.lbl, o.val, o.id);
+    if(o.deleted) markRowDeleted(document.getElementById('ledger-deposits').lastElementChild, true);
+  });
 
   /* misc */
   document.getElementById('ledger-misc').innerHTML = "";
   session.miscCount = 0;
-  if(s.miscRows) s.miscRows.forEach(o => addMiscRow(o.label||'', o.val, o.id));
+  if(s.miscRows) s.miscRows.forEach(o => {
+    addMiscRow(o.label||'', o.val, o.id);
+    if(o.deleted) markRowDeleted(document.getElementById('ledger-misc').lastElementChild, true);
+  });
 
   sv('out-prev-cc',     s.outPrevCC);
   sv('out-prev-credit', s.outPrevCredit ?? s.outTotalE);
@@ -1183,6 +1233,17 @@ export function scheduleSyncPush(delay = 0) {
 ═══════════════════════════════════════════ */
 let _draftTimer  = null;
 let _draftReady  = false; /* gates auto-save: true only after ledger fully inits */
+
+/* Fires on the Responsible Closing Person dropdown's onchange — just
+   clears the "required" warning once something is picked and lets
+   the normal 3s autosave debounce persist it, same as any other
+   field. Kept separate from calc() since this field isn't part of
+   the cash-math chain. */
+export function onResponsibleStaffChange() {
+  const warn = document.getElementById('responsible-staff-warn');
+  if(warn) warn.classList.toggle('hidden', !!g('sel-responsible-staff')?.value);
+  scheduleAutoSave();
+}
 
 export function scheduleAutoSave() {
   if(!session.activeKey || !_draftReady || session.isSheetLocked) return;

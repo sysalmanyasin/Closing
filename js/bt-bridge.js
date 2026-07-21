@@ -49,6 +49,8 @@ const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
 let _client = null;
 let _staffCache = null;       /* [{id, name, active}] */
 let _staffCacheAt = 0;
+let _customTypesCache = null; /* [{ledgerType, label, categories:[{id,label,sign,icon,color}]}] */
+let _customTypesCacheAt = 0;
 
 function getClient() {
   if (_client) return _client;
@@ -80,7 +82,7 @@ function savePushedSet(record, set) {
 }
 
 /* ── Shared staff roster (read-only) ───────────────────────────── */
-async function fetchStaff(force = false) {
+export async function fetchStaff(force = false) {
   const client = getClient();
   if (!client) return [];
   if (!force && _staffCache && (Date.now() - _staffCacheAt) < 60000) return _staffCache;
@@ -99,6 +101,105 @@ function findStaffByName(staffList, name) {
   const norm = String(name || '').trim().toLowerCase();
   if (!norm) return null;
   return staffList.find(s => s.name.trim().toLowerCase() === norm) || null;
+}
+
+/* ── Built-in Quick Add categories ─────────────────────────────────
+   Mirrors BT's own js/ledger-store.js LEDGER_CATEGORIES exactly (ids
+   are the contract with bt_fold_ledger_inbox() — it stores category_id
+   verbatim, so these must match BT's real ids or entries will land
+   with an id BT's own UI doesn't recognize). Kept as a small static
+   copy here rather than fetched live, since these are code-defined on
+   BT's side and change rarely — if BT ever renames/adds a built-in
+   category id, this list needs a matching update. Custom "Other
+   Sections" types (unlike these) ARE fetched live below, since those
+   are genuinely dynamic/user-created and can't be hardcoded. */
+export const BT_BUILTIN_CATEGORIES = {
+  jazzcash: [
+    { id: 'credit',     label: 'Received (+)' },
+    { id: 'debit',      label: 'Patty Incentive (−)' },
+    { id: 'withdrawal', label: 'Generic Incentive (−)' },
+    { id: 'commission', label: 'Strips / Adjustments (−)' },
+    { id: 'transfer',   label: 'Transfer (−)' },
+  ],
+  expense: [
+    { id: 'bill',           label: 'Bill Amount' },
+    { id: 'fuel',           label: 'Fuel/HO' },
+    { id: 'soap',           label: 'Soap/Tissue' },
+    { id: 'refresh',        label: 'Refreshment' },
+    { id: 'extra',          label: 'Extra' },
+    { id: 'guardIncentive', label: 'Guard Incentive' },
+    { id: 'pattyHO',        label: 'Patty H/O (received)' },
+  ],
+};
+
+/* ── Custom "Other Sections" (read-only) ───────────────────────────
+   BT's user-created ledger types (Pharmacy, Miscellaneous, etc. — see
+   BT's js/ledger-store.js createCustomLedgerType) live in
+   bt_ledger_custom_types, one row per section: {type: 'custom:xxx',
+   data: {label, categories:[{id,label,sign,icon,color}]}}. Read-only
+   here, same trust model as fetchStaff() above — RLS scopes what an
+   anon/authenticated request can see, this bridge never writes here. */
+export async function fetchCustomLedgerTypes(force = false) {
+  const client = getClient();
+  if (!client) return [];
+  if (!force && _customTypesCache && (Date.now() - _customTypesCacheAt) < 60000) return _customTypesCache;
+  const { data, error } = await client.from('bt_ledger_custom_types').select('type, data');
+  if (error) { console.warn('[BT Bridge] Could not fetch bt_ledger_custom_types:', error.message); return _customTypesCache || []; }
+  _customTypesCache = (data || []).map(r => ({
+    ledgerType: r.type,
+    label: r.data?.label || r.type,
+    categories: Array.isArray(r.data?.categories) ? r.data.categories : []
+  }));
+  _customTypesCacheAt = Date.now();
+  return _customTypesCache;
+}
+
+/* ── Quick Add — ad-hoc, independent of the shift-save cycle ───────
+   Inserts directly into the same three inbox tables btBridgeSyncRecord()
+   already writes to after a save, so it rides the same already-live,
+   confirmed-generic Postgres triggers (bt_fold_ledger_inbox /
+   bt_fold_staff_credit_inbox / bt_fold_unmatched_inbox — verified via
+   direct SQL inspection: bt_fold_ledger_inbox stores new.ledger_type /
+   new.category_id verbatim with no hardcoded type check, so a custom
+   "Other Sections" ledger_type like 'custom:pharmacy' folds in exactly
+   the same way 'jazzcash'/'expense' do — no BT-side change needed).
+
+   input: { section: 'jazzcash'|'expense'|'staffCredit'|'custom:<id>',
+            categoryId, staffId, amount, desc, date, shift }
+   Returns { ok:true } or { ok:false, error }. Never throws — callers
+   (the Quick Add widget) just check .ok and show .error if not. */
+export async function btBridgeQuickAdd(input) {
+  const client = getClient();
+  if (!client) return { ok: false, error: "Cloud Sync isn't set up yet — set that up first." };
+
+  const { section, categoryId, staffId, amount, desc, date, shift } = input || {};
+  const amt = parseFloat(amount) || 0;
+  if (!amt)     return { ok: false, error: 'Amount is required.' };
+  if (!date)    return { ok: false, error: 'Date is required.' };
+  if (!section) return { ok: false, error: 'Pick a section first.' };
+
+  if (section === 'staffCredit') {
+    if (!staffId) return { ok: false, error: 'Pick a staff member first.' };
+    const { error } = await client.from('bt_inbox_staff_credit').insert({
+      staff_id: staffId, amount: amt, description: desc || '', entry_date: date, source: 'closing_quickadd'
+    });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  }
+
+  /* jazzcash / expense / any 'custom:<id>' type — all fold generically */
+  if (!categoryId) return { ok: false, error: 'Pick a category first.' };
+  const row = {
+    ledger_type: section,
+    category_id: categoryId,
+    amount: amt,
+    description: desc || '',
+    group_label: null,
+    shift: section === 'jazzcash' ? (shift || null) : null,
+    entry_date: date,
+    source: 'closing_quickadd'
+  };
+  const { error } = await client.from('bt_inbox_ledger').insert(row);
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 /* Settings helper — fills a tier group's textbox with comma-joined

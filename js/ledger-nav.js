@@ -270,8 +270,8 @@ export function snapshotRowsForSection(key, rec) {
       ];
     case 'hs': {
       const rows = (rec.hsRows || []).filter(r => (parseFloat(r.val)||0) !== 0 || (r.lbl||'').trim())
-        .map((r, i) => [r.lbl?.trim() || `Row ${i+1}`, money(r.val)]);
-      const total = (rec.hsRows || []).reduce((a,r)=>a+(parseFloat(r.val)||0),0);
+        .map((r, i) => [r.lbl?.trim() || `Row ${i+1}`, money(r.val), !!r.deleted]);
+      const total = (rec.hsRows || []).filter(r=>!r.deleted).reduce((a,r)=>a+(parseFloat(r.val)||0),0);
       return rows.concat([['Total HS (A)', money(total)]]);
     }
     case 'strips': {
@@ -286,17 +286,17 @@ export function snapshotRowsForSection(key, rec) {
       (rec.auxStrips || []).forEach(o => {
         const q = parseFloat(o.q)||0, p = parseFloat(o.p)||0;
         if (q === 0 && p === 0) return;
-        rows.push([o.label?.trim() || 'Extra item', `${q} × ${money(p)} = ${money(q*p)}`]);
+        rows.push([o.label?.trim() || 'Extra item', `${q} × ${money(p)} = ${money(q*p)}`, !!o.deleted]);
       });
       const total = (rec.stripPrices||[]).reduce((a,p,i)=>a+(parseFloat(p)||0)*(parseFloat(rec.stripQtys?.[i])||0),0)
-        + (rec.auxStrips||[]).reduce((a,o)=>a+(parseFloat(o.p)||0)*(parseFloat(o.q)||0),0);
+        + (rec.auxStrips||[]).filter(o=>!o.deleted).reduce((a,o)=>a+(parseFloat(o.p)||0)*(parseFloat(o.q)||0),0);
       if (!rows.length) rows.push(['No items sold that shift', '']);
       return rows.concat([['Total Inventory Revenue (B)', money(total)]]);
     }
     case 'misc': {
       const rows = (rec.miscRows||[]).filter(r=>(parseFloat(r.val)||0)!==0 || (r.label||'').trim())
-        .map(r => [r.label?.trim() || 'Item', money(r.val)]);
-      const total = (rec.miscRows||[]).reduce((a,r)=>a+(parseFloat(r.val)||0),0);
+        .map(r => [r.label?.trim() || 'Item', money(r.val), !!r.deleted]);
+      const total = (rec.miscRows||[]).filter(r=>!r.deleted).reduce((a,r)=>a+(parseFloat(r.val)||0),0);
       return rows.concat([['Total Misc (C)', money(total)]]);
     }
     case 'cc':
@@ -326,7 +326,7 @@ export function snapshotRowsForSection(key, rec) {
         rows.push([o.name, money(o.val)]);
       });
       (rec.auxCredits||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
-        rows.push([o.lbl?.trim() || 'Aux entry', money(o.val)]);
+        rows.push([o.lbl?.trim() || 'Aux entry', money(o.val), !!o.deleted]);
       });
       rows.push(['Total Credit Detail (G)', money(rec.outTotalE)]);
       return rows;
@@ -334,7 +334,7 @@ export function snapshotRowsForSection(key, rec) {
     case 'deposits': {
       const rows = [['Carried Deposits from Previous', money(rec.outPrevDep)]];
       (rec.deposits||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
-        rows.push([o.lbl?.trim() || 'Deposit', money(o.val)]);
+        rows.push([o.lbl?.trim() || 'Deposit', money(o.val), !!o.deleted]);
       });
       rows.push(['Total Cash Deposits (H)', money(rec.outTotalF)]);
       return rows;
@@ -373,7 +373,9 @@ export function renderPrevShiftSnapshot() {
   const rows = snapshotRowsForSection(currentKey, prev.rec);
   const shiftLabel = typeof srLabel === 'function' ? srLabel(prev.shift) : prev.shift;
   const rowsHtml = rows.length
-    ? rows.map(([label, value]) => `<div class="pss-row"><span>${escHtml(label)}</span><span>${escHtml(value)}</span></div>`).join('')
+    ? rows.map(([label, value, deleted]) => deleted
+        ? `<div class="pss-row pss-row-deleted"><span>🚫 ${escHtml(label)} <em>(removed)</em></span><span>${escHtml(value)}</span></div>`
+        : `<div class="pss-row"><span>${escHtml(label)}</span><span>${escHtml(value)}</span></div>`).join('')
     : `<div class="pss-row pss-empty-row"><span>No data entered for ${sec ? escHtml(sec.label) : 'this section'} that shift</span></div>`;
 
   box.innerHTML = `
@@ -399,6 +401,11 @@ export function openSummaryModal() {
   const cashEl   = document.getElementById('ban-cash');
   const varEl    = document.getElementById('ban-variance');
   const varLbl   = document.getElementById('ban-variance-label');
+
+  const respName = document.getElementById('sel-responsible-staff')?.value || '';
+  document.getElementById('summary-value-responsible').textContent = respName || '— not selected —';
+  const respNote = document.getElementById('summary-responsible-note');
+  if (respNote) respNote.classList.toggle('hidden', !!respName);
 
   document.getElementById('summary-label-target').textContent = targetLabel;
   document.getElementById('summary-value-target').textContent = targetEl ? targetEl.textContent : 'Rs. 0';
@@ -448,6 +455,21 @@ export function closeSummaryModal() {
 }
 
 export function confirmSummaryAndSave() {
+  /* Hard gate — a closing cannot be finalized without a named
+     Responsible Closing Person (see product notes: the person
+     typing this in — cashier on mobile or a manager reviewing on
+     desktop later — is not necessarily who the shift belongs to,
+     so it must always be picked explicitly rather than assumed). */
+  const respSel = document.getElementById('sel-responsible-staff');
+  if (respSel && !respSel.value) {
+    const warn = document.getElementById('responsible-staff-warn');
+    if (warn) warn.classList.remove('hidden');
+    const note = document.getElementById('summary-responsible-note');
+    if (note) note.classList.remove('hidden');
+    alert('⛔ Please select the Responsible Closing Person before saving this shift.');
+    respSel.focus();
+    return; /* modal stays open so they can pick and re-confirm */
+  }
   closeSummaryModal();
   if (typeof saveSheet === 'function') saveSheet();
 }

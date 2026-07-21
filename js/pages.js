@@ -22,6 +22,7 @@ import {
 } from './ledger-engine.js';
 import { isRealSheet, timelineStep } from './components.js';
 import { initClosingBookDefaults } from './closing-book.js';
+import { BT_BUILTIN_CATEGORIES, btBridgeQuickAdd, fetchCustomLedgerTypes, fetchStaff } from './bt-bridge.js';
 
 export function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
@@ -197,6 +198,7 @@ export function goToCreditLedger() {
   showPage('page-credit-ledger');
   clBackfillSnapshots();
   clSwitchMode('credit');
+  btQaInit();
 }
 export function goToActivityLog() {
   let pin = prompt("Enter PIN to view the Activity Log:");
@@ -522,6 +524,131 @@ export function clExportTxt() {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/* ═══════════════════════════════════════════
+   BT QUICK ADD — lives on the Credit Ledger page. An ad-hoc,
+   one-off entry point into BT Sale Data's Jazz Cash / Staff Credit /
+   Expense-Patty ledgers (and any of BT's live "Other Sections"),
+   independent of the shift-save cycle that btBridgeSyncRecord()
+   already handles for named-credit accounts. Writes straight into
+   BT's inbox tables via btBridgeQuickAdd() (bt-bridge.js) — same
+   trusted Postgres triggers already folding real shift data in today.
+   Deliberately built from real, already-fetched data (BT's live staff
+   roster + live custom section list) rather than any hardcoded guess
+   at what currently exists on BT's side, except for the two built-in
+   category lists (Jazz Cash / Expense), which are code-defined on
+   BT's side and rarely change — see BT_BUILTIN_CATEGORIES's own
+   comment in bt-bridge.js for that tradeoff.
+═══════════════════════════════════════════ */
+const btQaState = { staff: [], customTypes: [], loaded: false };
+
+function btQaToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+export async function btQaInit() {
+  const sel = document.getElementById('bt-qa-section');
+  if(!sel) return;
+  const status = document.getElementById('bt-qa-status');
+  if(status) status.textContent = 'Loading BT Sale sections…';
+
+  const [staff, customTypes] = await Promise.all([fetchStaff(), fetchCustomLedgerTypes()]);
+  btQaState.staff = staff || [];
+  btQaState.customTypes = customTypes || [];
+  btQaState.loaded = true;
+
+  /* Rebuild the section dropdown: 3 built-ins + BT's live custom
+     "Other Sections", each addressed by its real ledger_type string
+     (e.g. 'custom:pharmacy') so a Quick Add row folds into exactly
+     the BT section it looks like it's going to, not a guess. */
+  const current = sel.value || 'jazzcash';
+  sel.innerHTML = `
+    <option value="jazzcash">📒 Jazz Cash</option>
+    <option value="staffCredit">👥 Staff Credit</option>
+    <option value="expense">🧾 Expenses / Patty</option>
+    ${btQaState.customTypes.map(t => `<option value="${escHtml(t.ledgerType)}">🗂 ${escHtml(t.label)}</option>`).join('')}
+  `;
+  sel.value = Array.from(sel.options).some(o => o.value === current) ? current : 'jazzcash';
+
+  if(status) status.textContent = '';
+  btQaSectionChange();
+}
+
+export function btQaSectionChange() {
+  const section = document.getElementById('bt-qa-section')?.value;
+  const wrap = document.getElementById('bt-qa-fields');
+  if(!wrap) return;
+  const status = document.getElementById('bt-qa-status');
+  if(status) status.textContent = '';
+
+  if(section === 'staffCredit') {
+    const opts = btQaState.staff.filter(s => s.active).map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`);
+    wrap.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select id="bt-qa-staff" style="width:170px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+          ${opts.length ? opts.join('') : '<option value="">No staff found</option>'}
+        </select>
+        <input type="date" id="bt-qa-date" value="${btQaToday()}" style="width:145px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <input type="text" id="bt-qa-desc" placeholder="Description" style="width:150px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <input type="number" id="bt-qa-amount" placeholder="Amount (−ve = deduction)" style="width:150px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <button type="button" class="btn btn-teal btn-sm" onclick="btQaSubmit()">+ Add</button>
+      </div>`;
+    return;
+  }
+
+  /* jazzcash / expense / a custom:<id> type — all use the same
+     date/category/amount/desc shape; only jazzcash shows a shift
+     picker (matches BT's own ledgerUsesShift() — only jazzcash opts in). */
+  const cats = BT_BUILTIN_CATEGORIES[section]
+    || btQaState.customTypes.find(t => t.ledgerType === section)?.categories
+    || [];
+  const showShift = section === 'jazzcash';
+  wrap.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="date" id="bt-qa-date" value="${btQaToday()}" style="width:145px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+      ${showShift ? `<select id="bt-qa-shift" style="width:105px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        ${['Morning','Evening','Night','Both','Off'].map(s => `<option>${s}</option>`).join('')}
+      </select>` : ''}
+      <select id="bt-qa-cat" style="width:160px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        ${cats.length ? cats.map(c => `<option value="${escHtml(c.id)}">${c.icon ? c.icon+' ' : ''}${escHtml(c.label)}</option>`).join('') : '<option value="">No categories</option>'}
+      </select>
+      <input type="number" id="bt-qa-amount" placeholder="Amount" min="0" step="0.01" style="width:110px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+      <input type="text" id="bt-qa-desc" placeholder="Description" style="width:150px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+      <button type="button" class="btn btn-teal btn-sm" onclick="btQaSubmit()">+ Add</button>
+    </div>`;
+}
+
+export async function btQaSubmit() {
+  const section = document.getElementById('bt-qa-section')?.value;
+  const status  = document.getElementById('bt-qa-status');
+  const date    = document.getElementById('bt-qa-date')?.value;
+  const amount  = document.getElementById('bt-qa-amount')?.value;
+  const desc    = document.getElementById('bt-qa-desc')?.value;
+
+  const input = { section, date, amount, desc };
+  if(section === 'staffCredit') {
+    input.staffId = document.getElementById('bt-qa-staff')?.value;
+  } else {
+    input.categoryId = document.getElementById('bt-qa-cat')?.value;
+    input.shift = document.getElementById('bt-qa-shift')?.value;
+  }
+
+  if(status) { status.textContent = 'Adding…'; status.style.color = 'var(--muted)'; }
+  const result = await btBridgeQuickAdd(input);
+  if(!status) return;
+
+  if(result.ok) {
+    status.textContent = '✓ Added to BT Sale';
+    status.style.color = 'var(--green)';
+    const amtEl = document.getElementById('bt-qa-amount');
+    const descEl = document.getElementById('bt-qa-desc');
+    if(amtEl) amtEl.value = '';
+    if(descEl) descEl.value = '';
+  } else {
+    status.textContent = '⚠ ' + result.error;
+    status.style.color = 'var(--red)';
+  }
+}
 
 /* ═══════════════════════════════════════════
    MISC / ONGOING LEDGER — computed live from
@@ -1046,6 +1173,33 @@ export function clearManifestFilter() {
    width keeps lexicographic string comparison equivalent to numeric
    comparison, the same way the old 0/1/2 single digits did.
 ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   VARIANCE HELPERS — shared by the Saved Records manifest and the
+   Staff Ledger page. `finalDiff` is stored as an ABSOLUTE value on
+   every record (see buildSheetRecord()/actions.js); only its paired
+   `finalDiffLabel` text ("Plus…" vs "Less…") carries the sign. This
+   is the one place that convention gets turned back into a signed
+   number, so every consumer stays consistent.
+═══════════════════════════════════════════ */
+export function signedVariance(rec) {
+  const amt = Number(rec?.finalDiff) || 0;
+  if(!amt) return 0;
+  const lbl = (rec?.finalDiffLabel || '').toLowerCase();
+  if(lbl.includes('less')) return -amt;
+  return amt; /* "Plus…", or unlabeled legacy records default to surplus-sign */
+}
+export function varianceClass(signed) {
+  const abs = Math.abs(signed);
+  if(abs === 0) return 'var-chip-ok';
+  if(signed > 0 || abs <= 100)  return 'var-chip-ok';
+  if(abs <= 1000) return 'var-chip-warn';
+  return 'var-chip-bad';
+}
+export function fmtVariance(signed) {
+  const sign = signed > 0 ? '+' : (signed < 0 ? '−' : '');
+  return `${sign}Rs. ${Math.abs(Math.round(signed)).toLocaleString('en-PK')}`;
+}
+
 export function sheetSortKey(k) {
   const parts = k.split('_');
   const seq = getSeq(parts[0], parts[1]);
@@ -1110,10 +1264,23 @@ export function renderManifest() {
       badgeHtml = `<span class="badge badge-shift">SHIFT</span>`;
     }
 
+    const signed = signedVariance(rec);
+    const respName = rec.responsibleStaff || '';
+    const subLineParts = [];
+    if(respName) subLineParts.push(`👤 ${escHtml(respName)}`);
+    else if(!isDraft) subLineParts.push(`<span style="color:var(--red);">👤 Not set</span>`);
+    if(!isDraft) subLineParts.push(`<span class="${varianceClass(signed)}" style="font-weight:600;">${fmtVariance(signed)}</span>`);
+    const subLine = subLineParts.length
+      ? `<div style="font-size:0.7rem;color:var(--muted);margin-top:2px;display:flex;gap:10px;">${subLineParts.join('')}</div>`
+      : '';
+
     div.innerHTML = `
-      <span class="key-label" style="display:flex;align-items:center;gap:6px;">
-        ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
-      </span>
+      <div style="display:flex;flex-direction:column;">
+        <span class="key-label" style="display:flex;align-items:center;gap:6px;">
+          ${isDraft ? '✏️' : '📦'} ${parts[0]} — ${sr}
+        </span>
+        ${subLine}
+      </div>
       <div style="display:flex;gap:8px;align-items:center;">
         ${badgeHtml}
         <button class="btn btn-ghost btn-sm" onclick="loadKey('${k}')">Open</button>
@@ -1453,6 +1620,155 @@ export function populateActivityLogFilters() {
 export function alShowMore() {
   alShown += 25;
   renderActivityLog();
+}
+
+/* ═══════════════════════════════════════════
+   STAFF LEDGER — accountability + variance record-keeping.
+   Reads the same db.sheets records as the Saved Records manifest
+   (renderManifest above); adds no new storage, just a different
+   view: grouped by staff or by date, with a variance total.
+   Only finalized (non-draft) records are shown — a draft's
+   responsibleStaff/finalDiff aren't settled yet, so including them
+   here would make the totals misleading.
+═══════════════════════════════════════════ */
+let slShown = 20;
+let slGrouping = 'date';
+
+export function goToStaffLedger() {
+  let pin = prompt("Enter PIN to view the Staff Ledger:");
+  if(!checkPin(pin)) { alert("Incorrect PIN."); return; }
+  showPage('page-staff-ledger');
+  slShown = 20;
+  populateStaffLedgerFilters();
+  renderStaffLedger();
+}
+
+export function slSwitchGrouping(mode) {
+  slGrouping = mode;
+  document.getElementById('sl-mode-tab-date').classList.toggle('active', mode === 'date');
+  document.getElementById('sl-mode-tab-staff').classList.toggle('active', mode === 'staff');
+  renderStaffLedger();
+}
+
+export function slClearFilters() {
+  const f = document.getElementById('sl-filter-from');
+  const t = document.getElementById('sl-filter-to');
+  const s = document.getElementById('sl-filter-staff');
+  if(f) f.value = '';
+  if(t) t.value = '';
+  if(s) s.value = '';
+  renderStaffLedger();
+}
+
+export function slShowMore() {
+  slShown += 30;
+  renderStaffLedger();
+}
+
+export function populateStaffLedgerFilters() {
+  const sel = document.getElementById('sl-filter-staff');
+  if(!sel) return;
+  const current = sel.value;
+  const names = new Set();
+  (db.settings.staff || []).forEach(s => { if(s.name) names.add(s.name); });
+  Object.values(db.sheets).forEach(rec => { if(rec && rec.responsibleStaff) names.add(rec.responsibleStaff); });
+  sel.innerHTML = '<option value="">All Staff</option>' +
+    Array.from(names).sort().map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+  sel.value = current;
+}
+
+function slEntryRowHtml(k, rec) {
+  const parts = k.split('_');
+  const sr = srLabel(parts[1]);
+  const mode = rec.profileMode || 'shift';
+  const badgeHtml = mode === 'final'
+    ? `<span class="badge badge-final">FINAL</span>`
+    : `<span class="badge badge-shift">SHIFT</span>`;
+  const signed = signedVariance(rec);
+  const respName = rec.responsibleStaff || '';
+  return `
+    <div class="al-entry">
+      <div class="al-entry-head">
+        <div class="al-entry-main">
+          <span class="al-entry-title">${escHtml(parts[0])} — ${escHtml(sr)}</span>
+          <span class="al-entry-sub">${respName ? '👤 '+escHtml(respName) : '<span style="color:var(--red);">👤 Not set</span>'}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          ${badgeHtml}
+          <span class="${varianceClass(signed)}" style="font-weight:700;font-size:0.82rem;">${fmtVariance(signed)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+export function renderStaffLedger() {
+  const fromDate    = document.getElementById('sl-filter-from')?.value || '';
+  const toDate      = document.getElementById('sl-filter-to')?.value   || '';
+  const staffFilter = document.getElementById('sl-filter-staff')?.value || '';
+
+  let keys = Object.keys(db.sheets).filter(k => {
+    const rec = db.sheets[k];
+    if(!rec || rec.draft === true) return false;
+    const dateStr = k.split('_')[0];
+    if(fromDate && dateStr < fromDate) return false;
+    if(toDate   && dateStr > toDate)   return false;
+    if(staffFilter && (rec.responsibleStaff || '') !== staffFilter) return false;
+    return true;
+  });
+
+  keys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
+
+  const countBadge = document.getElementById('sl-count-badge');
+  if(countBadge) countBadge.textContent = `${keys.length} record${keys.length===1?'':'s'} matched`;
+
+  /* grand total over the FULL filtered set (not just the shown page) */
+  const grandTotal = keys.reduce((sum, k) => sum + signedVariance(db.sheets[k]), 0);
+  const grandEl = document.getElementById('sl-grand-total');
+  if(grandEl) {
+    grandEl.textContent = fmtVariance(grandTotal);
+    grandEl.className = varianceClass(grandTotal);
+  }
+
+  const shownKeys = keys.slice(0, slShown);
+  const box = document.getElementById('sl-entries-container');
+  const moreBtn = document.getElementById('sl-show-more-btn');
+
+  if(!shownKeys.length) {
+    box.innerHTML = '<div class="al-entry-empty">No finalized records match these filters.</div>';
+    if(moreBtn) moreBtn.classList.add('hidden');
+    return;
+  }
+
+  if(slGrouping === 'staff') {
+    const groups = new Map(); /* name -> keys[] */
+    shownKeys.forEach(k => {
+      const name = db.sheets[k].responsibleStaff || '— Not set —';
+      if(!groups.has(name)) groups.set(name, []);
+      groups.get(name).push(k);
+    });
+    /* order groups by |subtotal| descending — surfaces the biggest
+       variance exposure first, which is the whole point of this view */
+    const ordered = Array.from(groups.entries()).sort((a, b) => {
+      const totA = a[1].reduce((s, k) => s + signedVariance(db.sheets[k]), 0);
+      const totB = b[1].reduce((s, k) => s + signedVariance(db.sheets[k]), 0);
+      return Math.abs(totB) - Math.abs(totA);
+    });
+    box.innerHTML = ordered.map(([name, ks]) => {
+      const subtotal = ks.reduce((s, k) => s + signedVariance(db.sheets[k]), 0);
+      return `
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f1f5f9;border-radius:var(--radius-sm);margin-bottom:6px;">
+            <span style="font-weight:700;font-size:0.85rem;">👤 ${escHtml(name)} <span style="font-weight:400;color:var(--muted);">(${ks.length} shift${ks.length===1?'':'s'})</span></span>
+            <span class="${varianceClass(subtotal)}" style="font-weight:700;">${fmtVariance(subtotal)}</span>
+          </div>
+          ${ks.map(k => slEntryRowHtml(k, db.sheets[k])).join('')}
+        </div>`;
+    }).join('');
+  } else {
+    box.innerHTML = shownKeys.map(k => slEntryRowHtml(k, db.sheets[k])).join('');
+  }
+
+  if(moreBtn) moreBtn.classList.toggle('hidden', keys.length <= slShown);
 }
 
 function alKeyLabel(key) {

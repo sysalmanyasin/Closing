@@ -325,9 +325,46 @@ export function addMiscRow(lbl='', val='', rid=null) {
   calc();
 }
 
+/* ═══════════════════════════════════════════
+   ROW SOFT-DELETE
+   A "deleted" row is kept in the DOM/record (struck through,
+   read-only, excluded from totals and next-shift carry-forward)
+   instead of vanishing outright — recoverable via Undo, and stays
+   visible+auditable in this shift's own saved record and the
+   read-only Previous Shift snapshot. See calc()/buildSheetRecord()/
+   pullPreviousShift() in actions.js for the exclusion side of this.
+═══════════════════════════════════════════ */
+export function markRowDeleted(el, deleted) {
+  if(!el) return;
+  el.classList.toggle('row-deleted', deleted);
+  el.querySelectorAll('input').forEach(inp => {
+    inp.readOnly = deleted;
+    if(deleted) inp.tabIndex = -1; else inp.removeAttribute('tabindex');
+  });
+  const btn = el.querySelector('.del-row-btn');
+  if(btn) {
+    btn.textContent = deleted ? '↺' : '✕';
+    btn.title = deleted ? 'Undo — restore this row' : 'Remove row';
+    btn.setAttribute('aria-label', deleted ? 'Undo remove row' : 'Remove row');
+  }
+}
+
 export function delRow(id, recalc) {
   const el = document.getElementById(id);
-  if(el) el.remove();
+  if(!el) return;
+
+  if(el.classList.contains('row-deleted')) {
+    /* Undo needs no confirmation — restoring something is always safe */
+    markRowDeleted(el, false);
+  } else {
+    const lblInput = el.querySelector('.lbl-input, .hs-lbl, .aux-strip-lbl, .aux-cred-lbl, .dep-lbl');
+    const lbl = lblInput?.value?.trim();
+    const question = lbl
+      ? `Remove "${lbl}"?\n\nIt will be struck through and left out of totals and next shift's carry-forward, but stays visible here with an Undo option.`
+      : `Remove this row?\n\nIt will be struck through and left out of totals and next shift's carry-forward, but stays visible here with an Undo option.`;
+    if(!confirm(question)) return;
+    markRowDeleted(el, true);
+  }
   if(recalc) calc();
 }
 
