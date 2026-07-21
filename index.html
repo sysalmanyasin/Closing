@@ -1025,12 +1025,26 @@
 
       <div id="sl-count-badge" style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;"></div>
 
-      <div id="sl-total-card" class="card" style="padding:12px 14px;margin-bottom:12px;border-radius:var(--radius-md);background:#f8fafc;">
+      <div id="sl-total-card" class="card" style="padding:12px 14px;margin-bottom:10px;border-radius:var(--radius-md);background:#f8fafc;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:0.78rem;color:var(--muted);font-weight:600;">Overall Variance (filtered)</span>
+          <div>
+            <div style="font-size:0.78rem;color:var(--muted);font-weight:600;">Total Variance (since last Final Closing)</div>
+            <div id="sl-total-asof" style="font-size:0.68rem;color:var(--muted);margin-top:1px;"></div>
+          </div>
           <span id="sl-grand-total" style="font-size:1.05rem;font-weight:700;">Rs. 0</span>
         </div>
       </div>
+
+      <div id="sl-staff-total-card" class="card hidden" style="padding:12px 14px;margin-bottom:12px;border-radius:var(--radius-md);background:#eff6ff;border:1px solid #bfdbfe;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div id="sl-staff-total-label" style="font-size:0.78rem;color:var(--muted);font-weight:600;"></div>
+            <div style="font-size:0.68rem;color:var(--muted);margin-top:1px;">Sum of this person's own shift-by-shift contribution in range</div>
+          </div>
+          <span id="sl-staff-total" style="font-size:1.05rem;font-weight:700;">Rs. 0</span>
+        </div>
+      </div>
+      <div id="sl-staff-total-hint" style="font-size:0.7rem;color:var(--muted);margin-bottom:12px;">Pick a staff member AND a From/To date range to see their own total for that period.</div>
 
       <div id="sl-entries-container"></div>
       <button class="cl-show-more hidden" id="sl-show-more-btn" onclick="slShowMore()">Show more records ▼</button>
