@@ -5,8 +5,8 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
-import { btBridgeSyncRecord } from './bt-bridge.js';
-import { checkPin, daySlots, db, escHtml, genRowId, isPinTaken, srLabel, session } from './state.js';
+import { btBridgeSyncRecord, fetchStaff } from './bt-bridge.js';
+import { daySlots, db, escHtml, gatePermission, genRowId, hasPermission, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
 import {
@@ -31,20 +31,42 @@ export function initLedger(ds, shift, mode, opts = {}) {
   if(mm) mm.classList.add('hidden');
 
   /* Responsible Closing Person — options rebuilt fresh every time a
-     shift register opens, since staff (db.settings.staff) can change
-     between saves. Actual value restore happens in hydrate() below
-     (existing record) or stays blank (new draft) — deliberately NOT
-     auto-filled from session.currentActor, since the person filling
-     the sheet (which may be a Manager on desktop, after the fact)
-     is not necessarily who was responsible for that shift's till. */
+     shift register opens. Actual value restore happens in hydrate()
+     below (existing record) or stays blank (new draft) — deliberately
+     NOT auto-filled from session.currentActor, since the person
+     filling the sheet (which may be a Manager on desktop, after the
+     fact) is not necessarily who was responsible for that shift's till.
+
+     BUG THIS REPLACES: this list used to come from db.settings.staff
+     — the Access & PINs roster (Admin's login-PIN list), which is a
+     completely separate, hand-maintained set of names from the real
+     BT-PHARMA staff registry (bt_staff) that the Credit & Tiers "Load
+     active names from BT Staff" button already pulls from. The two
+     lists drift apart the moment someone joins/leaves without an
+     admin manually re-typing both, so "Responsible Closing Person"
+     could easily NOT include the name of whoever is actually on the
+     BT roster for that shift. This now asks the same bt_staff source
+     everything else already trusts, live, every time the ledger
+     opens, and falls back to db.settings.staff only if BT Sale Data
+     isn't reachable (offline, cloud sync not configured, etc.) so the
+     dropdown is never simply empty. */
   const respSel = document.getElementById('sel-responsible-staff');
-  if(respSel) {
-    const names = (db.settings.staff || []).map(s => s.name).filter(Boolean);
-    respSel.innerHTML = '<option value="">— Select staff —</option>' +
-      names.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
-  }
   const respWarn = document.getElementById('responsible-staff-warn');
   if(respWarn) respWarn.classList.add('hidden');
+  if(respSel) {
+    const fallbackNames = (db.settings.staff || []).map(s => s.name).filter(Boolean);
+    const paintOptions = (names, selected) => {
+      respSel.innerHTML = '<option value="">— Select staff —</option>' +
+        names.map(n => `<option value="${escHtml(n)}"${n===selected?' selected':''}>${escHtml(n)}</option>`).join('');
+    };
+    paintOptions(fallbackNames, respSel.value);
+    fetchStaff().then(staff => {
+      if(!staff || !staff.length) return; /* BT unreachable — keep the fallback list already painted */
+      const btNames = staff.filter(s => s.active).map(s => s.name).filter(Boolean);
+      if(!btNames.length) return;
+      paintOptions(btNames, respSel.value);
+    }).catch(() => { /* offline / cloud sync not set up — fallback list stays */ });
+  }
 
   /* update Final Closing section labels to reflect current mode */
   const isFinalMode = (mode === 'final');
@@ -796,13 +818,26 @@ export function calc() {
     set('out-final-net-cash-adj', finalNetCash);
     set('out-final-prev-sale',    0);
 
-    if(session.activeMode === 'final') {
-      bannerTarget = netSale;
-      bannerCash   = netCash;
-    }
+    /* ── Keep the on-screen banner (Audit tab + View-all popup) in
+       lock-step with what actually gets SAVED as finalDiff below.
+       BUG THIS REPLACES: this block used to reset bannerTarget/
+       bannerCash back to the plain single-shift netSale/netCash
+       figures. Meanwhile finalDiff (a few lines down) is always the
+       PERIOD-AGGREGATED finalNetCash — a different number the
+       moment more than one shift sits in the current since-last-
+       Final window, or a same-day Final's own sale folds into the
+       target. Staff were reconciling against the banner's number,
+       but the Staff Ledger and every saved report showed finalDiff
+       — a different figure for the very same shift. Deriving the
+       banner from the exact same finalNetSale/finalNetCash this
+       block already computed makes them identical by construction,
+       in every mode, so there is nothing left to drift out of sync. */
+    bannerTarget = finalNetSale;
+    bannerCash   = finalNetCash + finalNetSale; /* cash available BEFORE the target is netted out of it — see finalDiff below */
   }
 
-  const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) */
+  const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) — identical to finalDiff */
+
   /* Updates both the "View all" popup banner (ban-*) and the identical
      strip embedded directly in the Audit tab (audit-ban-*), so the two
      always stay in sync from a single source of truth. */
@@ -1008,6 +1043,16 @@ export function buildSheetRecord() {
 /* ── TOAST ───────────────────────────────────────────────── */
 
 export function saveSheet(silent=false) {
+  /* Closing was never PIN-gated at all before permissions existed —
+     keep that frictionless for everyone by default. This only ever
+     BLOCKS: a staff member who is logged in (via BT phone+PIN) AND
+     has been explicitly denied the 'closing' permission in Settings
+     → Permissions. Nobody logged in, or no permission row set for
+     them yet, or Admin — all proceed exactly as before. */
+  if(!silent && hasPermission('closing') === false) {
+    alert("You don't have permission to close shifts. Ask an Admin to grant it in Settings → Permissions.");
+    return;
+  }
   const record = buildSheetRecord();
   record.draft    = false;
   record.locked   = true;
@@ -1367,8 +1412,7 @@ export function deleteSheet(key) {
   if(!db.sheets[key]) return;
   const parts = key.split('_');
   const sr = srLabel(parts[1]);
-  const pin = prompt(`Enter PIN to delete ${parts[0]} — ${sr}:`);
-  if(!checkPin(pin)) { alert('Incorrect PIN.'); return; }
+  if(!gatePermission('delete', `Enter PIN to delete ${parts[0]} — ${sr}:`)) return;
   if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
   alLog('delete', key);
   markKeyDeleted(key);
@@ -1530,8 +1574,7 @@ export function archiveOldRecords() {
   if(!staleKeys.length) { alert(`No records older than ${months} months.`); return; }
 
   if(!confirm(`This will permanently delete ${staleKeys.length} record(s) older than ${months} months.\nExport a backup first (Settings → Data Backup) if you want to keep them. Continue?`)) return;
-  const pin = prompt('Enter PIN to confirm deletion:');
-  if(!checkPin(pin)) { alert('Incorrect PIN.'); return; }
+  if(!gatePermission('delete', 'Enter PIN to confirm deletion:')) return;
 
   staleKeys.forEach(key => { alLog('archive', key); markKeyDeleted(key); delete db.sheets[key]; });
   clEnsureArray();

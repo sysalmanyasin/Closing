@@ -301,6 +301,7 @@
       <div class="settings-tabs" id="settings-tabs">
         <button class="settings-tab active" data-tab="general" onclick="settingsShowTab('general')">⚙️ General</button>
         <button class="settings-tab" data-tab="access" onclick="settingsShowTab('access')">🔑 Access &amp; PINs</button>
+        <button class="settings-tab" data-tab="permissions" onclick="settingsShowTab('permissions')">🛡️ Permissions</button>
         <button class="settings-tab" data-tab="backup" onclick="settingsShowTab('backup')">💾 Backup &amp; Retention</button>
         <button class="settings-tab" data-tab="credit" onclick="settingsShowTab('credit')">📒 Credit &amp; Tiers</button>
         <button class="settings-tab" data-tab="inventory" onclick="settingsShowTab('inventory')">📦 Inventory</button>
@@ -339,7 +340,9 @@
             <p class="text-muted text-sm" style="margin-bottom:12px;">
               Whichever PIN is typed to unlock an action (Edit, Delete, Archive, Settings) identifies
               who did it. The Admin PIN works everywhere as a fallback; each staff member below has
-              their own.
+              their own. Anyone already signed in on this device (phone + PIN login) skips these
+              prompts entirely and is identified — and permission-checked — that way instead; see the
+              Permissions tab.
             </p>
             <div class="form-field">
               <label for="cfg-admin-pin">Admin PIN</label>
@@ -350,11 +353,39 @@
           </div>
           <div class="card-head" style="cursor:default;border-top:1px solid var(--border);">
             <h3 style="font-size:0.85rem;">Staff PINs</h3>
-            <button class="btn btn-teal btn-sm" onclick="addStaffSetting()">+ Add Staff</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm" onclick="syncStaffFromBt()">🔄 Sync from BT Staff</button>
+              <button class="btn btn-teal btn-sm" onclick="addStaffSetting()">+ Add Staff</button>
+            </div>
           </div>
+          <p class="text-muted text-sm" style="padding:0 16px 10px;">
+            "Sync from BT Staff" adds anyone active in the real BT-PHARMA staff roster who isn't
+            listed here yet (name only — pick a PIN for each new name below). It never removes or
+            overwrites an existing row, so nobody's PIN changes underneath them.
+          </p>
           <div id="settings-staff"></div>
         </div>
       </div>
+
+      <!-- ── PERMISSIONS ── -->
+      <div class="settings-tab-panel hidden" data-tab="permissions">
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Staff Permissions</h3>
+            <button class="btn btn-sm" onclick="syncPermissionsFromBt()">🔄 Refresh from BT Staff</button>
+          </div>
+          <div style="padding:0 16px 12px;">
+            <p class="text-muted text-sm">
+              Controls what each signed-in staff member (phone + PIN login) can do. Admin always has
+              full access everywhere, regardless of these settings. A staff member who isn't signed in
+              on this device yet falls back to the old PIN-prompt for anything below except Save/Close,
+              which stays open to everyone unless explicitly turned off here.
+            </p>
+          </div>
+          <div id="settings-permissions"></div>
+        </div>
+      </div>
+
 
       <!-- ── BACKUP & RETENTION ── -->
       <div class="settings-tab-panel hidden" data-tab="backup">

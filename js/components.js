@@ -4,7 +4,7 @@
    print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
-import { DENOMS, checkPin, daySlots, db, escHtml, genRowId, srLabel, session } from './state.js';
+import { DENOMS, checkPin, daySlots, db, escHtml, genRowId, hasPermission, srLabel, session } from './state.js';
 import { alLog } from './activity-log.js';
 import {
   calc, flushInputs, initLedger, populateNameDropdown,
@@ -1152,6 +1152,15 @@ document.addEventListener('keydown', (e) => {
 
 export function openEditModal(key) {
   key = key || session.activeKey;
+  /* Already-logged-in staff with edit permission granted skip the
+     PIN re-entry step entirely — see hasPermission() in state.js.
+     Explicitly denied (false) blocks here with no modal at all;
+     only the "nobody logged in yet" case (null) falls back to the
+     legacy PIN-prompt modal below. */
+  const perm = hasPermission('edit');
+  if(perm === true) { openEditModalDirect(key); return; }
+  if(perm === false) { alert("You don't have permission to edit closings. Ask an Admin to grant it in Settings → Permissions."); return; }
+
   compState.editModalKey = key;
   const currentMode = db.sheets[key]?.profileMode || 'shift';
   editModalSelectMode(currentMode);
@@ -1159,6 +1168,23 @@ export function openEditModal(key) {
   document.getElementById('edit-modal-err').textContent = '';
   document.getElementById('edit-modal-overlay').classList.remove('hidden');
   setTimeout(() => document.getElementById('edit-modal-pin').focus(), 120);
+}
+
+/* Shared with confirmEditModal() below — opens the record for
+   editing using whatever mode it's already saved as (the modal
+   path lets the PIN-prompt case also switch Shift↔Final while
+   unlocking; the permission-skip path above keeps it simple and
+   just reopens as-is, since that choice was designed for the rare
+   "unlock to fix a mistake" case, not routine edits). */
+function openEditModalDirect(key) {
+  const mode = db.sheets[key]?.profileMode || 'shift';
+  alLog('edit-open', key);
+  session.activeKey  = key;
+  session.activeMode = mode;
+  session.overrides  = db.sheets[key]?.overrides || {};
+  const p = key.split('_');
+  initLedger(p[0], p[1], session.activeMode, { forEdit: true });
+  setLockedState(false);
 }
 
 export function closeEditModal() {

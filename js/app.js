@@ -84,6 +84,9 @@ Object.assign(window, {
   // pages.js
   addNamedCreditSetting: Pages.addNamedCreditSetting,
   addStaffSetting:      Pages.addStaffSetting,
+  syncStaffFromBt:      Pages.syncStaffFromBt,
+  syncPermissionsFromBt: Pages.syncPermissionsFromBt,
+  setStaffPermission:   Pages.setStaffPermission,
   addStripGroup:        Pages.addStripGroup,
   addStripRow:          Pages.addStripRow,
   alShowMore:           Pages.alShowMore,

@@ -153,6 +153,10 @@ function applySettingsDefaults(dbObj) {
      touched Settings yet), plus an empty staff list ready to grow. */
   if(!dbObj.settings.adminPin) dbObj.settings.adminPin = "1218";
   if(!Array.isArray(dbObj.settings.staff)) dbObj.settings.staff = [];
+  /* Per-staff feature permissions — keyed by bt_staff's staffId (not
+     name), so a rename on BT's side doesn't orphan someone's access.
+     See hasPermission() below for how this gets read. */
+  if(!dbObj.settings.permissions || typeof dbObj.settings.permissions !== 'object') dbObj.settings.permissions = {};
   /* Tombstones for deleted sheets/credit-ledger entries — {key, deletedAt}.
      Needed so a delete survives a cloud round-trip: sync.js pushes these
      as upserts to a `deleted_records` table and filters them out of every
@@ -277,6 +281,62 @@ export function isPinTaken(pin, excludeStaffIdx = -1) {
   if(pin === MASTER_PIN) return true; /* reserved — can't be reassigned to a staff/admin PIN */
   if(pin === db.settings.adminPin) return true;
   return (db.settings.staff || []).some((s, i) => i !== excludeStaffIdx && s.pin === pin);
+}
+
+/* ═══════════════════════════════════════════
+   PERMISSIONS — per-staff feature access, layered on top of the
+   real BT staff login (session.loggedInStaff — see auth.js's
+   phone+PIN sign-in). Keyed by staffId (bt_staff's row id) rather
+   than name, so a rename in BT's own staff records doesn't orphan
+   someone's permissions. Admin (Master PIN or the configurable
+   Admin PIN, via checkPin()/checkAdminPin() setting
+   session.currentActor='Admin') always passes every check — same
+   "works everywhere as a fallback" rule the PIN system above
+   already documents.
+
+   hasPermission() returns:
+     true  — Admin, or this logged-in staff member has the flag set
+     false — logged in, but the flag is off (or no row exists yet)
+     null  — nobody is logged in via BT phone+PIN auth at all;
+             callers should fall back to the legacy checkPin()
+             prompt so an install that never set up phone+PIN login
+             doesn't lose access to something it already had. */
+export const PERMISSION_KEYS = [
+  { key: 'closing',      label: 'Save / close shifts' },
+  { key: 'edit',         label: 'Edit a saved (locked) closing' },
+  { key: 'delete',       label: 'Delete a closing' },
+  { key: 'settings',     label: 'Open Settings' },
+  { key: 'staffLedger',  label: 'Open Staff Ledger' },
+  { key: 'creditLedger', label: 'Open Credit / Misc Ledger' },
+  { key: 'activityLog',  label: 'Open Activity Log' }
+];
+
+export function hasPermission(key) {
+  if(session.currentActor === 'Admin') return true;
+  if(!session.loggedInStaff) return null;
+  const perms = (db.settings.permissions || {})[session.loggedInStaff.staffId];
+  if(!perms) return false;
+  return !!perms[key];
+}
+
+/* Shared gate for every permission-checked action in the app. Tries
+   the new permission system first; only falls back to the legacy
+   "type a PIN" prompt when nobody is logged in via BT phone+PIN
+   auth yet (hasPermission() returning null), so an install that
+   hasn't set up phone+PIN login keeps working exactly as before.
+   `viaAdminOnly` swaps the fallback to checkAdminPin() (used for
+   Settings, which used to be Admin-only) instead of checkPin(). */
+export function gatePermission(key, promptText, viaAdminOnly = false) {
+  const has = hasPermission(key);
+  if(has === true) return true;
+  if(has === false) {
+    alert("You don't have permission for that. Ask an Admin to grant it in Settings → Permissions.");
+    return false;
+  }
+  const pin = prompt(promptText);
+  const ok = viaAdminOnly ? checkAdminPin(pin) : checkPin(pin);
+  if(!ok) alert('Incorrect PIN.');
+  return ok;
 }
 
 /* ═══════════════════════════════════════════

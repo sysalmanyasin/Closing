@@ -5,7 +5,7 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-import { SHIFTS, checkAdminPin, checkPin, db, escHtml, getSeq, srLabel, session } from './state.js';
+import { SHIFTS, db, escHtml, gatePermission, getSeq, PERMISSION_KEYS, srLabel, session } from './state.js';
 import {
   aggregateSinceLastFinal, initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
   settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
@@ -171,8 +171,7 @@ export function goToClosingBook() {
   if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
 }
 export function goToSettings()  {
-  let pin = prompt("Enter Admin PIN:");
-  if(!checkAdminPin(pin)) { alert("Incorrect PIN. Settings is Admin-only."); return; }
+  if(!gatePermission('settings', 'Enter Admin PIN:', true)) return;
   showPage('page-settings');
   buildSettingsUI();
   settingsShowTab('general'); /* always land on the first tab, not wherever it was left last time */
@@ -195,14 +194,14 @@ export function settingsShowTab(name) {
   });
 }
 export function goToCreditLedger() {
+  if(!gatePermission('creditLedger', 'Enter PIN to view the Credit / Misc Ledger:')) return;
   showPage('page-credit-ledger');
   clBackfillSnapshots();
   clSwitchMode('credit');
   btQaInit();
 }
 export function goToActivityLog() {
-  let pin = prompt("Enter PIN to view the Activity Log:");
-  if(!checkPin(pin)) { alert("Incorrect PIN."); return; }
+  if(!gatePermission('activityLog', 'Enter PIN to view the Activity Log:', true)) return;
   showPage('page-activity-log');
   populateActivityLogFilters();
   alShown = 25;
@@ -1361,6 +1360,7 @@ export function buildSettingsUI() {
   const adminPinEl = document.getElementById('cfg-admin-pin');
   if(adminPinEl) adminPinEl.value = db.settings.adminPin || '';
   renderSettingsStaff();
+  renderSettingsPermissions();
   const brandCodeEl = document.getElementById('cfg-book-brand-code');
   if(brandCodeEl) {
     brandCodeEl.value = db.settings.bookBrandCode || 'FDPP BT';
@@ -1466,6 +1466,70 @@ export function renderSettingsStaff() {
 export function addStaffSetting() {
   settingsAddStaff();
   renderSettingsStaff();
+}
+
+/* "Sync from BT Staff" — adds any active bt_staff name not already
+   present here (matched case-insensitively, trimmed), each with a
+   blank PIN for the Admin to fill in. Never touches an existing
+   row, so nobody already-listed loses or has their PIN changed —
+   the whole point is this is a safe, repeatable, additive action. */
+export async function syncStaffFromBt() {
+  const staff = await fetchStaff(true);
+  if(!staff.length) { alert("No staff found in BT Sale Data yet, or the connection failed."); return; }
+  const existingNames = new Set((db.settings.staff || []).map(s => (s.name||'').trim().toLowerCase()));
+  const toAdd = staff.filter(s => s.active && s.name && !existingNames.has(s.name.trim().toLowerCase()));
+  if(!toAdd.length) { alert('Everyone active in BT Staff is already listed here.'); return; }
+  toAdd.forEach(s => db.settings.staff.push({ name: s.name, pin: '' }));
+  renderSettingsStaff();
+  renderSettingsPermissions();
+  alert(`Added ${toAdd.length} new staff member${toAdd.length===1?'':'s'}. Give each a PIN below.`);
+}
+
+/* Permissions matrix — one row per active BT staff member (by
+   staffId, so a name change on BT's side doesn't orphan the row),
+   one checkbox column per PERMISSION_KEYS entry. Admin's row isn't
+   shown — Admin always has everything, per hasPermission(). */
+let _permStaffCache = [];
+export async function renderSettingsPermissions() {
+  const box = document.getElementById('settings-permissions');
+  if(!box) return;
+  box.innerHTML = '<div class="text-muted text-sm" style="padding:10px 16px;">Loading BT Staff…</div>';
+  const staff = await fetchStaff();
+  _permStaffCache = staff.filter(s => s.active);
+  paintSettingsPermissions();
+}
+
+export function syncPermissionsFromBt() { renderSettingsPermissions(); }
+
+function paintSettingsPermissions() {
+  const box = document.getElementById('settings-permissions');
+  if(!box) return;
+  if(!_permStaffCache.length) {
+    box.innerHTML = '<div class="text-muted text-sm" style="padding:10px 16px;">No active staff found in BT Sale Data yet — set up Cloud Sync and BT Staff first.</div>';
+    return;
+  }
+  if(!db.settings.permissions) db.settings.permissions = {};
+  const head = `
+    <div style="display:grid;grid-template-columns:1fr repeat(${PERMISSION_KEYS.length},auto);gap:4px 10px;align-items:center;padding:8px 16px;font-size:0.68rem;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);">
+      <div>Staff</div>
+      ${PERMISSION_KEYS.map(p => `<div style="writing-mode:vertical-rl;text-orientation:mixed;">${escHtml(p.label)}</div>`).join('')}
+    </div>`;
+  const rows = _permStaffCache.map(s => {
+    const perms = db.settings.permissions[s.id] || {};
+    return `
+      <div style="display:grid;grid-template-columns:1fr repeat(${PERMISSION_KEYS.length},auto);gap:4px 10px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);">
+        <div style="font-size:0.82rem;font-weight:600;">${escHtml(s.name)}</div>
+        ${PERMISSION_KEYS.map(p => `<input type="checkbox" ${perms[p.key] ? 'checked' : ''} onchange="setStaffPermission('${s.id}','${p.key}',this.checked)">`).join('')}
+      </div>`;
+  }).join('');
+  box.innerHTML = head + rows;
+}
+
+export function setStaffPermission(staffId, key, on) {
+  if(!db.settings.permissions) db.settings.permissions = {};
+  if(!db.settings.permissions[staffId]) db.settings.permissions[staffId] = {};
+  db.settings.permissions[staffId][key] = !!on;
+  saveSettings();
 }
 
 export function removeStaff(i) {
@@ -1635,8 +1699,7 @@ let slShown = 20;
 let slGrouping = 'date';
 
 export function goToStaffLedger() {
-  let pin = prompt("Enter PIN to view the Staff Ledger:");
-  if(!checkPin(pin)) { alert("Incorrect PIN."); return; }
+  if(!gatePermission('staffLedger', 'Enter PIN to view the Staff Ledger:')) return;
   showPage('page-staff-ledger');
   slShown = 20;
   populateStaffLedgerFilters();
