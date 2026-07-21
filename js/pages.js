@@ -1677,15 +1677,43 @@ export function populateStaffLedgerFilters() {
   sel.value = current;
 }
 
-function slEntryRowHtml(k, rec) {
+/* Every SAVED (non-draft) sheet's finalDiff is a RUNNING CUMULATIVE
+   total since the last Final Closing — see aggregateSinceLastFinal()
+   in actions.js, which walks backward and accumulates every shift
+   until it hits a 'final' record. A SHIFT record's finalDiff already
+   includes every shift before it in the same open period; a FINAL
+   record's finalDiff is that period's definitive, self-contained
+   total. That means summing finalDiff across multiple rows massively
+   over-counts (each later shift re-includes the earlier ones).
+   This walks the full chronological history ONCE and turns each
+   record's cumulative finalDiff into that shift's own STANDALONE
+   contribution (delta from the previous record in the chain, reset
+   to 0 right after a Final Closing since that starts a fresh
+   period) — the number that's actually safe to sum across shifts
+   or staff. Returns a Map key -> {cumulative, delta}. */
+export function computeVarianceDeltas() {
+  const keys = Object.keys(db.sheets).filter(k => db.sheets[k] && db.sheets[k].draft !== true);
+  keys.sort((a, b) => sheetSortKey(a).localeCompare(sheetSortKey(b))); // chronological, oldest first
+  let baseline = 0;
+  const out = new Map();
+  keys.forEach(k => {
+    const rec = db.sheets[k];
+    const cumulative = signedVariance(rec);
+    out.set(k, { cumulative, delta: cumulative - baseline });
+    baseline = (rec.profileMode === 'final') ? 0 : cumulative;
+  });
+  return out;
+}
+
+function slEntryRowHtml(k, rec, delta) {
   const parts = k.split('_');
   const sr = srLabel(parts[1]);
   const mode = rec.profileMode || 'shift';
   const badgeHtml = mode === 'final'
     ? `<span class="badge badge-final">FINAL</span>`
     : `<span class="badge badge-shift">SHIFT</span>`;
-  const signed = signedVariance(rec);
   const respName = rec.responsibleStaff || '';
+  const word = delta > 0 ? 'Plus' : (delta < 0 ? 'Less' : '');
   return `
     <div class="al-entry">
       <div class="al-entry-head">
@@ -1695,7 +1723,7 @@ function slEntryRowHtml(k, rec) {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           ${badgeHtml}
-          <span class="${varianceClass(signed)}" style="font-weight:700;font-size:0.82rem;">${fmtVariance(signed)}</span>
+          <span class="${varianceClass(delta)}" style="font-weight:700;font-size:0.82rem;">${word ? word+' ' : ''}${fmtVariance(delta).replace(/^[+−]/, '')}</span>
         </div>
       </div>
     </div>`;
@@ -1706,27 +1734,58 @@ export function renderStaffLedger() {
   const toDate      = document.getElementById('sl-filter-to')?.value   || '';
   const staffFilter = document.getElementById('sl-filter-staff')?.value || '';
 
-  let keys = Object.keys(db.sheets).filter(k => {
+  const deltas = computeVarianceDeltas(); // Map key -> {cumulative, delta}, chronological order baked in
+
+  /* ── Card A: Total Variance (since last Final Closing) ──────────
+     A whole-shop figure, deliberately NOT staff-filtered and NOT a
+     sum across rows — it's just the running cumulative total as of
+     the latest record on/before the "To" date (or the latest record
+     overall if no date filter is set), which is exactly the number
+     that shift's own Final Audit section already shows. */
+  const allKeysChrono = Array.from(deltas.keys()); // already chronological, oldest→newest
+  const asOfKeys = toDate ? allKeysChrono.filter(k => k.split('_')[0] <= toDate) : allKeysChrono;
+  const latestKey = asOfKeys[asOfKeys.length - 1];
+  const grandEl  = document.getElementById('sl-grand-total');
+  const asOfEl   = document.getElementById('sl-total-asof');
+  if(latestKey) {
+    const cumulative = deltas.get(latestKey).cumulative;
+    if(grandEl) { grandEl.textContent = fmtVariance(cumulative); grandEl.className = varianceClass(cumulative); }
+    if(asOfEl)  asOfEl.textContent = `as of ${alKeyLabel(latestKey)}`;
+  } else {
+    if(grandEl) { grandEl.textContent = '—'; grandEl.className = ''; }
+    if(asOfEl)  asOfEl.textContent = 'no finalized records yet';
+  }
+
+  /* Filtered set for the row list / staff grouping below (date + staff) */
+  let keys = allKeysChrono.filter(k => {
     const rec = db.sheets[k];
-    if(!rec || rec.draft === true) return false;
     const dateStr = k.split('_')[0];
     if(fromDate && dateStr < fromDate) return false;
     if(toDate   && dateStr > toDate)   return false;
     if(staffFilter && (rec.responsibleStaff || '') !== staffFilter) return false;
     return true;
   });
-
-  keys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a)));
+  keys.sort((a, b) => sheetSortKey(b).localeCompare(sheetSortKey(a))); // newest first for display
 
   const countBadge = document.getElementById('sl-count-badge');
   if(countBadge) countBadge.textContent = `${keys.length} record${keys.length===1?'':'s'} matched`;
 
-  /* grand total over the FULL filtered set (not just the shown page) */
-  const grandTotal = keys.reduce((sum, k) => sum + signedVariance(db.sheets[k]), 0);
-  const grandEl = document.getElementById('sl-grand-total');
-  if(grandEl) {
-    grandEl.textContent = fmtVariance(grandTotal);
-    grandEl.className = varianceClass(grandTotal);
+  /* ── Card B: Staff Total — ONLY when a specific staff AND a full
+     from/to range are all chosen. Safe now because it sums DELTAS
+     (each shift's own standalone contribution), not cumulative
+     snapshots, so it's an honest total for exactly that person over
+     exactly that window rather than a double-counted guess. */
+  const staffCard = document.getElementById('sl-staff-total-card');
+  const staffHint = document.getElementById('sl-staff-total-hint');
+  const staffConditionsMet = !!(staffFilter && fromDate && toDate);
+  if(staffCard) staffCard.classList.toggle('hidden', !staffConditionsMet);
+  if(staffHint) staffHint.classList.toggle('hidden', staffConditionsMet);
+  if(staffConditionsMet) {
+    const subtotal = keys.reduce((s, k) => s + deltas.get(k).delta, 0);
+    const lbl = document.getElementById('sl-staff-total-label');
+    const val = document.getElementById('sl-staff-total');
+    if(lbl) lbl.textContent = `${staffFilter} — ${fromDate} to ${toDate}`;
+    if(val) { val.textContent = fmtVariance(subtotal); val.className = varianceClass(subtotal); }
   }
 
   const shownKeys = keys.slice(0, slShown);
@@ -1747,25 +1806,26 @@ export function renderStaffLedger() {
       groups.get(name).push(k);
     });
     /* order groups by |subtotal| descending — surfaces the biggest
-       variance exposure first, which is the whole point of this view */
+       variance exposure first, which is the whole point of this view.
+       Subtotal is a sum of DELTAS now, not raw cumulative finalDiff. */
     const ordered = Array.from(groups.entries()).sort((a, b) => {
-      const totA = a[1].reduce((s, k) => s + signedVariance(db.sheets[k]), 0);
-      const totB = b[1].reduce((s, k) => s + signedVariance(db.sheets[k]), 0);
+      const totA = a[1].reduce((s, k) => s + deltas.get(k).delta, 0);
+      const totB = b[1].reduce((s, k) => s + deltas.get(k).delta, 0);
       return Math.abs(totB) - Math.abs(totA);
     });
     box.innerHTML = ordered.map(([name, ks]) => {
-      const subtotal = ks.reduce((s, k) => s + signedVariance(db.sheets[k]), 0);
+      const subtotal = ks.reduce((s, k) => s + deltas.get(k).delta, 0);
       return `
         <div style="margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f1f5f9;border-radius:var(--radius-sm);margin-bottom:6px;">
             <span style="font-weight:700;font-size:0.85rem;">👤 ${escHtml(name)} <span style="font-weight:400;color:var(--muted);">(${ks.length} shift${ks.length===1?'':'s'})</span></span>
             <span class="${varianceClass(subtotal)}" style="font-weight:700;">${fmtVariance(subtotal)}</span>
           </div>
-          ${ks.map(k => slEntryRowHtml(k, db.sheets[k])).join('')}
+          ${ks.map(k => slEntryRowHtml(k, db.sheets[k], deltas.get(k).delta)).join('')}
         </div>`;
     }).join('');
   } else {
-    box.innerHTML = shownKeys.map(k => slEntryRowHtml(k, db.sheets[k])).join('');
+    box.innerHTML = shownKeys.map(k => slEntryRowHtml(k, db.sheets[k], deltas.get(k).delta)).join('');
   }
 
   if(moreBtn) moreBtn.classList.toggle('hidden', keys.length <= slShown);
