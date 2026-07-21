@@ -115,6 +115,9 @@
       <button class="sidebar-link" data-page="page-credit-ledger" onclick="goToCreditLedger()">
         <span class="sidebar-link-icon">📒</span><span>Credit Ledger</span>
       </button>
+      <button class="sidebar-link" data-page="page-staff-ledger" onclick="goToStaffLedger()">
+        <span class="sidebar-link-icon">🧾</span><span>Staff Ledger</span>
+      </button>
       <button class="sidebar-link" data-page="page-closing-book" onclick="goToClosingBook()">
         <span class="sidebar-link-icon">📖</span><span>Closing Book</span>
       </button>
@@ -143,6 +146,7 @@
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
         <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
+        <button class="btn btn-ghost" onclick="goToStaffLedger()" style="color:#0369a1;border-color:#7dd3fc;">🧾 Staff Ledger</button>
       </div>
 
       <!-- ── CLOUD SYNC CARD ── -->
@@ -481,6 +485,14 @@
       </div>
     </div>
 
+    <div id="responsible-staff-row" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f0fdfa;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <label for="sel-responsible-staff" style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);white-space:nowrap;">👤 Responsible Closing Person:</label>
+      <select id="sel-responsible-staff" onchange="onResponsibleStaffChange()" style="font-size:0.82rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
+        <option value="">— Select staff —</option>
+      </select>
+      <span id="responsible-staff-warn" class="hidden" style="font-size:0.72rem;color:var(--red);white-space:nowrap;">Required before saving</span>
+    </div>
+
     <div id="pdf-status" style="display:none;text-align:center;font-size:0.8rem;color:var(--muted);padding:4px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);"></div>
 
     <!-- ══ JUMP NAV ══ -->
@@ -784,6 +796,18 @@
         <button class="cl-mode-tab active" id="cl-mode-tab-credit" onclick="clSwitchMode('credit')">💳 Credit</button>
         <button class="cl-mode-tab" id="cl-mode-tab-misc" onclick="clSwitchMode('misc')">🧮 Misc / Ongoing</button>
       </div>
+      <div id="bt-qa-panel" style="background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="font-weight:700;font-size:0.82rem;white-space:nowrap;">⚡ Quick Add to BT Sale</div>
+          <select id="bt-qa-section" onchange="btQaSectionChange()" style="max-width:220px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);">
+            <option value="jazzcash">📒 Jazz Cash</option>
+            <option value="staffCredit">👥 Staff Credit</option>
+            <option value="expense">🧾 Expenses / Patty</option>
+          </select>
+        </div>
+        <div id="bt-qa-fields"></div>
+        <div id="bt-qa-status" style="font-size:0.72rem;margin-top:6px;"></div>
+      </div>
       <div id="cl-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Filter account:</label>
         <select id="cl-filter-select" onchange="renderCreditLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
@@ -970,6 +994,50 @@
   </div>
   <!-- /PAGE 6 -->
 
+  <!-- ══ PAGE 7 — STAFF LEDGER ══ -->
+  <div id="page-staff-ledger" class="view-pane hidden">
+    <div class="page-body">
+      <div class="btn-row back-row" style="margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="goToDashboard()">← Dashboard</button>
+      </div>
+      <div class="cl-toolbar">
+        <div>
+          <div class="cl-toolbar-title">🧾 Staff Ledger</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Closing record accountability &amp; variance, by responsible staff</div>
+        </div>
+      </div>
+
+      <div class="cl-mode-tabs" id="sl-mode-tabs">
+        <button class="cl-mode-tab active" id="sl-mode-tab-date" onclick="slSwitchGrouping('date')">📅 By Date</button>
+        <button class="cl-mode-tab" id="sl-mode-tab-staff" onclick="slSwitchGrouping('staff')">👤 By Staff</button>
+      </div>
+
+      <div id="sl-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">From</label>
+        <input type="date" id="sl-filter-from" onchange="renderStaffLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">To</label>
+        <input type="date" id="sl-filter-to" onchange="renderStaffLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <select id="sl-filter-staff" onchange="renderStaffLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:120px;">
+          <option value="">All Staff</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="slClearFilters()">Clear</button>
+      </div>
+
+      <div id="sl-count-badge" style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;"></div>
+
+      <div id="sl-total-card" class="card" style="padding:12px 14px;margin-bottom:12px;border-radius:var(--radius-md);background:#f8fafc;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:0.78rem;color:var(--muted);font-weight:600;">Overall Variance (filtered)</span>
+          <span id="sl-grand-total" style="font-size:1.05rem;font-weight:700;">Rs. 0</span>
+        </div>
+      </div>
+
+      <div id="sl-entries-container"></div>
+      <button class="cl-show-more hidden" id="sl-show-more-btn" onclick="slShowMore()">Show more records ▼</button>
+    </div>
+  </div>
+  <!-- /PAGE 7 -->
+
   </div><!-- /shell-main -->
 
 </div><!-- /shell -->
@@ -1049,7 +1117,15 @@
       <span>⚠️</span>
       <span id="summary-incomplete-text">Some sections haven't been opened yet. You can still save, but double-check them first.</span>
     </div>
+    <div id="summary-responsible-note" class="summary-incomplete-note hidden">
+      <span>⚠️</span>
+      <span>Please select the Responsible Closing Person before saving.</span>
+    </div>
     <div class="summary-body">
+      <div class="summary-stat" id="summary-stat-responsible">
+        <div class="summary-stat-label">Responsible Closing Person</div>
+        <div class="summary-stat-value" id="summary-value-responsible" style="font-size:1rem;">—</div>
+      </div>
       <div class="summary-stat" id="summary-stat-target">
         <div class="summary-stat-label" id="summary-label-target">Target Net Sales</div>
         <div class="summary-stat-value" id="summary-value-target">Rs. 0</div>
