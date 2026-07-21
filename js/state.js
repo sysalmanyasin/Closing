@@ -315,7 +315,13 @@ export function hasPermission(key) {
   if(session.currentActor === 'Admin') return true;
   if(!session.loggedInStaff) return null;
   const perms = (db.settings.permissions || {})[session.loggedInStaff.staffId];
-  if(!perms) return false;
+  /* No permissions row yet for this staff member — fall back to the legacy
+     PIN-prompt path (null) instead of hard-blocking (false). A row only
+     exists after an Admin has explicitly saved the Permissions grid for
+     that person. Until then, the old "enter a PIN" behaviour must apply
+     so nobody is locked out just because permissions haven't been
+     configured for them yet. */
+  if(!perms) return null;
   return !!perms[key];
 }
 
