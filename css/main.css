@@ -226,6 +226,29 @@
   }
   .del-row-btn:hover { color: var(--red); }
 
+  /* ── SOFT-DELETED ROW ──────────────────────────────────────
+     A "removed" row (HS / Misc / Aux Credit / Deposit / Aux Strip)
+     stays in the DOM instead of vanishing — struck through, dimmed,
+     read-only — so it's recoverable via Undo and still visible in
+     this shift's own record. It's excluded from totals and from
+     carrying forward into the next shift (see calc()/
+     buildSheetRecord()/pullPreviousShift() in actions.js). */
+  .row.row-deleted {
+    background: var(--red-pale);
+    border-radius: var(--radius-sm);
+  }
+  .row.row-deleted input {
+    text-decoration: line-through;
+    color: #b91c1c;
+    opacity: 0.75;
+    background: transparent;
+  }
+  .row.row-deleted .del-row-btn {
+    color: var(--teal-dark);
+    font-size: 0.95rem;
+  }
+  .row.row-deleted .del-row-btn:hover { color: var(--teal); }
+
   /* add row button strip */
   .add-row-btn-wrap {
     padding: 8px 16px;
@@ -1063,6 +1086,11 @@
     padding: 12px; font-size: 0.8rem; color: var(--muted); text-align: center;
   }
   .pss-empty-row span:last-child { font-weight: 400; color: var(--muted); }
+  .pss-row.pss-row-deleted {
+    background: var(--red-pale);
+  }
+  .pss-row.pss-row-deleted span { text-decoration: line-through; color: #b91c1c; opacity: 0.8; }
+  .pss-row.pss-row-deleted em { font-style: normal; text-decoration: none; font-size: 0.7rem; color: var(--muted); }
 
   /* ═══════════════════════════════════════════════════════════
      VIEW ALL  (read-only glance overlay — never editable, never
@@ -1140,6 +1168,13 @@
   .summary-stat.sv-warn .summary-stat-label, .summary-stat.sv-warn .summary-stat-value { color: #b45309; }
   .summary-stat.sv-bad   { background: var(--red-pale); border: 1px solid #fecaca; }
   .summary-stat.sv-bad .summary-stat-label, .summary-stat.sv-bad .summary-stat-value { color: var(--red); }
+
+  /* Small inline variance chips — Saved Records list + Staff Ledger.
+     Deliberately separate from .sv-* above (those are scoped to the
+     larger .summary-stat card, not a bare inline span). */
+  .var-chip-ok   { color: var(--green); }
+  .var-chip-warn { color: #b45309; }
+  .var-chip-bad  { color: var(--red); }
   .summary-warn-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 0.7rem; }
   .summary-footer { padding: 12px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
   .summary-footer .btn-full { width: 100%; }
