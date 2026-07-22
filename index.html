@@ -827,18 +827,6 @@
         <button class="cl-mode-tab active" id="cl-mode-tab-credit" onclick="clSwitchMode('credit')">💳 Credit</button>
         <button class="cl-mode-tab" id="cl-mode-tab-misc" onclick="clSwitchMode('misc')">🧮 Misc / Ongoing</button>
       </div>
-      <div id="bt-qa-panel" style="background:var(--surface,#fff);border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-          <div style="font-weight:700;font-size:0.82rem;white-space:nowrap;">⚡ Quick Add to BT Sale</div>
-          <select id="bt-qa-section" onchange="btQaSectionChange()" style="max-width:220px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);">
-            <option value="jazzcash">📒 Jazz Cash</option>
-            <option value="staffCredit">👥 Staff Credit</option>
-            <option value="expense">🧾 Expenses / Patty</option>
-          </select>
-        </div>
-        <div id="bt-qa-fields"></div>
-        <div id="bt-qa-status" style="font-size:0.72rem;margin-top:6px;"></div>
-      </div>
       <div id="cl-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Filter account:</label>
         <select id="cl-filter-select" onchange="renderCreditLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
