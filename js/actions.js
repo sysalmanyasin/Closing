@@ -799,17 +799,30 @@ export function calc() {
     set('out-final-net-cash',      finalNetCash);
 
     /* ─── VARIANCE ───────────────────────────────────────── */
-    const finalDiff = finalNetCash;
+    /* Mode-aware: a plain Shift Closing must reconcile against THIS
+       shift's own numbers (netCash vs netSale). Only a Final Closing
+       reconciles against the PERIOD-AGGREGATED figures (finalNetCash
+       vs finalNetSale) — that's the whole point of a Final: it rolls
+       up every shift since the last one into a single audited total.
+       Using finalNetCash/finalNetSale here unconditionally (regardless
+       of session.activeMode) was the bug: every ordinary Shift Closing
+       ended up saving — and displaying — the period-wide variance
+       instead of its own, which then propagated into the Staff Ledger's
+       per-shift variance feature and made individual shifts look off
+       by the whole period's drift rather than their own. */
+    const isFinal   = session.activeMode === 'final';
+    const finalDiff = isFinal ? finalNetCash : netCash - netSale;
     const fdEl  = document.getElementById('out-final-diff');
     const fdLbl = document.getElementById('out-final-diff-label');
+    const fdSuffix = isFinal ? ' (Final Audit):' : ':';
     if(finalDiff === 0) {
-      fdLbl.textContent = 'Variance (Final Audit):';
+      fdLbl.textContent = 'Variance' + fdSuffix;
       fdEl.value = 0;
     } else if(finalDiff > 0) {
-      fdLbl.textContent = 'Plus (Final Audit):';
+      fdLbl.textContent = 'Plus' + fdSuffix;
       fdEl.value = finalDiff;
     } else {
-      fdLbl.textContent = 'Less (Final Audit):';
+      fdLbl.textContent = 'Less' + fdSuffix;
       fdEl.value = Math.abs(finalDiff);
     }
 
@@ -819,21 +832,21 @@ export function calc() {
     set('out-final-prev-sale',    0);
 
     /* ── Keep the on-screen banner (Audit tab + View-all popup) in
-       lock-step with what actually gets SAVED as finalDiff below.
-       BUG THIS REPLACES: this block used to reset bannerTarget/
-       bannerCash back to the plain single-shift netSale/netCash
-       figures. Meanwhile finalDiff (a few lines down) is always the
-       PERIOD-AGGREGATED finalNetCash — a different number the
-       moment more than one shift sits in the current since-last-
-       Final window, or a same-day Final's own sale folds into the
-       target. Staff were reconciling against the banner's number,
-       but the Staff Ledger and every saved report showed finalDiff
-       — a different figure for the very same shift. Deriving the
-       banner from the exact same finalNetSale/finalNetCash this
-       block already computed makes them identical by construction,
-       in every mode, so there is nothing left to drift out of sync. */
-    bannerTarget = finalNetSale;
-    bannerCash   = finalNetCash + finalNetSale; /* cash available BEFORE the target is netted out of it — see finalDiff below */
+       lock-step with what actually gets SAVED as finalDiff above, for
+       whichever mode is active. In Shift mode both banner and saved
+       finalDiff now reflect THIS shift only (netSale/netCash); in
+       Final mode both reflect the period-aggregated finalNetSale/
+       finalNetCash. This keeps the banner and the saved record
+       identical by construction in every mode, without collapsing
+       every shift's own variance into the period total. */
+    if(isFinal) {
+      bannerTarget = finalNetSale;
+      bannerCash   = finalNetCash + finalNetSale; /* cash available BEFORE the target is netted out of it — see finalDiff above */
+    }
+    /* else: leave bannerTarget/bannerCash as the shift-only netSale/netCash
+       already assigned above (line ~735) — netCash is already "net of
+       target" the same way finalNetCash is, so no extra offset is needed
+       here for diff (= bannerCash - bannerTarget) to equal netCash - netSale. */
   }
 
   const diff = bannerCash - bannerTarget; /* positive = surplus cash (Plus), negative = shortage (Less) — identical to finalDiff */
