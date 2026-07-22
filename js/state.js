@@ -128,15 +128,6 @@ function applySettingsDefaults(dbObj) {
   if(!Array.isArray(dbObj.settings.namedCredits)) dbObj.settings.namedCredits = [
     {label:"Corporate Account"}, {label:"Wholesale Ledger"}, {label:"Third Party Tab"}
   ];
-  /* BT Sale Data bridge: each named account can optionally forward its
-     entries into BT's shared JazzCash or Expense ledger. Defaults keep
-     every existing account exactly as before (syncTarget:'none') until
-     someone deliberately turns one on in Settings. */
-  dbObj.settings.namedCredits.forEach(nc => {
-    if(!nc.syncTarget) nc.syncTarget = 'none'; /* 'none' | 'jazzcash' | 'expense' */
-    if(!nc.expenseCategory) nc.expenseCategory = 'bill';
-    if(!nc.jazzcashCategory) nc.jazzcashCategory = 'credit'; /* 'credit'|'debit'|'withdrawal'|'commission'|'transfer' */
-  });
   if(!Array.isArray(dbObj.settings.subTiers)) dbObj.settings.subTiers = [
     {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
     {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
@@ -295,12 +286,21 @@ export function isPinTaken(pin, excludeStaffIdx = -1) {
    already documents.
 
    hasPermission() returns:
-     true  — Admin, or this logged-in staff member has the flag set
-     false — logged in, but the flag is off (or no row exists yet)
-     null  — nobody is logged in via BT phone+PIN auth at all;
-             callers should fall back to the legacy checkPin()
-             prompt so an install that never set up phone+PIN login
-             doesn't lose access to something it already had. */
+     true  — Admin, or this logged-in staff member has the flag set.
+             Still has to type a PIN and have it verified — see
+             gatePermission() below. This means "allowed to try," not
+             "let straight through."
+     false — logged in, AND an Admin has explicitly saved a
+             permissions row for this person, AND this specific flag
+             is off in it. gatePermission() hard-blocks on this with
+             no PIN prompt at all — there's nothing to type your way
+             past.
+     null  — either nobody is logged in via BT phone+PIN auth, OR
+             they are logged in but no Admin has configured a
+             permissions row for them yet at all. Treated the same as
+             true by gatePermission() — a PIN prompt still applies,
+             so an Admin (or anyone else with a valid PIN) can get in
+             even before anyone's set up the Permissions grid. */
 export const PERMISSION_KEYS = [
   { key: 'closing',      label: 'Save / close shifts' },
   { key: 'edit',         label: 'Edit a saved (locked) closing' },
@@ -315,27 +315,25 @@ export function hasPermission(key) {
   if(session.currentActor === 'Admin') return true;
   if(!session.loggedInStaff) return null;
   const perms = (db.settings.permissions || {})[session.loggedInStaff.staffId];
-  /* No permissions row yet for this staff member — fall back to the legacy
-     PIN-prompt path (null) instead of hard-blocking (false). A row only
-     exists after an Admin has explicitly saved the Permissions grid for
-     that person. Until then, the old "enter a PIN" behaviour must apply
-     so nobody is locked out just because permissions haven't been
-     configured for them yet. */
-  if(!perms) return null;
+  if(!perms) return null; /* nobody's configured this person yet — don't lock them out, fall back to the PIN prompt (see gatePermission below) */
   return !!perms[key];
 }
 
-/* Shared gate for every permission-checked action in the app. Tries
-   the new permission system first; only falls back to the legacy
-   "type a PIN" prompt when nobody is logged in via BT phone+PIN
-   auth yet (hasPermission() returning null), so an install that
-   hasn't set up phone+PIN login keeps working exactly as before.
-   `viaAdminOnly` swaps the fallback to checkAdminPin() (used for
-   Settings, which used to be Admin-only) instead of checkPin(). */
+/* Shared gate for every permission-checked action in the app.
+   - Explicitly DENIED (hasPermission() === false — an Admin saved a
+     permissions row for this person and left this box unchecked)
+     hard-blocks right here: no prompt at all, just the "you don't
+     have permission" message. There's no PIN to try, so there's
+     nothing to sneak in with.
+   - Everyone else — granted (true), or not configured/not signed in
+     (null) — still has to type a PIN and have it verified before
+     the action proceeds. A granted permission means you're ALLOWED
+     to be asked, not that the ask is skipped; it's a confirmation
+     step every time, same as it always was. `viaAdminOnly` swaps the
+     fallback to checkAdminPin() (used for Settings, which used to be
+     Admin-only) instead of checkPin(). */
 export function gatePermission(key, promptText, viaAdminOnly = false) {
-  const has = hasPermission(key);
-  if(has === true) return true;
-  if(has === false) {
+  if(hasPermission(key) === false) {
     alert("You don't have permission for that. Ask an Admin to grant it in Settings → Permissions.");
     return false;
   }

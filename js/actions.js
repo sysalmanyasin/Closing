@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
-import { btBridgeSyncRecord, fetchStaff } from './bt-bridge.js';
+import { fetchStaff } from './bt-bridge.js';
 import { daySlots, db, escHtml, gatePermission, genRowId, hasPermission, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
@@ -1071,7 +1071,6 @@ export function saveSheet(silent=false) {
   db.sheets[session.activeKey] = record;
   clSaveSnapshot(session.activeKey, record);  /* ← credit ledger snapshot */
   alCommit(session.activeMode === 'final' ? 'save-final' : 'save', session.activeKey, record);
-  btBridgeSyncRecord(session.activeKey, record).catch(e => console.warn('[BT Bridge] push failed:', e));
   persist();
   session.isSavedSheet = true;
   if(!silent) {
@@ -1486,20 +1485,9 @@ export function settingsSetStaffPin(i, pin) {
   return true;
 }
 
-export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account", syncTarget:'none', expenseCategory:'bill', jazzcashCategory:'credit'}); persist(); }
+export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); persist(); }
 export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); persist(); }
 export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) { db.settings.namedCredits[i].label = v; persist(); } }
-/* field is 'syncTarget' ('none'|'jazzcash'|'expense'), 'expenseCategory', or 'jazzcashCategory'
-   (BT's expense category id). This drives real money movement into BT's
-   JazzCash/Expense ledger (see js/bt-bridge.js), so — unlike the other
-   staged Settings fields committed only by the Save Settings button —
-   it persists (and pushes to cloud) the instant it's changed. Leaving
-   it unsaved in memory only meant a reload, or any background realtime
-   pull landing first, silently reverted the account back to "Don't
-   sync to BT" with no warning. */
-export function settingsSetNamedCreditSync(i, field, v) {
-  if(db.settings.namedCredits[i]) { db.settings.namedCredits[i][field] = v; persist(); }
-}
 
 export function settingsAddStrip() {
   db.settings.strips.push({name:"New Item",price:0,group:""});
@@ -1535,20 +1523,11 @@ export function settingsRemoveStripGroup(i) {
 /* Commits the staged fields (finalEveryN, named-credit labels,
    sub-tiers) that pages.js's Save Settings button reads from the
    DOM, then persists once. */
-export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData, namedCreditSyncData) {
+export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) {
   db.settings.finalEveryN = finalEveryN;
   namedCreditLabels.forEach((label, i) => {
     if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = label;
   });
-  if(Array.isArray(namedCreditSyncData)) {
-    namedCreditSyncData.forEach((sync, i) => {
-      if(db.settings.namedCredits[i] && sync) {
-        db.settings.namedCredits[i].syncTarget       = sync.syncTarget || 'none';
-        db.settings.namedCredits[i].expenseCategory  = sync.expenseCategory || 'bill';
-        db.settings.namedCredits[i].jazzcashCategory = sync.jazzcashCategory || 'credit';
-      }
-    });
-  }
   subTiersData.forEach((t, i) => { db.settings.subTiers[i] = t; });
   persist();
 }

@@ -22,7 +22,7 @@ import {
 } from './ledger-engine.js';
 import { isRealSheet, timelineStep } from './components.js';
 import { initClosingBookDefaults } from './closing-book.js';
-import { BT_BUILTIN_CATEGORIES, btBridgeQuickAdd, fetchCustomLedgerTypes, fetchStaff } from './bt-bridge.js';
+import { fetchStaff } from './bt-bridge.js';
 
 export function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
@@ -198,7 +198,6 @@ export function goToCreditLedger() {
   showPage('page-credit-ledger');
   clBackfillSnapshots();
   clSwitchMode('credit');
-  btQaInit();
 }
 export function goToActivityLog() {
   if(!gatePermission('activityLog', 'Enter PIN to view the Activity Log:', true)) return;
@@ -521,132 +520,6 @@ export function clExportTxt() {
   a.download = `credit-ledger_${fromDate||'start'}_to_${toDate||'end'}.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-
-/* ═══════════════════════════════════════════
-   BT QUICK ADD — lives on the Credit Ledger page. An ad-hoc,
-   one-off entry point into BT Sale Data's Jazz Cash / Staff Credit /
-   Expense-Patty ledgers (and any of BT's live "Other Sections"),
-   independent of the shift-save cycle that btBridgeSyncRecord()
-   already handles for named-credit accounts. Writes straight into
-   BT's inbox tables via btBridgeQuickAdd() (bt-bridge.js) — same
-   trusted Postgres triggers already folding real shift data in today.
-   Deliberately built from real, already-fetched data (BT's live staff
-   roster + live custom section list) rather than any hardcoded guess
-   at what currently exists on BT's side, except for the two built-in
-   category lists (Jazz Cash / Expense), which are code-defined on
-   BT's side and rarely change — see BT_BUILTIN_CATEGORIES's own
-   comment in bt-bridge.js for that tradeoff.
-═══════════════════════════════════════════ */
-const btQaState = { staff: [], customTypes: [], loaded: false };
-
-function btQaToday() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-export async function btQaInit() {
-  const sel = document.getElementById('bt-qa-section');
-  if(!sel) return;
-  const status = document.getElementById('bt-qa-status');
-  if(status) status.textContent = 'Loading BT Sale sections…';
-
-  const [staff, customTypes] = await Promise.all([fetchStaff(), fetchCustomLedgerTypes()]);
-  btQaState.staff = staff || [];
-  btQaState.customTypes = customTypes || [];
-  btQaState.loaded = true;
-
-  /* Rebuild the section dropdown: 3 built-ins + BT's live custom
-     "Other Sections", each addressed by its real ledger_type string
-     (e.g. 'custom:pharmacy') so a Quick Add row folds into exactly
-     the BT section it looks like it's going to, not a guess. */
-  const current = sel.value || 'jazzcash';
-  sel.innerHTML = `
-    <option value="jazzcash">📒 Jazz Cash</option>
-    <option value="staffCredit">👥 Staff Credit</option>
-    <option value="expense">🧾 Expenses / Patty</option>
-    ${btQaState.customTypes.map(t => `<option value="${escHtml(t.ledgerType)}">🗂 ${escHtml(t.label)}</option>`).join('')}
-  `;
-  sel.value = Array.from(sel.options).some(o => o.value === current) ? current : 'jazzcash';
-
-  if(status) status.textContent = '';
-  btQaSectionChange();
-}
-
-export function btQaSectionChange() {
-  const section = document.getElementById('bt-qa-section')?.value;
-  const wrap = document.getElementById('bt-qa-fields');
-  if(!wrap) return;
-  const status = document.getElementById('bt-qa-status');
-  if(status) status.textContent = '';
-
-  if(section === 'staffCredit') {
-    const opts = btQaState.staff.filter(s => s.active).map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`);
-    wrap.innerHTML = `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <select id="bt-qa-staff" style="width:170px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-          ${opts.length ? opts.join('') : '<option value="">No staff found</option>'}
-        </select>
-        <input type="date" id="bt-qa-date" value="${btQaToday()}" style="width:145px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-        <input type="text" id="bt-qa-desc" placeholder="Description" style="width:150px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-        <input type="number" id="bt-qa-amount" placeholder="Amount (−ve = deduction)" style="width:150px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-        <button type="button" class="btn btn-teal btn-sm" onclick="btQaSubmit()">+ Add</button>
-      </div>`;
-    return;
-  }
-
-  /* jazzcash / expense / a custom:<id> type — all use the same
-     date/category/amount/desc shape; only jazzcash shows a shift
-     picker (matches BT's own ledgerUsesShift() — only jazzcash opts in). */
-  const cats = BT_BUILTIN_CATEGORIES[section]
-    || btQaState.customTypes.find(t => t.ledgerType === section)?.categories
-    || [];
-  const showShift = section === 'jazzcash';
-  wrap.innerHTML = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <input type="date" id="bt-qa-date" value="${btQaToday()}" style="width:145px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-      ${showShift ? `<select id="bt-qa-shift" style="width:105px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-        ${['Morning','Evening','Night','Both','Off'].map(s => `<option>${s}</option>`).join('')}
-      </select>` : ''}
-      <select id="bt-qa-cat" style="width:160px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-        ${cats.length ? cats.map(c => `<option value="${escHtml(c.id)}">${c.icon ? c.icon+' ' : ''}${escHtml(c.label)}</option>`).join('') : '<option value="">No categories</option>'}
-      </select>
-      <input type="number" id="bt-qa-amount" placeholder="Amount" min="0" step="0.01" style="width:110px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-      <input type="text" id="bt-qa-desc" placeholder="Description" style="width:150px;font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
-      <button type="button" class="btn btn-teal btn-sm" onclick="btQaSubmit()">+ Add</button>
-    </div>`;
-}
-
-export async function btQaSubmit() {
-  const section = document.getElementById('bt-qa-section')?.value;
-  const status  = document.getElementById('bt-qa-status');
-  const date    = document.getElementById('bt-qa-date')?.value;
-  const amount  = document.getElementById('bt-qa-amount')?.value;
-  const desc    = document.getElementById('bt-qa-desc')?.value;
-
-  const input = { section, date, amount, desc };
-  if(section === 'staffCredit') {
-    input.staffId = document.getElementById('bt-qa-staff')?.value;
-  } else {
-    input.categoryId = document.getElementById('bt-qa-cat')?.value;
-    input.shift = document.getElementById('bt-qa-shift')?.value;
-  }
-
-  if(status) { status.textContent = 'Adding…'; status.style.color = 'var(--muted)'; }
-  const result = await btBridgeQuickAdd(input);
-  if(!status) return;
-
-  if(result.ok) {
-    status.textContent = '✓ Added to BT Sale';
-    status.style.color = 'var(--green)';
-    const amtEl = document.getElementById('bt-qa-amount');
-    const descEl = document.getElementById('bt-qa-desc');
-    if(amtEl) amtEl.value = '';
-    if(descEl) descEl.value = '';
-  } else {
-    status.textContent = '⚠ ' + result.error;
-    status.style.color = 'var(--red)';
-  }
 }
 
 /* ═══════════════════════════════════════════
@@ -1390,35 +1263,11 @@ export function buildSettingsUI() {
 export function renderSettingsNamedCredits() {
   const box = document.getElementById('settings-named-credits');
   box.innerHTML = "";
-  const EXPENSE_CATS = [
-    ['bill','Bill Amount'], ['fuel','Fuel/HO'], ['soap','Soap/Tissue'],
-    ['refresh','Refreshment'], ['extra','Extra'], ['guardIncentive','Guard Incentive'],
-    ['pattyHO','Patty H/O (received)']
-  ];
-  const JAZZCASH_CATS = [
-    ['credit','Received (+)'], ['debit','Patty Incentive (−)'],
-    ['withdrawal','Generic Incentive (−)'], ['commission','Strips / Adjustments (−)'],
-    ['transfer','Transfer (−)']
-  ];
   db.settings.namedCredits.forEach((nc, idx) => {
     const div = document.createElement('div');
     div.className = "settings-item";
-    const target = nc.syncTarget || 'none';
     div.innerHTML = `
       <input type="text" value="${escHtml(nc.label)}" placeholder="Account name" onchange="settingsSetNamedCreditLabel(${idx}, this.value)">
-      <select onchange="settingsSetNamedCreditSync(${idx}, 'syncTarget', this.value); renderSettingsNamedCredits();" style="margin-left:6px;">
-        <option value="none" ${target==='none'?'selected':''}>Don't sync to BT</option>
-        <option value="jazzcash" ${target==='jazzcash'?'selected':''}>→ BT JazzCash</option>
-        <option value="expense" ${target==='expense'?'selected':''}>→ BT Expense</option>
-      </select>
-      ${target==='expense' ? `
-      <select onchange="settingsSetNamedCreditSync(${idx}, 'expenseCategory', this.value)" style="margin-left:6px;">
-        ${EXPENSE_CATS.map(([id,label]) => `<option value="${id}" ${nc.expenseCategory===id?'selected':''}>${label}</option>`).join('')}
-      </select>` : ''}
-      ${target==='jazzcash' ? `
-      <select onchange="settingsSetNamedCreditSync(${idx}, 'jazzcashCategory', this.value)" style="margin-left:6px;">
-        ${JAZZCASH_CATS.map(([id,label]) => `<option value="${id}" ${nc.jazzcashCategory===id?'selected':''}>${label}</option>`).join('')}
-      </select>` : ''}
       <button class="btn btn-red btn-sm" onclick="removeNamedCredit(${idx})" aria-label="Remove account">✕</button>`;
     box.appendChild(div);
   });
@@ -1612,12 +1461,6 @@ export function saveSettings() {
     return el ? el.value : nc.label;
   });
 
-  const namedCreditSyncData = db.settings.namedCredits.map(nc => ({
-    syncTarget: nc.syncTarget || 'none',
-    expenseCategory: nc.expenseCategory || 'bill',
-    jazzcashCategory: nc.jazzcashCategory || 'credit'
-  }));
-
   const subTiersData = [];
   for(let i=1;i<=3;i++) {
     const ttype  = document.getElementById(`cfg-tier-type-${i}`)?.value || '';
@@ -1628,7 +1471,7 @@ export function saveSettings() {
     });
   }
 
-  settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData, namedCreditSyncData);
+  settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData);
   alert("Settings saved.");
   goToDashboard();
 
