@@ -88,7 +88,7 @@
   <span id="sync-tb-text">Checking…</span>
 </div>
 
-<div id="whoami-bar" class="hidden" onclick="goToSettings()" title="Tap to open Settings / Log Out"
+<div id="whoami-bar" class="hidden" onclick="goToSettings()" title="Tap to open Settings"
   style="display:flex;align-items:center;gap:6px;padding:5px 12px;font-size:0.72rem;color:#475569;background:#f1f5f9;cursor:pointer;">
   <span>👤</span><span>Signed in as <strong id="whoami-name">—</strong></span>
 </div>
@@ -147,7 +147,9 @@
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
         <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
         <button class="btn btn-ghost" onclick="goToStaffLedger()" style="color:#0369a1;border-color:#7dd3fc;">🧾 Staff Ledger</button>
+        <button class="btn btn-ghost" onclick="confirmLogout()" style="color:#dc2626;border-color:#fca5a5;">🚪 Log Out</button>
       </div>
+
 
       <!-- ── CLOUD SYNC CARD ── -->
       <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0f2744 0%,#0d3d2e 100%);border-radius:var(--radius-lg);overflow:hidden;">
@@ -469,7 +471,6 @@
       </div>
 
       <button class="btn btn-green btn-full" onclick="saveSettings()">💾 Save Settings</button>
-      <button class="btn btn-ghost btn-full" style="margin-top:10px;color:#dc2626;" onclick="confirmLogout()">🚪 Log Out</button>
     </div>
   </div>
   <!-- /PAGE 2 -->
