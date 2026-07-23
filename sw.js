@@ -1,7 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.5
+   Pharma Plus Closing App — Service Worker  v5.7
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.7 — js/components.js: openEditModal() no longer skips the PIN
+   prompt for staff with edit permission granted; permission now only
+   gates whether they're allowed to try, PIN is always required.
+   Version bump below so cached devices actually pick this up.
 
    v5.2 — Added js/auth.js and js/bt-bridge.js to APP_SHELL. Both are
    real ES modules app.js has imported for a while now (phone+PIN
