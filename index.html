@@ -89,8 +89,10 @@
 </div>
 
 <div id="whoami-bar" class="hidden" onclick="goToSettings()" title="Tap to open Settings"
-  style="display:flex;align-items:center;gap:6px;padding:5px 12px;font-size:0.72rem;color:#475569;background:#f1f5f9;cursor:pointer;">
-  <span>👤</span><span>Signed in as <strong id="whoami-name">—</strong></span>
+  style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 12px;font-size:0.72rem;color:#475569;background:#f1f5f9;cursor:pointer;">
+  <span style="display:flex;align-items:center;gap:6px;"><span>👤</span><span>Signed in as <strong id="whoami-name">—</strong></span></span>
+  <button onclick="event.stopPropagation();confirmLogout()" title="Log Out"
+    style="border:1px solid #fca5a5;color:#dc2626;background:#fff;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;">🚪 Log Out</button>
 </div>
 
 <div class="shell">
@@ -147,7 +149,6 @@
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
         <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#7c3aed;border-color:#c4b5fd;">📖 Closing Book</button>
         <button class="btn btn-ghost" onclick="goToStaffLedger()" style="color:#0369a1;border-color:#7dd3fc;">🧾 Staff Ledger</button>
-        <button class="btn btn-ghost" onclick="confirmLogout()" style="color:#dc2626;border-color:#fca5a5;">🚪 Log Out</button>
       </div>
 
 
