@@ -1152,13 +1152,11 @@ document.addEventListener('keydown', (e) => {
 
 export function openEditModal(key) {
   key = key || session.activeKey;
-  /* Already-logged-in staff with edit permission granted skip the
-     PIN re-entry step entirely — see hasPermission() in state.js.
-     Explicitly denied (false) blocks here with no modal at all;
-     only the "nobody logged in yet" case (null) falls back to the
-     legacy PIN-prompt modal below. */
+  /* Permission only gates *whether* someone may edit at all — it no
+     longer skips the PIN step. Explicitly denied (false) blocks here
+     with no modal; granted (true) or not-yet-decided (null) both
+     fall through to the PIN-prompt modal below. */
   const perm = hasPermission('edit');
-  if(perm === true) { openEditModalDirect(key); return; }
   if(perm === false) { alert("You don't have permission to edit closings. Ask an Admin to grant it in Settings → Permissions."); return; }
 
   compState.editModalKey = key;
