@@ -5,7 +5,7 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-import { SHIFTS, db, escHtml, gatePermission, getSeq, PERMISSION_KEYS, srLabel, session } from './state.js';
+import { SHIFTS, db, escHtml, confirmFinalClosingAccess, gatePermission, getSeq, PERMISSION_KEYS, srLabel, session } from './state.js';
 import {
   aggregateSinceLastFinal, initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
   settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
@@ -975,8 +975,19 @@ export function openSheetFromPicker() {
   const ds    = document.getElementById('lbl-picker-date').dataset.date;
   const panel = document.getElementById('shift-picker');
   const shift = panel.dataset.shift;
-  session.activeMode  = panel.dataset.mode || 'shift';
+  const wantMode = panel.dataset.mode || 'shift';
   if(!shift) return;
+
+  /* Final Closing is Admin-only — see confirmFinalClosingAccess() in
+     state.js. Regular staff can only open a Shift closing; failing
+     (or cancelling) the gate here resets the picker back to Shift
+     and stops, rather than silently downgrading and opening anyway. */
+  if(wantMode === 'final' && !confirmFinalClosingAccess()) {
+    setPickerMode('shift');
+    panel.dataset.mode = 'shift';
+    return;
+  }
+  session.activeMode = wantMode;
   const key   = `${ds}_${shift}`;
 
   /* ── FORWARD-OPEN GUARD ──────────────────────────────────────────

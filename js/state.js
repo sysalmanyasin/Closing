@@ -344,6 +344,27 @@ export function gatePermission(key, promptText, viaAdminOnly = false) {
 }
 
 /* ═══════════════════════════════════════════
+   FINAL CLOSING ACCESS GATE — opening a Final closing (fresh, via
+   the shift picker's Shift/Final toggle, or by switching a saved
+   record's mode in the Edit modal) is Admin-only, with TWO separate
+   confirmations: the Admin PIN itself (Master PIN or the
+   configurable Admin PIN — checkAdminPin(), never a regular staff
+   PIN, unlike checkPin()'s "any staff signs" gate used elsewhere),
+   AND a second explicit popup confirming the choice, so a stray tap
+   or a hastily-typed PIN can't silently open one. Callers just need
+   to bail out on a false return — this shows its own alerts, no
+   extra messaging needed on failure. */
+export function confirmFinalClosingAccess() {
+  const pin = prompt('Admin PIN required to open a Final Closing:');
+  if(pin === null) return false; /* user cancelled the prompt */
+  if(!checkAdminPin(pin)) {
+    alert("Incorrect Admin PIN — only an Admin can open a Final Closing.");
+    return false;
+  }
+  return confirm('Confirm: open this as a FINAL Closing?\n\nThis rolls up and audits every shift since the last Final. Press Cancel to open it as a regular Shift Closing instead.');
+}
+
+/* ═══════════════════════════════════════════
    SESSION — "what am I looking at right now"
    A single object so every module can set its fields directly
    (session.activeKey = x) without needing a setter function per

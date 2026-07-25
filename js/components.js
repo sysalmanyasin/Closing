@@ -4,7 +4,7 @@
    print sheet, PDF/WhatsApp export, edit modal, more menu.
 ═══════════════════════════════════════════════════════════════ */
 
-import { DENOMS, checkPin, daySlots, db, escHtml, genRowId, hasPermission, srLabel, session } from './state.js';
+import { DENOMS, checkAdminPin, checkPin, daySlots, db, escHtml, genRowId, hasPermission, srLabel, session } from './state.js';
 import { alLog } from './activity-log.js';
 import {
   calc, flushInputs, initLedger, populateNameDropdown,
@@ -1209,14 +1209,29 @@ export function getEditModalMode() {
 export function confirmEditModal() {
   const pin = document.getElementById('edit-modal-pin').value;
   const errEl = document.getElementById('edit-modal-err');
-  if(!checkPin(pin)) {
-    errEl.textContent = 'Incorrect PIN — try again.';
+  const newMode = getEditModalMode();
+
+  /* Switching TO Final here is the same Admin-only action as opening
+     a fresh one from the shift picker — see confirmFinalClosingAccess()
+     in state.js. This reuses the modal's own PIN field (no need for a
+     second prompt) but the PIN itself must be checkAdminPin(), not the
+     looser checkPin() any staff member's PIN passes, plus the same
+     second popup confirmation. Switching to/staying on Shift keeps the
+     original any-staff-PIN behavior untouched. */
+  const pinOk = newMode === 'final' ? checkAdminPin(pin) : checkPin(pin);
+  if(!pinOk) {
+    errEl.textContent = newMode === 'final'
+      ? "Incorrect Admin PIN — only an Admin can open a Final Closing."
+      : 'Incorrect PIN — try again.';
     document.getElementById('edit-modal-pin').value = '';
     document.getElementById('edit-modal-pin').focus();
     return;
   }
+  if(newMode === 'final' && !confirm('Confirm: open this as a FINAL Closing?\n\nThis rolls up and audits every shift since the last Final. Press Cancel to open it as a regular Shift Closing instead.')) {
+    return;
+  }
+
   const key     = compState.editModalKey;
-  const newMode = getEditModalMode();
   closeEditModal();
   alLog('edit-open', key);
   /* Apply mode change to saved record before opening */
