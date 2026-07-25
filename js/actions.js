@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
-import { fetchStaff } from './bt-bridge.js';
+import { fetchActiveStaff } from './bt-bridge.js';
 import { daySlots, db, escHtml, gatePermission, genRowId, hasPermission, isPinTaken, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
@@ -60,9 +60,9 @@ export function initLedger(ds, shift, mode, opts = {}) {
         names.map(n => `<option value="${escHtml(n)}"${n===selected?' selected':''}>${escHtml(n)}</option>`).join('');
     };
     paintOptions(fallbackNames, respSel.value);
-    fetchStaff().then(staff => {
+    fetchActiveStaff().then(staff => {
       if(!staff || !staff.length) return; /* BT unreachable — keep the fallback list already painted */
-      const btNames = staff.filter(s => s.active).map(s => s.name).filter(Boolean);
+      const btNames = staff.map(s => s.name).filter(Boolean);
       if(!btNames.length) return;
       paintOptions(btNames, respSel.value);
     }).catch(() => { /* offline / cloud sync not set up — fallback list stays */ });

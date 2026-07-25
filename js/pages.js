@@ -22,7 +22,7 @@ import {
 } from './ledger-engine.js';
 import { isRealSheet, timelineStep } from './components.js';
 import { initClosingBookDefaults } from './closing-book.js';
-import { fetchStaff } from './bt-bridge.js';
+import { fetchActiveStaff } from './bt-bridge.js';
 
 export function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
@@ -1334,10 +1334,10 @@ export function addStaffSetting() {
    row, so nobody already-listed loses or has their PIN changed —
    the whole point is this is a safe, repeatable, additive action. */
 export async function syncStaffFromBt() {
-  const staff = await fetchStaff(true);
-  if(!staff.length) { alert("No staff found in BT Sale Data yet, or the connection failed."); return; }
+  const staff = await fetchActiveStaff(true);
+  if(!staff.length) { alert("No active staff found in BT Sale Data yet, or the connection failed."); return; }
   const existingNames = new Set((db.settings.staff || []).map(s => (s.name||'').trim().toLowerCase()));
-  const toAdd = staff.filter(s => s.active && s.name && !existingNames.has(s.name.trim().toLowerCase()));
+  const toAdd = staff.filter(s => s.name && !existingNames.has(s.name.trim().toLowerCase()));
   if(!toAdd.length) { alert('Everyone active in BT Staff is already listed here.'); return; }
   toAdd.forEach(s => db.settings.staff.push({ name: s.name, pin: '' }));
   renderSettingsStaff();
@@ -1354,8 +1354,8 @@ export async function renderSettingsPermissions() {
   const box = document.getElementById('settings-permissions');
   if(!box) return;
   box.innerHTML = '<div class="text-muted text-sm" style="padding:10px 16px;">Loading BT Staff…</div>';
-  const staff = await fetchStaff();
-  _permStaffCache = staff.filter(s => s.active);
+  const staff = await fetchActiveStaff();
+  _permStaffCache = staff;
   paintSettingsPermissions();
 }
 

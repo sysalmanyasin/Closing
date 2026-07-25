@@ -60,6 +60,45 @@ export async function fetchStaff(force = false) {
   return _staffCache;
 }
 
+/* ── ACTIVE, DEDUPED STAFF LIST ────────────────────────────────
+   The one list every UI in this app should build from. Raw
+   fetchStaff() just mirrors bt_staff as-is — including inactive rows
+   and, in practice, occasional duplicate rows for the same person
+   (e.g. someone re-added under a new row instead of reactivating
+   their original one after being marked inactive). Left unfiltered,
+   that shows up as: an inactive name still selectable as Responsible
+   Closing Person, a name appearing twice in that same dropdown, two
+   separate rows for one person in the Permissions grid, and
+   duplicate blank-PIN rows created by "Sync from BT Staff" (its own
+   existingNames check only guards against names already saved
+   locally — it never caught two BT rows with the same name arriving
+   in the same fetch, since both pass that check independently).
+
+   This collapses fetchStaff()'s raw rows down to ACTIVE ONLY, one
+   entry per person — matched case-/whitespace-insensitively on name
+   — so every consumer below gets a clean list without each having to
+   reimplement the same filtering. Keeps the FIRST active row seen
+   for a given name and logs the rest to the console so an Admin can
+   go clean up the BT registry itself; this is a display-layer
+   safeguard against bad source data, not a fix to bt_staff itself
+   (this app never writes to it — see the file header). */
+export async function fetchActiveStaff(force = false) {
+  const raw = await fetchStaff(force);
+  const active = raw.filter(s => s.active && (s.name || '').trim());
+  const byName = new Map(); /* normalized name -> kept row */
+  const duplicates = [];
+  active.forEach(s => {
+    const key = s.name.trim().toLowerCase();
+    if(byName.has(key)) duplicates.push(s);
+    else byName.set(key, s);
+  });
+  if(duplicates.length) {
+    console.warn('[BT Bridge] Duplicate active staff names in bt_staff (keeping the first row for each, ignoring the rest):',
+      duplicates.map(s => `${s.name} (id ${s.id})`).join(', '));
+  }
+  return Array.from(byName.values());
+}
+
 /* Settings helper — fills a tier group's textbox with comma-joined
    active staff names from BT's shared roster. The admin then edits
    down to whichever subset belongs in that group. Read-only, same as
@@ -69,7 +108,7 @@ export async function loadTierNamesFromBtStaff(tierIdx) {
   if (!input) return;
   const client = getClient();
   if (!client) { alert('Cloud Sync isn\'t set up yet — set that up first.'); return; }
-  const staff = await fetchStaff(true);
-  if (!staff.length) { alert('No staff found in BT Sale Data yet, or the connection failed.'); return; }
-  input.value = staff.filter(s => s.active).map(s => s.name).join(', ');
+  const staff = await fetchActiveStaff(true);
+  if (!staff.length) { alert('No active staff found in BT Sale Data yet, or the connection failed.'); return; }
+  input.value = staff.map(s => s.name).join(', ');
 }
