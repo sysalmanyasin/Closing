@@ -111,7 +111,15 @@ export async function driveUnlock() {
   if (pin === null) return;
   if (!checkAdminPin(pin)) { alert('Incorrect Admin PIN.'); return; }
   _adminPin = pin;
-  await driveRefreshStatus();
+  try {
+    await driveRefreshStatus();
+  } catch (err) {
+    /* Shouldn't happen — driveRefreshStatus has its own try/catch —
+       but if something throws before/outside that (e.g. a bug), never
+       fail this silently again. */
+    console.error('[Drive] driveUnlock failed unexpectedly:', err);
+    alert('Something went wrong opening Google Drive Backup: ' + (err?.message || err));
+  }
 }
 
 /* After any successful reveal of the linked state, make sure this
@@ -147,6 +155,12 @@ export async function driveRefreshStatus() {
       _adminPin = null;
       driveShowLocked();
       alert("That PIN isn't authorized for Google Drive Backup.");
+    } else {
+      /* Anything else — network failure, CORS, a 500 from the Edge
+         Function, etc. Previously this just logged to the console and
+         left the card looking exactly as before, with zero indication
+         anything had gone wrong. Always show something now. */
+      alert('Could not reach Google Drive Backup: ' + err.message);
     }
   }
 }
