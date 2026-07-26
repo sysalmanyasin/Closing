@@ -11,14 +11,14 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal, repoSetLocal, repoRemoveLocal } from './repository.js';
-import { dbxGetAppKey } from './sync.js';
+import { dbxGetAppKey, getAnonKey } from './sync.js';
 
 const GOOGLE_CLIENT_ID_KEY = 'google_drive_client_id';
 /* Replace with your own OAuth 2.0 Client ID (Google Cloud Console →
    APIs & Services → Credentials → OAuth client ID → Web application).
    Leave the placeholder and use the Settings input instead if you'd
    rather not commit it. */
-const DEFAULT_GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+const DEFAULT_GOOGLE_CLIENT_ID = '36704237826-j7qahq626hlh16k1ppl68nq1a0nu4b25.apps.googleusercontent.com';
 
 const OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
@@ -52,7 +52,11 @@ function functionUrl() {
 async function callFunction(body) {
   const resp = await fetch(functionUrl(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getAnonKey()}`,
+      'apikey': getAnonKey(),
+    },
     body: JSON.stringify(body),
   });
   const data = await resp.json().catch(() => ({}));

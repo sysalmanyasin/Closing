@@ -46,7 +46,7 @@ const BACKOFF_DELAYS = [30000, 120000, 300000];
 export function dbxGetAppKey() {
   return (repoGetLocal(SUPA_URL_KEY) || '').trim() || DEFAULT_SUPA_URL;
 }
-function getAnonKey() {
+export function getAnonKey() {
   return (repoGetLocal(SUPA_ANON_KEY) || '').trim() || DEFAULT_SUPA_ANON_KEY;
 }
 
