@@ -14,6 +14,7 @@ import { buildCalendar, goToDashboard, renderManifest, sheetSortKey } from './pa
 import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
 import { dbxInit } from './sync.js';
 import { authInit } from './auth.js';
+import { driveInit } from './drive-backup.js';
 
 /* Floor 4's own transient UI state — file-local, never read by
    another floor. One object instead of scattered globals. */
@@ -85,8 +86,8 @@ export function toggleCard(id) {
   const card = document.getElementById(id);
   if(!card) return;
   /* Cloud sync card uses a separate explicit body div */
-  if(id === 'card-cloud-sync') {
-    const body = document.getElementById('card-cloud-sync-body');
+  if(id === 'card-cloud-sync' || id === 'card-drive-backup') {
+    const body = document.getElementById(id + '-body');
     const icon = card.querySelector('.collapse-icon');
     const hidden = body.style.display === 'none';
     body.style.display = hidden ? 'block' : 'none';
@@ -113,6 +114,7 @@ window.onload = () => {
   renderManifest();
   dbxInit(); /* ── Cloud sync: parse token & init on load ── */
   authInit(); /* ── Login gate: phone + PIN, only once Cloud Sync is set up ── */
+  driveInit(); /* ── Google Drive backup: resume OAuth redirect (if any) & refresh status ── */
   if (typeof initLedgerSwipeNav === 'function') initLedgerSwipeNav(); /* mobile swipe-to-navigate */
 };
 

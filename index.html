@@ -240,6 +240,57 @@
       </div>
       <!-- /CLOUD SYNC CARD -->
 
+      <!-- ── GOOGLE DRIVE BACKUP CARD ── -->
+      <div class="card" id="card-drive-backup" style="background:linear-gradient(135deg,#1a1033 0%,#2e1065 100%);border-radius:var(--radius-lg);overflow:hidden;">
+
+        <div class="card-head" onclick="toggleCard('card-drive-backup')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="sync-card-icon" style="font-size:1.3rem;">🗂️</div>
+            <div>
+              <h3 style="color:#e2e8f0;margin:0;font-size:0.95rem;">Google Drive Backup</h3>
+              <p style="color:#64748b;margin:0;font-size:0.72rem;">Permanent · Automatic refresh</p>
+            </div>
+          </div>
+          <span class="collapse-icon" style="color:#64748b;" aria-hidden="true">▶</span>
+        </div>
+        <div class="card-body collapsed" id="card-drive-backup-body" style="display:none;">
+        <div class="sync-card-body">
+
+          <!-- STATE A: Not linked -->
+          <div id="drive-state-unlinked">
+            <p class="sync-unlinked-text" style="margin-bottom:10px;">
+              <strong>One-time setup:</strong> connect a Google account to back up your closing data to Drive.
+            </p>
+            <input type="text" id="drive-client-id-input" placeholder="Google OAuth Client ID (…apps.googleusercontent.com)"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;">
+            <button class="btn-dropbox" style="width:100%;" onclick="driveSaveClientId()">Save Client ID</button>
+            <button class="btn-dropbox" style="width:100%;margin-top:8px;background:#7c3aed;" onclick="driveConnectStart()">🔗 Connect Google Drive</button>
+          </div>
+
+          <!-- STATE B: Linked -->
+          <div id="drive-state-linked" class="hidden sync-linked-state">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <div class="sync-connected-badge">
+                <span class="sync-dot"></span>
+                Connected securely
+              </div>
+              <span id="drive-account-name" style="font-size:0.72rem;color:#64748b;font-family:'JetBrains Mono',monospace;"></span>
+            </div>
+            <div class="sync-status-line status-ok" id="drive-status-line">
+              <span id="drive-status-icon">✓</span>
+              <span id="drive-status-text">Checking…</span>
+            </div>
+            <div class="sync-btn-row">
+              <button class="btn-sync-action" onclick="driveBackupNow()">⬆ Backup Now</button>
+            </div>
+            <button class="btn-sync-disconnect" onclick="driveDisconnect()">Disconnect Google Drive</button>
+          </div>
+
+        </div>
+        </div>
+      </div>
+      <!-- /GOOGLE DRIVE BACKUP CARD -->
+
       <!-- ── CALENDAR ── -->
       <div class="card" id="card-calendar">
         <div class="card-head" style="cursor:default;">

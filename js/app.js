@@ -29,6 +29,7 @@ import * as ClosingBook from './closing-book.js';
 import * as Sync        from './sync.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
+import * as DriveBackup from './drive-backup.js';
 /* state.js and ledger-engine.js aren't imported directly here — they
    still load correctly since actions.js (and others) already import
    from them, which is enough to bring them into the module graph. */
@@ -173,6 +174,12 @@ Object.assign(window, {
 
   // bt-bridge.js
   loadTierNamesFromBtStaff: BtBridge.loadTierNamesFromBtStaff,
+
+  // drive-backup.js
+  driveConnectStart:  DriveBackup.driveConnectStart,
+  driveBackupNow:     DriveBackup.driveBackupNow,
+  driveDisconnect:    DriveBackup.driveDisconnect,
+  driveSaveClientId:  DriveBackup.driveSaveClientId,
 });
 
 /* One-time boot check: if a saved db blob existed but failed to
