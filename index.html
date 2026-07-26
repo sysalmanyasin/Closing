@@ -293,6 +293,13 @@
             <div class="sync-btn-row">
               <button class="btn-sync-action" onclick="driveBackupNow()">⬆ Backup Now</button>
             </div>
+
+            <div style="margin-top:14px;">
+              <p style="color:#94a3b8;margin:0 0 4px;font-size:0.78rem;font-weight:600;">Backup history</p>
+              <p style="color:#64748b;margin:0 0 6px;font-size:0.68rem;">Every save creates a new version — nothing is overwritten. Restoring replaces all current data.</p>
+              <div id="drive-versions-list" style="max-height:220px;overflow-y:auto;"></div>
+            </div>
+
             <button class="btn-sync-disconnect" onclick="driveDisconnect()">Disconnect Google Drive</button>
           </div>
 

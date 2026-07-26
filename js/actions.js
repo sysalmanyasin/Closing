@@ -18,6 +18,7 @@ import { buildCalendar, goToDashboard, refreshRetentionStatus, renderFinalSummar
 import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
+import { driveAutoBackup } from './drive-backup.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
   if(!opts.silent) showPage('page-ledger');
@@ -1086,6 +1087,10 @@ export function saveSheet(silent=false) {
   alCommit(session.activeMode === 'final' ? 'save-final' : 'save', session.activeKey, record);
   persist();
   session.isSavedSheet = true;
+  /* Fire-and-forget — never blocks the save, never surfaces an error
+     to the person closing the shift. No-ops entirely if Drive Backup
+     was never set up (see driveAutoBackup() in drive-backup.js). */
+  driveAutoBackup();
   if(!silent) {
     setLockedState(true);
     cascadeDownstream(session.activeKey);

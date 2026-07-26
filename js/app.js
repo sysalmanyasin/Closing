@@ -181,6 +181,8 @@ Object.assign(window, {
   driveBackupNow:     DriveBackup.driveBackupNow,
   driveDisconnect:    DriveBackup.driveDisconnect,
   driveSaveClientId:  DriveBackup.driveSaveClientId,
+  driveListVersions:  DriveBackup.driveListVersions,
+  driveRestore:       DriveBackup.driveRestore,
 });
 
 /* One-time boot check: if a saved db blob existed but failed to

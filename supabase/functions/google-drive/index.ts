@@ -10,11 +10,22 @@
    back status info — never a token. See google_drive_backup.sql
    for why that's safe even if someone reads the anon key.
 
-   Actions:
+   Actions (every one requires either { pin } matching db.settings.
+   adminPin, or — 'backup' only — { autoKey } matching this row's
+   stored auto_key, see requireBackupAuth()):
      status         → { connected, email, lastBackupAt }
      oauth_callback → exchanges a Google `code` for tokens, stores them
-     backup         → pulls current data from Supabase, uploads/updates
-                       a JSON file in the connected Google Drive
+     backup         → pulls current data from Supabase, uploads a NEW
+                       timestamped JSON file to Drive (versioned —
+                       nothing is ever overwritten), prunes anything
+                       past MAX_VERSIONS_KEPT
+     list_versions  → { versions: [{id, name, createdTime, size}] }
+     restore        → { fileId } — downloads that version and replaces
+                       ALL current data with it (sheets, credit ledger,
+                       settings, activity log, deleted-record tombstones)
+     set_auto_key   → { autoKey } — registers the per-install key that
+                       lets ordinary shift saves trigger 'backup'
+                       without the Admin PIN (see drive-backup.js)
      disconnect     → revokes the token with Google and clears the row
 ═══════════════════════════════════════════════════════════════ */
 
@@ -24,8 +35,6 @@ const GOOGLE_CLIENT_ID     = Deno.env.get('GOOGLE_CLIENT_ID')!;
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const BACKUP_FILE_NAME = 'closing-backup.json';
 
 function admin() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -47,14 +56,32 @@ async function getAdminPin(): Promise<string | null> {
   return data?.data?.adminPin || null;
 }
 
+function unauthorized(): never {
+  throw new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+  });
+}
+
 async function requireAdmin(pin: unknown) {
   const adminPin = await getAdminPin();
-  if (!adminPin || typeof pin !== 'string' || pin !== adminPin) {
-    throw new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    });
+  if (!adminPin || typeof pin !== 'string' || pin !== adminPin) unauthorized();
+}
+
+/* 'backup' alone gets a second door: the per-install auto-backup key
+   (google_drive_backup.auto_key), generated once client-side when
+   Drive is first connected and stored in that device's localStorage
+   — see drive-backup.js's driveAutoBackup(). This is what lets an
+   ordinary shift-closing save trigger a backup without an Admin
+   standing there to type the PIN. It only ever authorizes 'backup' —
+   status/oauth_callback/disconnect/list_versions/restore still need
+   the real Admin PIN below. */
+async function requireBackupAuth(pin: unknown, autoKey: unknown) {
+  if (typeof autoKey === 'string' && autoKey.length > 0) {
+    const row = await getRow();
+    if (row?.auto_key && autoKey === row.auto_key) return;
   }
+  await requireAdmin(pin);
 }
 
 function json(body: unknown, status = 200) {
@@ -141,6 +168,26 @@ async function handleOauthCallback(code: string, redirectUri: string) {
   return { connected: true, email };
 }
 
+/* Kept as a prefix so list_versions can find our files among anything
+   else Drive might ever put in appDataFolder, and so the timestamp in
+   each name is human-readable if anyone ever inspects Drive directly
+   (appDataFolder is hidden from the normal Drive UI, but visible via
+   the API/"Manage Apps" screen). */
+const BACKUP_FILE_PREFIX = 'closing-backup-';
+const MAX_VERSIONS_KEPT = 30;
+
+async function driveFilesList(accessToken: string) {
+  const url = new URL('https://www.googleapis.com/drive/v3/files');
+  url.searchParams.set('spaces', 'appDataFolder');
+  url.searchParams.set('fields', 'files(id,name,createdTime,size)');
+  url.searchParams.set('orderBy', 'createdTime desc');
+  url.searchParams.set('pageSize', '100');
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(`Drive list failed: ${JSON.stringify(data)}`);
+  return (data.files || []).filter((f: { name: string }) => f.name.startsWith(BACKUP_FILE_PREFIX));
+}
+
 async function handleBackup() {
   const row = await getRow();
   if (!row?.refresh_token) throw new Error('Google Drive is not connected.');
@@ -170,37 +217,99 @@ async function handleBackup() {
   };
   const body = JSON.stringify(payload, null, 2);
 
-  if (row.drive_file_id) {
-    /* Update the existing file in place, so Drive doesn't accumulate
-       a new file every backup. */
-    const resp = await fetch(
-      `https://www.googleapis.com/upload/drive/v3/files/${row.drive_file_id}?uploadType=media`,
-      { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body }
-    );
-    if (!resp.ok) throw new Error(`Drive update failed: ${await resp.text()}`);
-  } else {
-    /* First backup ever — create the file, in the app's own hidden
-       "appDataFolder" so it doesn't clutter the user's visible Drive
-       (requires the drive.appdata scope alongside drive.file — see
-       drive-backup.js's OAuth scope list). */
-    const boundary = 'closingbackupboundary';
-    const metadata = { name: BACKUP_FILE_NAME, parents: ['appDataFolder'] };
-    const multipartBody =
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
-    const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-      body: multipartBody,
-    });
-    const created = await resp.json();
-    if (!resp.ok) throw new Error(`Drive create failed: ${JSON.stringify(created)}`);
-    await client.from('google_drive_backup').update({ drive_file_id: created.id }).eq('id', 1);
-  }
+  /* Versioned: every backup is its OWN file (name carries the
+     timestamp), never overwritten — so "restore" can offer a real
+     history instead of just the last snapshot. Lives in the app's
+     hidden "appDataFolder" so it doesn't clutter the visible Drive
+     (requires the drive.appdata scope — see drive-backup.js). */
+  const fileName = `${BACKUP_FILE_PREFIX}${payload.exportedAt.replace(/[:.]/g, '-')}.json`;
+  const boundary = 'closingbackupboundary';
+  const metadata = { name: fileName, parents: ['appDataFolder'] };
+  const multipartBody =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+  const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body: multipartBody,
+  });
+  const created = await resp.json();
+  if (!resp.ok) throw new Error(`Drive create failed: ${JSON.stringify(created)}`);
 
   const lastBackupAt = new Date().toISOString();
-  await client.from('google_drive_backup').update({ last_backup_at: lastBackupAt }).eq('id', 1);
+  await client.from('google_drive_backup').update({ drive_file_id: created.id, last_backup_at: lastBackupAt }).eq('id', 1);
+
+  /* Prune anything past MAX_VERSIONS_KEPT, oldest first — best-effort,
+     a failed delete here shouldn't fail the backup that just succeeded. */
+  try {
+    const files = await driveFilesList(accessToken);
+    const stale = files.slice(MAX_VERSIONS_KEPT);
+    for (const f of stale) {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).catch(() => {});
+    }
+  } catch (_e) { /* pruning is best-effort */ }
+
   return { backedUpAt: lastBackupAt };
+}
+
+async function handleListVersions() {
+  const row = await getRow();
+  if (!row?.refresh_token) throw new Error('Google Drive is not connected.');
+  const accessToken = await getAccessToken(row);
+  const files = await driveFilesList(accessToken);
+  return {
+    versions: files.map((f: { id: string; name: string; createdTime: string; size?: string }) => ({
+      id: f.id, name: f.name, createdTime: f.createdTime, size: f.size ? Number(f.size) : null,
+    })),
+  };
+}
+
+/* Replaces ALL current data (sheets, credit ledger, settings, activity
+   log, deleted-record tombstones) with the contents of one backup
+   file. Deliberately wholesale, mirroring how sync.js's push/pull
+   already treats these four tables as one unit — a partial restore
+   would leave the app in a state that was never actually saved. */
+async function handleRestore(fileId: string) {
+  const row = await getRow();
+  if (!row?.refresh_token) throw new Error('Google Drive is not connected.');
+  if (!fileId) throw new Error('Missing fileId.');
+  const accessToken = await getAccessToken(row);
+
+  const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) throw new Error(`Drive download failed: ${await resp.text()}`);
+  const payload = await resp.json();
+
+  const client = admin();
+  const sheetRows = Object.entries(payload.sheets || {}).map(([key, data]) => ({ key, data }));
+  const clRows = (payload.creditLedger || []).map((data: { key: string }) => ({ key: data.key, data }));
+  const delRows = (payload.deletedKeys || []).map((d: { key: string; deletedAt: number }) => ({ key: d.key, deleted_at: new Date(d.deletedAt).toISOString() }));
+
+  /* Wholesale replace: clear each table, then insert the backup's
+     rows — same "delete what's not in the new set" shape sync.js's
+     push already uses, just applied to everything instead of a diff. */
+  await client.from('sheets').delete().neq('key', '__none__');
+  await client.from('credit_ledger').delete().neq('key', '__none__');
+  await client.from('deleted_records').delete().neq('key', '__none__');
+  await client.from('activity_log').delete().neq('ts', -1);
+
+  if (sheetRows.length) { const { error } = await client.from('sheets').insert(sheetRows); if (error) throw error; }
+  if (clRows.length)    { const { error } = await client.from('credit_ledger').insert(clRows); if (error) throw error; }
+  if (delRows.length)   { const { error } = await client.from('deleted_records').insert(delRows); if (error) throw error; }
+  if (payload.activityLog?.length) { const { error } = await client.from('activity_log').insert(payload.activityLog); if (error) throw error; }
+  await client.from('settings').upsert({ id: 1, data: payload.settings || {}, updated_at: Date.now() });
+
+  return { restoredFrom: fileId, exportedAt: payload.exportedAt };
+}
+
+async function handleSetAutoKey(autoKey: string) {
+  if (!autoKey || typeof autoKey !== 'string') throw new Error('Missing autoKey.');
+  await admin().from('google_drive_backup').update({ auto_key: autoKey }).eq('id', 1);
+  return { ok: true };
 }
 
 async function handleDisconnect() {
@@ -227,17 +336,25 @@ Deno.serve(async (req) => {
     }});
   }
   try {
-    const { action, code, redirectUri, pin } = await req.json();
+    const { action, code, redirectUri, pin, autoKey, fileId } = await req.json();
 
+    if (action === 'backup') {
+      await requireBackupAuth(pin, autoKey);
+      return json(await handleBackup());
+    }
+
+    /* Everything else — including 'status' — is Admin-PIN only. */
     await requireAdmin(pin);
 
     if (action === 'status') {
       const row = await getRow();
       return json({ connected: !!row?.refresh_token, email: row?.connected_email || null, lastBackupAt: row?.last_backup_at || null });
     }
-    if (action === 'oauth_callback') return json(await handleOauthCallback(code, redirectUri));
-    if (action === 'backup')         return json(await handleBackup());
-    if (action === 'disconnect')     return json(await handleDisconnect());
+    if (action === 'oauth_callback')  return json(await handleOauthCallback(code, redirectUri));
+    if (action === 'disconnect')      return json(await handleDisconnect());
+    if (action === 'list_versions')   return json(await handleListVersions());
+    if (action === 'restore')         return json(await handleRestore(fileId));
+    if (action === 'set_auto_key')    return json(await handleSetAutoKey(autoKey));
 
     return json({ error: 'Unknown action' }, 400);
   } catch (err) {

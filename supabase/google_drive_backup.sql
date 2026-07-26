@@ -18,12 +18,16 @@ create table if not exists google_drive_backup (
   refresh_token            text,
   access_token             text,
   access_token_expires_at  timestamptz,
-  drive_file_id            text,
+  drive_file_id            text,  -- most recent version's Drive file id (informational only now that backups are versioned)
   connected_email          text,
   last_backup_at           timestamptz,
+  auto_key                 text,  -- per-install secret that authorizes the 'backup' action WITHOUT the Admin PIN, so an ordinary shift save can trigger one — see google-drive/index.ts's requireBackupAuth()
   updated_at               timestamptz not null default now(),
   constraint google_drive_backup_single_row check (id = 1)
 );
+
+/* Migrating an existing table from before auto_key existed. */
+alter table google_drive_backup add column if not exists auto_key text;
 
 alter table google_drive_backup enable row level security;
 /* No policies added on purpose — see header comment. */

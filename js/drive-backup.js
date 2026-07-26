@@ -25,6 +25,44 @@ import { checkAdminPin } from './state.js';
 let _adminPin = null;
 const PIN_SESSION_KEY = 'google_drive_admin_pin_session';
 
+/* ── Auto-backup key ──────────────────────────────────────────────
+   A random per-install credential (NOT the Admin PIN) that lets an
+   ordinary shift-closing save (actions.js's saveSheet()) trigger a
+   Drive backup on its own, without an Admin standing there. It's
+   generated once — right after Drive is first connected, or the
+   first time an Admin unlocks an already-connected install that
+   predates this feature — saved to this device's localStorage, and
+   registered with the Edge Function via 'set_auto_key'. Low blast
+   radius even if read off this device: server-side it only ever
+   authorizes the 'backup' action (see requireBackupAuth() in
+   index.ts) — never status/disconnect/restore/oauth_callback. */
+const AUTO_KEY_KEY = 'google_drive_auto_key';
+
+async function ensureAutoKeyRegistered() {
+  if (repoGetLocal(AUTO_KEY_KEY)) return;
+  const key = crypto.randomUUID();
+  try {
+    await callFunction({ action: 'set_auto_key', autoKey: key });
+    repoSetLocal(AUTO_KEY_KEY, key);
+  } catch (err) {
+    console.warn('[Drive] could not register auto-backup key:', err.message);
+  }
+}
+
+/* Called from actions.js's saveSheet() on every completed shift
+   closing. Silent by design — a regular staff member's save should
+   never pop a PIN prompt or an error dialog; if Drive isn't set up
+   yet (no local key) this just no-ops. */
+export async function driveAutoBackup() {
+  const autoKey = repoGetLocal(AUTO_KEY_KEY);
+  if (!autoKey) return;
+  try {
+    await callFunction({ action: 'backup', autoKey });
+  } catch (err) {
+    console.warn('[Drive] auto-backup failed:', err.message);
+  }
+}
+
 const GOOGLE_CLIENT_ID_KEY = 'google_drive_client_id';
 /* Replace with your own OAuth 2.0 Client ID (Google Cloud Console →
    APIs & Services → Credentials → OAuth client ID → Web application).
@@ -113,12 +151,22 @@ export async function driveUnlock() {
   await driveRefreshStatus();
 }
 
+/* After any successful reveal of the linked state, make sure this
+   install has an auto-backup key registered — covers both a brand
+   new connection and an Admin unlocking a pre-existing connection
+   that predates this feature. */
+async function afterLinked() {
+  await ensureAutoKeyRegistered();
+  await driveListVersions();
+}
+
 export async function driveRefreshStatus() {
   try {
     const s = await callFunction({ action: 'status' });
     if (s.connected) {
       driveShowLinked(s.email);
       setStatus(s.lastBackupAt ? `Last backup: ${new Date(s.lastBackupAt).toLocaleString()}` : 'Connected — no backups yet', 'ok');
+      await afterLinked();
     } else {
       driveShowUnlinked();
     }
@@ -168,9 +216,59 @@ export async function driveBackupNow() {
   try {
     const r = await callFunction({ action: 'backup' });
     setStatus(`Backed up at ${new Date(r.backedUpAt).toLocaleTimeString()}`, 'ok');
+    await driveListVersions();
   } catch (err) {
     console.error('[Drive] backup failed:', err);
     setStatus(`Backup failed: ${err.message.substring(0, 60)}`, 'error');
+  }
+}
+
+function fmtBytes(n) {
+  if (!n) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export async function driveListVersions() {
+  const list = document.getElementById('drive-versions-list');
+  if (!list) return;
+  try {
+    const { versions } = await callFunction({ action: 'list_versions' });
+    if (!versions.length) {
+      list.innerHTML = '<p style="color:#64748b;font-size:0.78rem;margin:6px 0 0;">No backups yet.</p>';
+      return;
+    }
+    list.innerHTML = versions.map(v => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);">
+        <div style="min-width:0;">
+          <div style="color:#e2e8f0;font-size:0.78rem;">${new Date(v.createdTime).toLocaleString()}</div>
+          <div style="color:#64748b;font-size:0.68rem;">${fmtBytes(v.size)}</div>
+        </div>
+        <button class="btn-sync-action" style="flex:none;padding:6px 10px;font-size:0.75rem;" onclick="driveRestore('${v.id}')">Restore</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    list.innerHTML = `<p style="color:#f87171;font-size:0.78rem;margin:6px 0 0;">Couldn't load versions: ${err.message}</p>`;
+  }
+}
+
+/* Restore REPLACES all current data — sheets, credit ledger, settings,
+   activity log, deleted-record tombstones — with one backup version.
+   Double-confirmed (two separate popups) on top of the Admin-only gate
+   already covering this whole card, since there's no undo for whatever
+   was in the app the moment before. */
+export async function driveRestore(fileId) {
+  if (!confirm('Restore this backup?\n\nThis REPLACES all current shifts, ledgers, and settings with this backup\'s data. This cannot be undone.')) return;
+  if (!confirm('Really sure? Today\'s unsaved work (if any) will be lost.')) return;
+  setStatus('Restoring…', 'busy');
+  try {
+    await callFunction({ action: 'restore', fileId });
+    setStatus('Restored — reloading…', 'ok');
+    location.reload();
+  } catch (err) {
+    alert('Restore failed: ' + err.message);
+    setStatus(`Restore failed: ${err.message.substring(0, 60)}`, 'error');
   }
 }
 
@@ -208,6 +306,7 @@ export async function driveInit() {
         const r = await callFunction({ action: 'oauth_callback', code, redirectUri: redirectUri() });
         driveShowLinked(r.email);
         setStatus('Connected', 'ok');
+        await afterLinked();
         return;
       } catch (err) {
         alert('Google Drive connection failed: ' + err.message);
