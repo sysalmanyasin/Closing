@@ -12,6 +12,18 @@
 
 import { repoGetLocal, repoSetLocal, repoRemoveLocal } from './repository.js';
 import { dbxGetAppKey, getAnonKey } from './sync.js';
+import { checkAdminPin } from './state.js';
+
+/* ── Admin-only gate ──────────────────────────────────────────────
+   This whole card is Admin-only: hidden behind a PIN prompt in the
+   UI, AND the same PIN is sent to the Edge Function on every call,
+   which independently checks it against db.settings.adminPin (the
+   real boundary — see index.ts's requireAdmin()). _adminPin lives
+   in memory only (never localStorage) so it's gone on reload/close;
+   PIN_SESSION_KEY is a short-lived sessionStorage stash just to
+   survive the Google OAuth redirect round-trip. */
+let _adminPin = null;
+const PIN_SESSION_KEY = 'google_drive_admin_pin_session';
 
 const GOOGLE_CLIENT_ID_KEY = 'google_drive_client_id';
 /* Replace with your own OAuth 2.0 Client ID (Google Cloud Console →
@@ -57,7 +69,7 @@ async function callFunction(body) {
       'Authorization': `Bearer ${getAnonKey()}`,
       'apikey': getAnonKey(),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, pin: _adminPin }),
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
@@ -72,6 +84,7 @@ function setStatus(text, type = 'ok') {
 }
 
 export function driveShowLinked(email) {
+  document.getElementById('drive-state-locked')?.classList.add('hidden');
   document.getElementById('drive-state-unlinked')?.classList.add('hidden');
   document.getElementById('drive-state-linked')?.classList.remove('hidden');
   const acc = document.getElementById('drive-account-name');
@@ -79,8 +92,25 @@ export function driveShowLinked(email) {
 }
 
 export function driveShowUnlinked() {
+  document.getElementById('drive-state-locked')?.classList.add('hidden');
   document.getElementById('drive-state-unlinked')?.classList.remove('hidden');
   document.getElementById('drive-state-linked')?.classList.add('hidden');
+}
+
+function driveShowLocked() {
+  document.getElementById('drive-state-locked')?.classList.remove('hidden');
+  document.getElementById('drive-state-unlinked')?.classList.add('hidden');
+  document.getElementById('drive-state-linked')?.classList.add('hidden');
+}
+
+/* Button inside the locked state. On a correct PIN, reveals the real
+   card and loads its live status; on a wrong one, stays locked. */
+export async function driveUnlock() {
+  const pin = prompt('Admin PIN required for Google Drive Backup:');
+  if (pin === null) return;
+  if (!checkAdminPin(pin)) { alert('Incorrect Admin PIN.'); return; }
+  _adminPin = pin;
+  await driveRefreshStatus();
 }
 
 export async function driveRefreshStatus() {
@@ -94,6 +124,14 @@ export async function driveRefreshStatus() {
     }
   } catch (err) {
     console.warn('[Drive] status check failed:', err.message);
+    if (/unauthorized/i.test(err.message)) {
+      /* Locally-entered PIN (e.g. the emergency master PIN) didn't
+         match the real db.settings.adminPin the server checks —
+         re-lock rather than show a card that can't actually do anything. */
+      _adminPin = null;
+      driveShowLocked();
+      alert("That PIN isn't authorized for Google Drive Backup.");
+    }
   }
 }
 
@@ -109,6 +147,10 @@ export function driveConnectStart() {
   }
   const state = crypto.randomUUID();
   sessionStorage.setItem(STATE_KEY, state);
+  /* Full-page redirect wipes the in-memory _adminPin — stash it (this
+     tab only, cleared the moment driveInit() reads it back) so the
+     return trip can still call oauth_callback without re-prompting. */
+  sessionStorage.setItem(PIN_SESSION_KEY, _adminPin || '');
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', clientId);
@@ -152,22 +194,29 @@ export async function driveInit() {
 
   if (code) {
     const expectedState = sessionStorage.getItem(STATE_KEY);
+    const stashedPin = sessionStorage.getItem(PIN_SESSION_KEY);
     sessionStorage.removeItem(STATE_KEY);
+    sessionStorage.removeItem(PIN_SESSION_KEY);
     /* Strip ?code=&state= from the URL either way, so a page refresh
        never tries to redeem the same code twice. */
     window.history.replaceState({}, '', redirectUri());
 
-    if (state && state === expectedState) {
+    if (state && state === expectedState && stashedPin && checkAdminPin(stashedPin)) {
+      _adminPin = stashedPin;
       setStatus('Finishing connection…', 'busy');
       try {
         const r = await callFunction({ action: 'oauth_callback', code, redirectUri: redirectUri() });
         driveShowLinked(r.email);
         setStatus('Connected', 'ok');
+        return;
       } catch (err) {
         alert('Google Drive connection failed: ' + err.message);
       }
     }
   }
 
-  await driveRefreshStatus();
+  /* Default boot state: locked. Nobody sees connection status, the
+     linked email, or the backup/disconnect controls until driveUnlock()
+     verifies the Admin PIN — no automatic status call before that. */
+  driveShowLocked();
 }

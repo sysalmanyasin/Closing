@@ -31,6 +31,32 @@ function admin() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 }
 
+/* Every action below is gated on the SAME Admin PIN already used
+   in-app for Settings / Final Closing (db.settings.adminPin, in the
+   `settings` table's row id=1 `data` column — see sync.js). Reading
+   it live off the DB (rather than baking it in as a separate Edge
+   Function secret) means there's one source of truth: whatever the
+   owner sets as their Admin PIN in Settings is immediately what
+   authorizes Drive Backup too, with nothing extra to keep in sync.
+   This is the REAL boundary — the client-side lock in drive-backup.js
+   is only there to keep the UI tidy for everyone else; without this
+   check here, anyone who found the public anon key (shipped in every
+   page load, same as before) could call backup/disconnect directly. */
+async function getAdminPin(): Promise<string | null> {
+  const { data } = await admin().from('settings').select('data').eq('id', 1).maybeSingle();
+  return data?.data?.adminPin || null;
+}
+
+async function requireAdmin(pin: unknown) {
+  const adminPin = await getAdminPin();
+  if (!adminPin || typeof pin !== 'string' || pin !== adminPin) {
+    throw new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -201,7 +227,9 @@ Deno.serve(async (req) => {
     }});
   }
   try {
-    const { action, code, redirectUri } = await req.json();
+    const { action, code, redirectUri, pin } = await req.json();
+
+    await requireAdmin(pin);
 
     if (action === 'status') {
       const row = await getRow();
@@ -213,7 +241,9 @@ Deno.serve(async (req) => {
 
     return json({ error: 'Unknown action' }, 400);
   } catch (err) {
+    if (err instanceof Response) return err; /* thrown by requireAdmin() — already a proper 403 */
     console.error('[google-drive]', err);
     return json({ error: err instanceof Error ? err.message : 'Unknown error' }, 500);
   }
 });
+

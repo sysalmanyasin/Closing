@@ -256,8 +256,18 @@
         <div class="card-body collapsed" id="card-drive-backup-body" style="display:none;">
         <div class="sync-card-body">
 
+          <!-- STATE 0: Locked (default) — Admin PIN required before anyone
+               sees connection status, the linked email, or the backup /
+               disconnect controls. See drive-backup.js's driveUnlock(). -->
+          <div id="drive-state-locked">
+            <p style="color:#94a3b8;font-size:0.82rem;margin-bottom:10px;">
+              🔒 Admin access only.
+            </p>
+            <button class="btn-dropbox" style="width:100%;background:#7c3aed;" onclick="driveUnlock()">Unlock with Admin PIN</button>
+          </div>
+
           <!-- STATE A: Not linked -->
-          <div id="drive-state-unlinked">
+          <div id="drive-state-unlinked" class="hidden">
             <p class="sync-unlinked-text" style="margin-bottom:10px;">
               <strong>One-time setup:</strong> connect a Google account to back up your closing data to Drive.
             </p>

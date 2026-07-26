@@ -176,6 +176,7 @@ Object.assign(window, {
   loadTierNamesFromBtStaff: BtBridge.loadTierNamesFromBtStaff,
 
   // drive-backup.js
+  driveUnlock:        DriveBackup.driveUnlock,
   driveConnectStart:  DriveBackup.driveConnectStart,
   driveBackupNow:     DriveBackup.driveBackupNow,
   driveDisconnect:    DriveBackup.driveDisconnect,
