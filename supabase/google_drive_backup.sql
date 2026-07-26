@@ -31,3 +31,52 @@ alter table google_drive_backup add column if not exists auto_key text;
 
 alter table google_drive_backup enable row level security;
 /* No policies added on purpose — see header comment. */
+
+-- ── Server-side auto-backup ──────────────────────────────────────
+-- Fires the Edge Function's 'backup' action whenever a completed
+-- (non-draft) shift is written to `sheets` — from ANY device, since
+-- it's the Postgres write that triggers it, not anything running in
+-- a particular browser. The auto_key it sends is generated
+-- automatically by handleOauthCallback() in google-drive/index.ts
+-- the moment Drive is connected; nothing to configure here.
+--
+-- The anon key below is hardcoded on purpose, not a secret leak: it's
+-- the exact same public anon key already shipped to every browser in
+-- sync.js/drive-backup.js. Edge Functions with verify_jwt=true just
+-- need SOME valid signed JWT in the Authorization header to be
+-- reached at all — the anon key satisfies that. The REAL boundary is
+-- still requireBackupAuth() in index.ts checking auto_key/adminPin.
+create or replace function public.drive_backup_on_shift_save()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions, net
+as $$
+declare
+  v_auto_key text;
+begin
+  select auto_key into v_auto_key from google_drive_backup where id = 1;
+  if v_auto_key is null then
+    return new; -- Drive not connected / no key registered yet
+  end if;
+
+  perform net.http_post(
+    url := 'https://wetbugzzchkghpzmowod.supabase.co/functions/v1/google-drive',
+    body := jsonb_build_object('action', 'backup', 'autoKey', v_auto_key),
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM',
+      'apikey', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM'
+    ),
+    timeout_milliseconds := 15000
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_drive_backup_on_shift_save on sheets;
+create trigger trg_drive_backup_on_shift_save
+  after insert or update on sheets
+  for each row
+  when (new.draft = false)
+  execute function public.drive_backup_on_shift_save();

@@ -23,9 +23,10 @@
      restore        → { fileId } — downloads that version and replaces
                        ALL current data with it (sheets, credit ledger,
                        settings, activity log, deleted-record tombstones)
-     set_auto_key   → { autoKey } — registers the per-install key that
-                       lets ordinary shift saves trigger 'backup'
-                       without the Admin PIN (see drive-backup.js)
+     set_auto_key   → { autoKey } — manually overrides the auto_key
+                       (rotation utility; normally generated automatically
+                       by oauth_callback and read by the Postgres trigger
+                       that actually calls 'backup' on every shift save)
      disconnect     → revokes the token with Google and clears the row
 ═══════════════════════════════════════════════════════════════ */
 
@@ -69,13 +70,14 @@ async function requireAdmin(pin: unknown) {
 }
 
 /* 'backup' alone gets a second door: the per-install auto-backup key
-   (google_drive_backup.auto_key), generated once client-side when
-   Drive is first connected and stored in that device's localStorage
-   — see drive-backup.js's driveAutoBackup(). This is what lets an
-   ordinary shift-closing save trigger a backup without an Admin
-   standing there to type the PIN. It only ever authorizes 'backup' —
-   status/oauth_callback/disconnect/list_versions/restore still need
-   the real Admin PIN below. */
+   (google_drive_backup.auto_key), generated server-side the moment
+   Drive is connected (see handleOauthCallback below) and read directly
+   off this row by a Postgres trigger on the `sheets` table
+   (drive_backup_on_shift_save() in google_drive_backup.sql) — that's
+   what lets an ordinary shift-closing save, from ANY device, trigger
+   a backup with no Admin PIN and nothing stored in any browser. It
+   only ever authorizes 'backup' — status/oauth_callback/disconnect/
+   list_versions/restore still need the real Admin PIN below. */
 async function requireBackupAuth(pin: unknown, autoKey: unknown) {
   if (typeof autoKey === 'string' && autoKey.length > 0) {
     const row = await getRow();
@@ -156,12 +158,18 @@ async function handleOauthCallback(code: string, redirectUri: string) {
     email = ui.email || null;
   } catch (_e) { /* non-fatal — email is cosmetic only */ }
 
+  const existing = await getRow();
   await admin().from('google_drive_backup').upsert({
     id: 1,
     refresh_token: tok.refresh_token,
     access_token: tok.access_token,
     access_token_expires_at: new Date(Date.now() + tok.expires_in * 1000).toISOString(),
     connected_email: email,
+    /* Generated once per connection — see requireBackupAuth() and the
+       drive_backup_on_shift_save() Postgres trigger (google_drive_backup.sql),
+       which is what actually calls 'backup' using this value on every
+       completed shift save, from any device. */
+    auto_key: existing?.auto_key || crypto.randomUUID(),
     updated_at: new Date().toISOString(),
   });
 

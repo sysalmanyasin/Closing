@@ -25,43 +25,6 @@ import { checkAdminPin } from './state.js';
 let _adminPin = null;
 const PIN_SESSION_KEY = 'google_drive_admin_pin_session';
 
-/* ── Auto-backup key ──────────────────────────────────────────────
-   A random per-install credential (NOT the Admin PIN) that lets an
-   ordinary shift-closing save (actions.js's saveSheet()) trigger a
-   Drive backup on its own, without an Admin standing there. It's
-   generated once — right after Drive is first connected, or the
-   first time an Admin unlocks an already-connected install that
-   predates this feature — saved to this device's localStorage, and
-   registered with the Edge Function via 'set_auto_key'. Low blast
-   radius even if read off this device: server-side it only ever
-   authorizes the 'backup' action (see requireBackupAuth() in
-   index.ts) — never status/disconnect/restore/oauth_callback. */
-const AUTO_KEY_KEY = 'google_drive_auto_key';
-
-async function ensureAutoKeyRegistered() {
-  if (repoGetLocal(AUTO_KEY_KEY)) return;
-  const key = crypto.randomUUID();
-  try {
-    await callFunction({ action: 'set_auto_key', autoKey: key });
-    repoSetLocal(AUTO_KEY_KEY, key);
-  } catch (err) {
-    console.warn('[Drive] could not register auto-backup key:', err.message);
-  }
-}
-
-/* Called from actions.js's saveSheet() on every completed shift
-   closing. Silent by design — a regular staff member's save should
-   never pop a PIN prompt or an error dialog; if Drive isn't set up
-   yet (no local key) this just no-ops. */
-export async function driveAutoBackup() {
-  const autoKey = repoGetLocal(AUTO_KEY_KEY);
-  if (!autoKey) return;
-  try {
-    await callFunction({ action: 'backup', autoKey });
-  } catch (err) {
-    console.warn('[Drive] auto-backup failed:', err.message);
-  }
-}
 
 const GOOGLE_CLIENT_ID_KEY = 'google_drive_client_id';
 /* Replace with your own OAuth 2.0 Client ID (Google Cloud Console →
@@ -155,8 +118,13 @@ export async function driveUnlock() {
    install has an auto-backup key registered — covers both a brand
    new connection and an Admin unlocking a pre-existing connection
    that predates this feature. */
+/* After any successful reveal of the linked state, refresh the
+   version list. (The auto-backup key is now generated and stored
+   entirely server-side by the Edge Function on connect — see
+   handleOauthCallback in index.ts — and a Postgres trigger on the
+   `sheets` table fires 'backup' automatically from any device on
+   every completed shift save. Nothing for the client to register.) */
 async function afterLinked() {
-  await ensureAutoKeyRegistered();
   await driveListVersions();
 }
 
