@@ -295,7 +295,7 @@ async function handleRestore(fileId: string) {
   const client = admin();
   const sheetRows = Object.entries(payload.sheets || {}).map(([key, data]) => ({ key, data }));
   const clRows = (payload.creditLedger || []).map((data: { key: string }) => ({ key: data.key, data }));
-  const delRows = (payload.deletedKeys || []).map((d: { key: string; deletedAt: number }) => ({ key: d.key, deleted_at: new Date(d.deletedAt).toISOString() }));
+  const delRows = (payload.deletedKeys || []).map((d: { key: string; deleted_at: string }) => ({ key: d.key, deleted_at: d.deleted_at }));
 
   /* Wholesale replace: clear each table, then insert the backup's
      rows — same "delete what's not in the new set" shape sync.js's
