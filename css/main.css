@@ -1513,12 +1513,10 @@
     grid-template-columns: 1fr 1fr;
     gap: 20px;
     grid-template-areas:
-      "sync   sync"
       "cal    saved"
       "picker picker";
     align-items: start;
   }
-  #card-cloud-sync   { grid-area: sync; }
   #card-calendar     { grid-area: cal; }
   #card-saved-records{ grid-area: saved; margin-bottom: 0; }
   #shift-picker       { grid-area: picker; }
