@@ -74,9 +74,32 @@ begin
 end;
 $$;
 
+-- IMPORTANT: `sheets` is upserted WHOLESALE on every sync push (see
+-- sync.js's header comment) — every save re-sends every row, not just
+-- the changed one. An earlier version of this trigger fired on
+-- `new.draft = false` alone, which meant EVERY push re-triggered
+-- 'backup' once per already-completed shift already in the table —
+-- with ~100 historical shifts, that was ~100 concurrent 20-second
+-- calls on every single save, saturating the project (visible as
+-- "Failed to fetch" on completely unrelated requests, e.g. Admin
+-- unlock, since the whole project was busy).
+--
+-- Fix: only fire on a genuine transition INTO completed — a brand
+-- new row inserted as already-final (INSERT trigger below), or an
+-- existing row whose draft flag actually flips from true to false
+-- (UPDATE trigger below, using OLD IS DISTINCT FROM). Postgres won't
+-- allow referencing OLD in an INSERT trigger's WHEN clause at all,
+-- hence two separate triggers instead of one.
 drop trigger if exists trg_drive_backup_on_shift_save on sheets;
-create trigger trg_drive_backup_on_shift_save
-  after insert or update on sheets
+
+create trigger trg_drive_backup_on_shift_insert
+  after insert on sheets
   for each row
   when (new.draft = false)
+  execute function public.drive_backup_on_shift_save();
+
+create trigger trg_drive_backup_on_shift_update
+  after update on sheets
+  for each row
+  when (new.draft = false and old.draft is distinct from false)
   execute function public.drive_backup_on_shift_save();

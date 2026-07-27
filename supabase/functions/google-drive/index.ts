@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'content-type',
+      'Access-Control-Allow-Headers': 'content-type, authorization, apikey, x-client-info',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
     }});
   }
