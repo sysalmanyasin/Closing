@@ -1131,9 +1131,25 @@ export function hydrate(s) {
     addHsRow('Home Service 1', 0);
   }
 
-  /* strips — qty restored from saved sheet, price always taken live from Settings (Inventory Catalog) */
+  /* strips — qty restored from saved sheet.
+     Price: for a DRAFT (s.locked !== true — still being worked on, not
+     yet finalized) price stays live from Settings (Inventory Catalog),
+     same as initLedger() painted it, so an in-progress shift always
+     reflects the current price list.
+     For a LOCKED sheet (already-saved snapshot) the price must instead
+     be frozen back to whatever was recorded in s.stripPrices at save
+     time — editing the Inventory Catalog afterward must never change
+     what an already-saved closing shows or totals to. This mirrors the
+     same "locked = exactly as recorded" rule already applied to the
+     carry-forward fields above (see refreshCarryForwardFromPrevious). */
   const qc = document.querySelectorAll('.strip-qty');
   if(s.stripQtys)  qc.forEach((el,i) => el.value = s.stripQtys[i]??'');
+
+  if(s.locked && s.stripPrices) {
+    document.querySelectorAll('.strip-price').forEach((el,i) => {
+      if(s.stripPrices[i] !== undefined) el.value = s.stripPrices[i];
+    });
+  }
 
   /* aux strips */
   document.querySelectorAll('#ledger-strips .strip-row').forEach(r => {
