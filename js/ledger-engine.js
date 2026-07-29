@@ -127,7 +127,7 @@ export function mlAllSnapshots() {
   const out = [];
   Object.entries(db.sheets || {}).forEach(([key, rec]) => {
     if(!rec || rec.draft) return; /* skip drafts, same rule as Credit Ledger */
-    const rows = (rec.miscRows || []).filter(r => (parseFloat(r.val) || 0) !== 0 || (r.label || '').trim());
+    const rows = (rec.miscRows || []).filter(r => !r.deleted && ((parseFloat(r.val) || 0) !== 0 || (r.label || '').trim()));
     if(!rows.length) return;
     const parts = key.split('_');
     out.push({

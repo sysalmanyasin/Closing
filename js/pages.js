@@ -677,7 +677,7 @@ export function printThermalSnapshot(kind, key) {
     const rec = db.sheets[key];
     if(!rec) { alert('Snapshot not found.'); return; }
     const parts = key.split('_');
-    const rows  = (rec.miscRows || []).filter(r => (parseFloat(r.val) || 0) !== 0 || (r.label || '').trim());
+    const rows  = (rec.miscRows || []).filter(r => !r.deleted && ((parseFloat(r.val) || 0) !== 0 || (r.label || '').trim()));
     snap = {
       key, date: parts[0] || '', shift: parts[1] || '',
       mode:  rec.profileMode || 'shift',
