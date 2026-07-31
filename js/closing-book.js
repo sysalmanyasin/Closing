@@ -150,7 +150,7 @@ export function buildClosingBookCoverPage(entries, fromDs, fromShift, toDs, toSh
   return `
     <div class="ps-page cb-cover-page">
       <div class="ps-content" style="margin-left:0;padding:70px 55px;">
-        <div class="ps-letterhead" style="border-bottom:2px solid #1c2b2b;padding-bottom:16px;">
+        <div class="ps-letterhead" style="border-bottom:2px solid var(--navy);padding-bottom:16px;">
           <div class="ps-brand">
             <h1>Fazal Din's Pharma Plus</h1>
             <p>${branchName}</p>
@@ -174,9 +174,9 @@ export function buildClosingBookPlaceholderPage(e) {
   return `
     <div class="ps-page cb-placeholder-page">
       <div class="ps-content" style="margin-left:0;height:100%;display:flex;align-items:center;justify-content:center;">
-        <div style="text-align:center;color:#94a3b8;">
+        <div style="text-align:center;color:var(--muted);">
           <div style="font-size:3.2rem;">🗒️</div>
-          <div style="font-size:1.15rem;font-weight:700;margin-top:14px;color:#64748b;">No closing recorded</div>
+          <div style="font-size:1.15rem;font-weight:700;margin-top:14px;color:var(--muted);">No closing recorded</div>
           <div style="font-size:1rem;margin-top:6px;">${e.date} · ${srLabel(e.shift)}</div>
         </div>
       </div>
@@ -459,7 +459,7 @@ export async function exportClosingBookPdf() {
 
   const holder = document.createElement('div');
   holder.className = 'ps-sheet-scope';
-  holder.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;background:#fff;';
+  holder.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;background:var(--white);';
   document.body.appendChild(holder);
 
   try {

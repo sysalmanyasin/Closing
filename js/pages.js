@@ -1006,17 +1006,17 @@ export function openDatePicker(ds) {
         <div style="font-size:0.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Mode</div>
         <div style="display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
           <button id="picker-mode-shift" onclick="setPickerMode('shift')"
-            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--navy);color:#fff;transition:background .15s;">
+            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--navy);color:var(--white);transition:background .15s;">
             🔵 Shift
           </button>
           <button id="picker-mode-final" onclick="setPickerMode('final')"
-            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:#f8fafc;color:var(--muted);transition:background .15s;">
+            style="flex:1;padding:8px 6px;border:none;font-size:0.8rem;font-weight:700;cursor:pointer;background:var(--surface);color:var(--muted);transition:background .15s;">
             🔴 Final
           </button>
         </div>
       </div>
     </div>
-    ${isDraft ? `<p style="font-size:0.78rem;color:#92400e;background:#fef9c3;border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}
+    ${isDraft ? `<p style="font-size:0.78rem;color:var(--amber-dark);background:var(--amber-pale);border-radius:var(--radius-sm);padding:7px 12px;margin-top:4px;">⚠️ This shift has an unsaved draft.</p>` : ''}
   ${savedToday.length ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;" onclick="insertHandoverClosing('${ds}')">↪ Insert Handover Closing</button>` : ''}`;
 
   /* Reflect the auto-suggested mode in the toggle buttons' visuals
@@ -1055,11 +1055,11 @@ export function setPickerMode(mode) {
   const btnFinal = document.getElementById('picker-mode-final');
   if(!btnShift || !btnFinal) return;
   if(mode === 'final') {
-    btnShift.style.background = '#f8fafc'; btnShift.style.color = 'var(--muted)';
-    btnFinal.style.background = '#7c3aed'; btnFinal.style.color = '#fff';
+    btnShift.style.background = 'var(--surface)'; btnShift.style.color = 'var(--muted)';
+    btnFinal.style.background = 'var(--teal-dark)'; btnFinal.style.color = 'var(--white)';
   } else {
-    btnShift.style.background = 'var(--navy)'; btnShift.style.color = '#fff';
-    btnFinal.style.background = '#f8fafc'; btnFinal.style.color = 'var(--muted)';
+    btnShift.style.background = 'var(--navy)'; btnShift.style.color = 'var(--white)';
+    btnFinal.style.background = 'var(--surface)'; btnFinal.style.color = 'var(--muted)';
   }
 }
 
@@ -1232,7 +1232,7 @@ export function renderManifest() {
 
     let badgeHtml = '';
     if(isDraft) {
-      badgeHtml = `<span class="badge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">DRAFT</span>`;
+      badgeHtml = `<span class="badge" style="background:var(--amber-pale);color:var(--amber-dark);border:1px solid var(--amber);">DRAFT</span>`;
     } else if(mode === 'final') {
       badgeHtml = `<span class="badge badge-final">FINAL</span>`;
     } else {
@@ -1273,7 +1273,7 @@ export function renderManifest() {
     const collapseWrap = document.createElement('div');
 
     const toggleBtn = document.createElement('button');
-    toggleBtn.style.cssText = 'width:100%;padding:10px;background:#f8fafc;border:none;border-top:1px solid var(--border);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;';
+    toggleBtn.style.cssText = 'width:100%;padding:10px;background:var(--surface);border:none;border-top:1px solid var(--border);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;';
     toggleBtn.innerHTML = `<span id="manifest-older-icon">▼</span> Show ${older.length} older record${older.length>1?'s':''}`;
 
     const olderList = document.createElement('div');
@@ -1826,7 +1826,7 @@ export function renderStaffLedger() {
       const subtotal = ks.reduce((s, k) => s + deltas.get(k).delta, 0);
       return `
         <div style="margin-bottom:14px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f1f5f9;border-radius:var(--radius-sm);margin-bottom:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:6px;">
             <span style="font-weight:700;font-size:0.85rem;">👤 ${escHtml(name)} <span style="font-weight:400;color:var(--muted);">(${ks.length} shift${ks.length===1?'':'s'})</span></span>
             <span class="${varianceClass(subtotal)}" style="font-weight:700;">${fmtVariance(subtotal)}</span>
           </div>

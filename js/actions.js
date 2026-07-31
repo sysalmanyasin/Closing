@@ -145,7 +145,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
     row.className = "row strip-row" + (grp ? " grouped" : "");
     row.innerHTML = `
       <span class="strip-name">${escHtml(st.name)}</span>
-      <input type="number" class="strip-price" data-idx="${idx}" value="${st.price}" readonly style="width:80px;background:#f1f5f9;color:var(--muted);">
+      <input type="number" class="strip-price" data-idx="${idx}" value="${st.price}" readonly style="width:80px;background:var(--surface);color:var(--muted);">
       <input type="number" class="strip-qty"   data-idx="${idx}" value="0"           oninput="calc()" style="width:80px;">
       <input type="number" class="strip-line"  id="strip-line-${idx}" readonly       style="width:80px;">`;
     sc.appendChild(row);

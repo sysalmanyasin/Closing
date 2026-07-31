@@ -218,20 +218,20 @@ export async function driveListVersions() {
   try {
     const { versions } = await callFunction({ action: 'list_versions' });
     if (!versions.length) {
-      list.innerHTML = '<p style="color:#64748b;font-size:0.78rem;margin:6px 0 0;">No backups yet.</p>';
+      list.innerHTML = '<p style="color:var(--on-dark-secondary);font-size:0.78rem;margin:6px 0 0;">No backups yet.</p>';
       return;
     }
     list.innerHTML = versions.map(v => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);">
         <div style="min-width:0;">
-          <div style="color:#e2e8f0;font-size:0.78rem;">${new Date(v.createdTime).toLocaleString()}</div>
-          <div style="color:#64748b;font-size:0.68rem;">${fmtBytes(v.size)}</div>
+          <div style="color:var(--on-dark-primary);font-size:0.78rem;">${new Date(v.createdTime).toLocaleString()}</div>
+          <div style="color:var(--on-dark-secondary);font-size:0.68rem;">${fmtBytes(v.size)}</div>
         </div>
         <button class="btn-sync-action" style="flex:none;padding:6px 10px;font-size:0.75rem;" onclick="driveRestore('${v.id}')">Restore</button>
       </div>
     `).join('');
   } catch (err) {
-    list.innerHTML = `<p style="color:#f87171;font-size:0.78rem;margin:6px 0 0;">Couldn't load versions: ${err.message}</p>`;
+    list.innerHTML = `<p style="color:var(--status-bad);font-size:0.78rem;margin:6px 0 0;">Couldn't load versions: ${err.message}</p>`;
   }
 }
 

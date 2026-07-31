@@ -36,7 +36,7 @@
 
 <!-- ── PWA ── -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0d9488">
+<meta name="theme-color" content="#0D8C78">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -68,17 +68,17 @@
 <body>
 
 <!-- ══ AUTH GATE — phone + PIN login, blocks the app until signed in ══ -->
-<div id="auth-gate" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#0E241F;display:flex;align-items:center;justify-content:center;padding:24px;">
+<div id="auth-gate" class="hidden" style="position:fixed;inset:0;z-index:9999;background:var(--navy);display:flex;align-items:center;justify-content:center;padding:24px;">
   <div style="width:100%;max-width:340px;">
-    <h2 style="color:#fff;text-align:center;margin-bottom:24px;font-family:'Inter',sans-serif;">🔒 Sign in</h2>
+    <h2 style="color:var(--white);text-align:center;margin-bottom:24px;font-family:'Inter',sans-serif;">🔒 Sign in</h2>
     <input type="tel" id="auth-phone" placeholder="Phone number" autocomplete="off"
-      style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.95rem;margin-bottom:10px;outline:none;">
+      style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.95rem;margin-bottom:10px;outline:none;">
     <input type="password" id="auth-pin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="off"
-      style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.95rem;margin-bottom:10px;outline:none;letter-spacing:0.3em;"
+      style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.95rem;margin-bottom:10px;outline:none;letter-spacing:0.3em;"
       onkeydown="if(event.key==='Enter')authLogin()">
-    <div id="auth-error" style="display:none;color:#E8917E;font-size:0.8rem;margin-bottom:10px;"></div>
-    <button id="auth-login-btn" onclick="authLogin()" style="width:100%;padding:12px;border-radius:8px;border:none;background:#0d9488;color:#fff;font-weight:600;font-size:0.95rem;cursor:pointer;">Sign in</button>
-    <p style="color:#7C8B85;font-size:0.72rem;text-align:center;margin-top:16px;">Ask your manager if your login isn't set up yet.</p>
+    <div id="auth-error" style="display:none;color:var(--status-bad);font-size:0.8rem;margin-bottom:10px;"></div>
+    <button id="auth-login-btn" onclick="authLogin()" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--teal);color:var(--white);font-weight:600;font-size:0.95rem;cursor:pointer;">Sign in</button>
+    <p style="color:var(--on-dark-secondary);font-size:0.72rem;text-align:center;margin-top:16px;">Ask your manager if your login isn't set up yet.</p>
   </div>
 </div>
 
@@ -89,10 +89,10 @@
 </div>
 
 <div id="whoami-bar" class="hidden" onclick="goToSettings()" title="Tap to open Settings"
-  style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 12px;font-size:0.72rem;color:#475569;background:#f1f5f9;cursor:pointer;">
+  style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 12px;font-size:0.72rem;color:var(--slate);background:var(--surface);cursor:pointer;">
   <span style="display:flex;align-items:center;gap:6px;"><span>👤</span><span>Signed in as <strong id="whoami-name">—</strong></span></span>
   <button onclick="event.stopPropagation();confirmLogout()" title="Log Out"
-    style="border:1px solid #E4B2A5;color:#96392C;background:#fff;border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;">🚪 Log Out</button>
+    style="border:1px solid var(--red);color:var(--red);background:var(--white);border-radius:6px;padding:2px 8px;font-size:0.7rem;font-weight:600;cursor:pointer;">🚪 Log Out</button>
 </div>
 
 <div class="shell">
@@ -147,8 +147,8 @@
       <div class="btn-row" id="dashboard-btn-row">
         <button class="btn btn-ghost" onclick="goToSettings()">⚙️ Settings</button>
         <button class="btn btn-ghost" onclick="goToCreditLedger()" style="color:var(--teal-dark);border-color:var(--teal);">📒 Credit Ledger</button>
-        <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:#0A5147;border-color:#A9CCC3;">📖 Closing Book</button>
-        <button class="btn btn-ghost" onclick="goToStaffLedger()" style="color:#0A5147;border-color:#9CC9BE;">🧾 Staff Ledger</button>
+        <button class="btn btn-ghost" onclick="goToClosingBook()" style="color:var(--teal-dark);border-color:var(--teal-light);">📖 Closing Book</button>
+        <button class="btn btn-ghost" onclick="goToStaffLedger()" style="color:var(--teal-dark);border-color:var(--teal-light);">🧾 Staff Ledger</button>
       </div>
 
       <!-- ── CALENDAR ── -->
@@ -310,17 +310,17 @@
              (goToSettings() → gatePermission('settings', …)) instead of being
              visible to anyone who opens the app. All ids, onclick handlers and
              sync.js logic are unchanged — only the DOM location moved. -->
-        <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg,#0E241F 0%,#0A5147 100%);border-radius:var(--radius-lg);overflow:hidden;">
+        <div class="card" id="card-cloud-sync" style="background:linear-gradient(135deg, var(--navy) 0%, var(--teal-dark) 100%);border-radius:var(--radius-lg);overflow:hidden;">
 
           <div class="card-head" onclick="toggleCard('card-cloud-sync')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <div class="sync-card-icon" style="font-size:1.3rem;">☁️</div>
               <div>
-                <h3 style="color:#e2e8f0;margin:0;font-size:0.95rem;">Cloud Synchronization</h3>
-                <p style="color:#7C8B85;margin:0;font-size:0.72rem;">Supabase · Real-time · Tables</p>
+                <h3 style="color:var(--on-dark-primary);margin:0;font-size:0.95rem;">Cloud Synchronization</h3>
+                <p style="color:var(--on-dark-secondary);margin:0;font-size:0.72rem;">Supabase · Real-time · Tables</p>
               </div>
             </div>
-            <span class="collapse-icon" style="color:#7C8B85;" aria-hidden="true">▶</span>
+            <span class="collapse-icon" style="color:var(--on-dark-secondary);" aria-hidden="true">▶</span>
           </div>
           <div class="card-body collapsed" id="card-cloud-sync-body" style="display:none;">
           <div class="sync-card-body">
@@ -332,26 +332,26 @@
                   <strong>One-time setup:</strong> paste your Supabase project's URL and anon key to enable sync.
                 </p>
                 <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-                  <p style="font-size:0.73rem;color:#9FB8AE;line-height:1.7;margin:0;">
-                    <strong style="color:#e2e8f0;">How to get these (2 min):</strong><br>
-                    1. Open <strong style="color:#60a5fa;">supabase.com</strong> → your project<br>
-                    2. Run <strong style="color:#e2e8f0;">supabase/schema.sql</strong> once in the SQL Editor<br>
-                    3. Go to <strong style="color:#e2e8f0;">Project Settings → API</strong><br>
-                    4. Copy the <strong style="color:#4ade80;">Project URL</strong> and the <strong style="color:#4ade80;">anon public</strong> key and paste them below
+                  <p style="font-size:0.73rem;color:var(--on-dark-secondary);line-height:1.7;margin:0;">
+                    <strong style="color:var(--on-dark-primary);">How to get these (2 min):</strong><br>
+                    1. Open <strong style="color:var(--teal-light);">supabase.com</strong> → your project<br>
+                    2. Run <strong style="color:var(--on-dark-primary);">supabase/schema.sql</strong> once in the SQL Editor<br>
+                    3. Go to <strong style="color:var(--on-dark-primary);">Project Settings → API</strong><br>
+                    4. Copy the <strong style="color:var(--status-ok);">Project URL</strong> and the <strong style="color:var(--status-ok);">anon public</strong> key and paste them below
                   </p>
                 </div>
                 <input type="text" id="dbx-app-key-input" placeholder="Project URL (https://xxxx.supabase.co)"
-                  style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
+                  style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
                   oninput="dbxShowKeyError('')">
                 <input type="text" id="supa-anon-key-input" placeholder="anon public key"
-                  style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
+                  style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
                   oninput="dbxShowKeyError('')">
-                <div id="dbx-key-error" style="display:none;color:#E8917E;font-size:0.75rem;margin-bottom:8px;"></div>
+                <div id="dbx-key-error" style="display:none;color:var(--status-bad);font-size:0.75rem;margin-bottom:8px;"></div>
                 <button class="btn-dropbox" style="width:100%;" onclick="dbxSaveAppKey()">✓ Save & Connect</button>
-                <div style="margin-top:12px;border-top:1px solid #1e293b;padding-top:12px;">
+                <div style="margin-top:12px;border-top:1px solid var(--navy-light);padding-top:12px;">
                   <p class="sync-unlinked-text" style="margin-bottom:8px;font-size:0.75rem;">Already connected on another device? Paste your exported token instead:</p>
-                  <textarea id="sync-import-input-unlinked" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0E241F;border:1px solid #2A3F38;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
-                  <button class="btn-dropbox" style="margin-top:6px;background:#0d9488;" onclick="dbxImportConnectionUnlinked()">📥 Connect via Imported Token</button>
+                  <textarea id="sync-import-input-unlinked" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid rgba(255,255,255,.15);color:var(--on-dark-primary);border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
+                  <button class="btn-dropbox" style="margin-top:6px;background:var(--teal);" onclick="dbxImportConnectionUnlinked()">📥 Connect via Imported Token</button>
                 </div>
               </div>
             </div>
@@ -363,7 +363,7 @@
                   <span class="sync-dot"></span>
                   Connected securely
                 </div>
-                <span id="sync-account-name" style="font-size:0.72rem;color:#7C8B85;font-family:'JetBrains Mono',monospace;"></span>
+                <span id="sync-account-name" style="font-size:0.72rem;color:var(--on-dark-secondary);font-family:'JetBrains Mono',monospace;"></span>
               </div>
               <div class="sync-status-line status-ok" id="sync-status-line">
                 <span id="sync-status-icon">✓</span>
@@ -379,14 +379,14 @@
                 <button class="btn-sync-action" onclick="dbxShowImport()" title="Paste connection token from another device">📥 Import Connection</button>
               </div>
               <div id="sync-import-box" style="display:none;margin-top:8px;">
-                <textarea id="sync-import-input" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:#0E241F;border:1px solid #2A3F38;color:#e2e8f0;border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
+                <textarea id="sync-import-input" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid rgba(255,255,255,.15);color:var(--on-dark-primary);border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
                 <div style="display:flex;gap:8px;margin-top:6px;">
                   <button class="btn-sync-action" style="flex:1;" onclick="dbxImportConnection()">✓ Apply Token</button>
                   <button class="btn-sync-disconnect" style="flex:1;" onclick="document.getElementById('sync-import-box').style.display='none'">Cancel</button>
                 </div>
               </div>
               <div style="text-align:center;margin-top:4px;">
-                <button onclick="dbxClearAppKey()" style="background:none;border:none;color:#475569;font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
+                <button onclick="dbxClearAppKey()" style="background:none;border:none;color:var(--on-dark-secondary);font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
                   ⚙ Change App Key
                 </button>
               </div>
@@ -402,17 +402,17 @@
              after card-cloud-sync). Its own internal Admin-PIN gate
              (driveUnlock(), STATE 0 below) stays in place as a second layer,
              on top of the Settings-page PIN gate that now guards this whole tab. -->
-        <div class="card" id="card-drive-backup" style="background:linear-gradient(135deg,#163530 0%,#0E241F 100%);border-radius:var(--radius-lg);overflow:hidden;">
+        <div class="card" id="card-drive-backup" style="background:linear-gradient(135deg, var(--navy-light) 0%, var(--navy) 100%);border-radius:var(--radius-lg);overflow:hidden;">
 
           <div class="card-head" onclick="toggleCard('card-drive-backup')" style="background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <div class="sync-card-icon" style="font-size:1.3rem;">🗂️</div>
               <div>
-                <h3 style="color:#e2e8f0;margin:0;font-size:0.95rem;">Google Drive Backup</h3>
-                <p style="color:#7C8B85;margin:0;font-size:0.72rem;">Permanent · Automatic refresh</p>
+                <h3 style="color:var(--on-dark-primary);margin:0;font-size:0.95rem;">Google Drive Backup</h3>
+                <p style="color:var(--on-dark-secondary);margin:0;font-size:0.72rem;">Permanent · Automatic refresh</p>
               </div>
             </div>
-            <span class="collapse-icon" style="color:#7C8B85;" aria-hidden="true">▶</span>
+            <span class="collapse-icon" style="color:var(--on-dark-secondary);" aria-hidden="true">▶</span>
           </div>
           <div class="card-body collapsed" id="card-drive-backup-body" style="display:none;">
           <div class="sync-card-body">
@@ -421,10 +421,10 @@
                  sees connection status, the linked email, or the backup /
                  disconnect controls. See drive-backup.js's driveUnlock(). -->
             <div id="drive-state-locked">
-              <p style="color:#9FB8AE;font-size:0.82rem;margin-bottom:10px;">
+              <p style="color:var(--on-dark-secondary);font-size:0.82rem;margin-bottom:10px;">
                 🔒 Admin access only.
               </p>
-              <button class="btn-dropbox" style="width:100%;background:#0A5147;" onclick="driveUnlock()">Unlock with Admin PIN</button>
+              <button class="btn-dropbox" style="width:100%;background:var(--teal-dark);" onclick="driveUnlock()">Unlock with Admin PIN</button>
             </div>
 
             <!-- STATE A: Not linked -->
@@ -433,9 +433,9 @@
                 <strong>One-time setup:</strong> connect a Google account to back up your closing data to Drive.
               </p>
               <input type="text" id="drive-client-id-input" placeholder="Google OAuth Client ID (…apps.googleusercontent.com)"
-                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;">
+                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;">
               <button class="btn-dropbox" style="width:100%;" onclick="driveSaveClientId()">Save Client ID</button>
-              <button class="btn-dropbox" style="width:100%;margin-top:8px;background:#0A5147;" onclick="driveConnectStart()">🔗 Connect Google Drive</button>
+              <button class="btn-dropbox" style="width:100%;margin-top:8px;background:var(--teal-dark);" onclick="driveConnectStart()">🔗 Connect Google Drive</button>
             </div>
 
             <!-- STATE B: Linked -->
@@ -445,7 +445,7 @@
                   <span class="sync-dot"></span>
                   Connected securely
                 </div>
-                <span id="drive-account-name" style="font-size:0.72rem;color:#7C8B85;font-family:'JetBrains Mono',monospace;"></span>
+                <span id="drive-account-name" style="font-size:0.72rem;color:var(--on-dark-secondary);font-family:'JetBrains Mono',monospace;"></span>
               </div>
               <div class="sync-status-line status-ok" id="drive-status-line">
                 <span id="drive-status-icon">✓</span>
@@ -456,8 +456,8 @@
               </div>
 
               <div style="margin-top:14px;">
-                <p style="color:#9FB8AE;margin:0 0 4px;font-size:0.78rem;font-weight:600;">Backup history</p>
-                <p style="color:#7C8B85;margin:0 0 6px;font-size:0.68rem;">Every save creates a new version — nothing is overwritten. Restoring replaces all current data.</p>
+                <p style="color:var(--on-dark-secondary);margin:0 0 4px;font-size:0.78rem;font-weight:600;">Backup history</p>
+                <p style="color:var(--on-dark-secondary);margin:0 0 6px;font-size:0.68rem;">Every save creates a new version — nothing is overwritten. Restoring replaces all current data.</p>
                 <div id="drive-versions-list" style="max-height:220px;overflow-y:auto;"></div>
               </div>
 
@@ -564,13 +564,13 @@
       ✏️ <strong>Final Closing Mode</strong> — All carried values are editable. Fill fresh.
     </div>
 
-    <div id="collision-bar" class="final-mode-bar hidden" style="background:linear-gradient(90deg, #7A2B20 0%, #96392C 100%);">
+    <div id="collision-bar" class="final-mode-bar hidden" style="background:linear-gradient(90deg, var(--red-dark) 0%, var(--red) 100%);">
       ⚠️ <strong>Also open elsewhere</strong> — <span id="collision-bar-text"></span>
     </div>
 
-    <div id="locked-mode-bar" class="final-mode-bar hidden" style="background:linear-gradient(90deg, #475569 0%, #7C8B85 100%);">
+    <div id="locked-mode-bar" class="final-mode-bar hidden" style="background:linear-gradient(90deg, var(--slate) 0%, var(--muted) 100%);">
       🔒 <strong>View Only</strong> — This closing has been saved.
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);" onclick="openEditModal()">✏️ Edit (PIN)</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:var(--white);border-color:rgba(255,255,255,.3);" onclick="openEditModal()">✏️ Edit (PIN)</button>
     </div>
 
     <div class="ledger-toolbar">
@@ -595,7 +595,7 @@
       </div>
     </div>
 
-    <div id="responsible-staff-row" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f0fdfa;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+    <div id="responsible-staff-row" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);flex-wrap:wrap;">
       <label for="sel-responsible-staff" style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);white-space:nowrap;">👤 Responsible Closing Person:</label>
       <select id="sel-responsible-staff" onchange="onResponsibleStaffChange()" style="font-size:0.82rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
         <option value="">— Select staff —</option>
@@ -650,7 +650,7 @@
           <div class="row"><label for="in-comp-sale">Computer Card Sale:</label><input type="number" id="in-comp-sale" oninput="calc()"></div>
           <div class="row"><label for="in-alfalah">Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
           <div class="row"><label for="in-keenu">Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
-          <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Returns / Refunds</div>
+          <div style="background:var(--surface);padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Returns / Refunds</div>
           <div class="row highlight-red" id="pos-ret-row-1"><label for="pos-ret-1">Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
           <div class="row highlight-red" id="pos-ret-row-2"><label for="pos-ret-2">Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
           <div class="row highlight-red" id="pos-ret-row-3"><label for="pos-ret-3">Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
@@ -780,9 +780,9 @@
             </div>
           </div>
           <div id="ledger-named-credits"></div>
-          <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Tier / Staff Credit</div>
+          <div style="background:var(--surface);padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Tier / Staff Credit</div>
           <div id="ledger-tier-credits"></div>
-          <div style="background:#f8fafc;padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Aux / Other Credit</div>
+          <div style="background:var(--surface);padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Aux / Other Credit</div>
           <div id="ledger-aux-credits"></div>
           <div class="row computed"><label for="out-total-e">Total Credit Detail (G):</label><input type="number" id="out-total-e" readonly value="0"></div>
         </div>
@@ -809,8 +809,8 @@
       <!-- BLOCK: Final Audit -->
       <div class="card ledger-section" id="card-audit" data-section="audit">
         <div class="card-head" onclick="toggleCard('card-audit')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
-          <h3 style="color:#fff;">Final Audit</h3>
-          <div class="card-head-right"><span class="collapse-icon" style="color:#9FB8AE;">▼</span></div>
+          <h3 style="color:var(--white);">Final Audit</h3>
+          <div class="card-head-right"><span class="collapse-icon" style="color:var(--on-dark-secondary);">▼</span></div>
         </div>
         <div class="card-body">
           <div class="row computed"><label for="out-grand">Grand Total (A+B+C+D+E+F+G+H):</label><input type="number" id="out-grand" readonly value="0"></div>
@@ -830,12 +830,12 @@
       <!-- FINAL CLOSING AGGREGATION -->
       <div class="card ledger-section" id="card-final-agg" data-section="final-agg">
         <div class="card-head" onclick="toggleCard('card-final-agg')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
-          <h3 style="color:#fff;">🧮 Final Closing — Period Aggregation</h3>
-          <div class="card-head-right"><span class="collapse-icon" style="color:#9FB8AE;">▼</span></div>
+          <h3 style="color:var(--white);">🧮 Final Closing — Period Aggregation</h3>
+          <div class="card-head-right"><span class="collapse-icon" style="color:var(--on-dark-secondary);">▼</span></div>
         </div>
         <div class="card-body">
           <div class="row computed"><label for="out-final-shifts">Shifts since last Final:</label><input type="text" id="out-final-shifts" readonly value="—"></div>
-          <div style="background:#0E241F;padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:#9FB8AE;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
+          <div style="background:var(--navy);padding:6px 16px;margin:8px 0 0;font-size:0.71rem;font-weight:700;color:var(--on-dark-secondary);text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 1 — Net Final Sale (POS)</div>
           <div class="row computed"><label id="lbl-final-same-sys">＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
           <div class="row computed"><label id="lbl-final-books">＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
           <div class="row computed"><label id="lbl-final-same-cust">＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
@@ -843,7 +843,7 @@
           <div class="row computed highlight-red"><label id="lbl-final-same-sysret">－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
           <div class="row highlight-red"><label for="in-final-sys-returns">－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
           <div class="row highlight-green"><label for="out-final-net-sale"><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
-          <div style="background:#0E241F;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#9FB8AE;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
+          <div style="background:var(--navy);padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:var(--on-dark-secondary);text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
           <div class="row computed"><label for="out-final-net-cash-base">Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-pre-sys">－ Pre-date POS Sales:</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-pre-cust">－ Pre-date Customers:</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
@@ -851,7 +851,7 @@
           <div class="row computed highlight-red"><label id="lbl-final-extra-cash">－ Extra Cash Added to Pharmacy:</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
           <div class="row computed highlight-red"><label for="out-final-target-sale">－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
           <div class="row highlight-blue"><label for="out-final-net-cash"><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
-          <div style="background:#0E241F;padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:#9FB8AE;text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
+          <div style="background:var(--navy);padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:var(--on-dark-secondary);text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
           <div class="row computed"><label for="out-final-pre-total">Pre-date Total:</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
           <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
         </div>
@@ -1129,7 +1129,7 @@
 
       <div id="sl-count-badge" style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;"></div>
 
-      <div id="sl-total-card" class="card" style="padding:12px 14px;margin-bottom:10px;border-radius:var(--radius-md);background:#f8fafc;">
+      <div id="sl-total-card" class="card" style="padding:12px 14px;margin-bottom:10px;border-radius:var(--radius-md);background:var(--surface);">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:0.78rem;color:var(--muted);font-weight:600;">Total Variance (since last Final Closing)</div>
@@ -1139,7 +1139,7 @@
         </div>
       </div>
 
-      <div id="sl-staff-total-card" class="card hidden" style="padding:12px 14px;margin-bottom:12px;border-radius:var(--radius-md);background:#eff6ff;border:1px solid #bfdbfe;">
+      <div id="sl-staff-total-card" class="card hidden" style="padding:12px 14px;margin-bottom:12px;border-radius:var(--radius-md);background:var(--blue-pale);border:1px solid var(--blue);">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div id="sl-staff-total-label" style="font-size:0.78rem;color:var(--muted);font-weight:600;"></div>
