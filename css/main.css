@@ -945,6 +945,40 @@
   .cl-date-body { display: none; padding: 8px 10px 10px; }
   .cl-date-card.open .cl-date-body { display: block; }
 
+  /* Flat shift-wise list (default Credit Ledger layout) */
+  .cl-flat-container { display: flex; flex-direction: column; gap: 6px; }
+
+  .cl-date-divider {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px; padding: 14px 4px 4px; margin-top: 4px;
+  }
+  .cl-flat-container > .cl-date-divider:first-child { padding-top: 2px; margin-top: 0; }
+  .cl-date-divider-label { font-size: 0.78rem; font-weight: 700; color: var(--navy); }
+  .cl-date-divider-total { font-size: 0.72rem; font-weight: 700; color: var(--teal-dark); }
+
+  .cl-shift-row-flat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); overflow: hidden;
+  }
+  .cl-shift-row-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; cursor: pointer; background: var(--white);
+  }
+  .cl-shift-row-head:hover { background: #f8fafc; }
+  .cl-shift-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cl-shift-row-main { flex: 1; min-width: 0; }
+  .cl-shift-row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cl-shift-row-name { font-size: 0.82rem; font-weight: 700; color: var(--navy); }
+  .cl-shift-row-date  { font-size: 0.72rem; color: var(--muted); }
+  .cl-shift-row-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .cl-shift-row-total { font-size: 0.82rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
+  .cl-shift-row-flat .cl-chevron { transition: transform 0.2s; }
+  .cl-shift-row-flat.open .cl-chevron { transform: rotate(90deg); }
+  .cl-shift-row-body { display: none; border-top: 1px solid var(--border); }
+  .cl-shift-row-flat.open .cl-shift-row-body { display: block; }
+  .cl-shift-row-flat.mode-final .cl-shift-row-head,
+  .cl-shift-row-flat:has(.cl-badge-final) .cl-shift-row-head { background: #fffbeb; }
+
   /* Shift snapshot block */
   .cl-shift-block {
     border: 1px solid var(--border); border-radius: var(--radius-md);

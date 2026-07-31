@@ -906,6 +906,12 @@
         <button class="cl-mode-tab active" id="cl-mode-tab-credit" onclick="clSwitchMode('credit')">💳 Credit</button>
         <button class="cl-mode-tab" id="cl-mode-tab-misc" onclick="clSwitchMode('misc')">🧮 Misc / Ongoing</button>
       </div>
+      <div id="cl-layout-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="cl-mode-tabs" style="flex:1;">
+          <button class="cl-mode-tab active" id="cl-layout-tab-shift" onclick="clSwitchLayout('shift')">📋 By Shift</button>
+          <button class="cl-mode-tab" id="cl-layout-tab-date" onclick="clSwitchLayout('date')">📅 By Date</button>
+        </div>
+      </div>
       <div id="cl-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Filter account:</label>
         <select id="cl-filter-select" onchange="renderCreditLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">

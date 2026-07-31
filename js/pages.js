@@ -222,8 +222,14 @@ export function goToActivityLog() {
 const clPageState = {
   visibleCount:   3,       /* how many date-groups shown (Credit mode) */
   mlVisibleCount: 3,       /* how many date-groups shown (Misc mode) */
-  activeMode:     'credit' /* 'credit' | 'misc' */
+  activeMode:     'credit', /* 'credit' | 'misc' */
+  layout:         'shift'  /* 'shift' (flat, default) | 'date' (grouped cards) */
 };
+
+/* Per-shift colour dot, keyed by shift name — purely visual grouping cue
+   in the flat shift-wise list so the eye can scan for a shift type
+   without reading text. */
+const CL_SHIFT_DOT = { Morning: 'var(--amber)', Evening: 'var(--blue)', Night: 'var(--teal-dark)' };
 
 /* ── FORMAT HELPERS ── */
 export function clFmt(v) { return 'Rs. ' + Math.abs(v).toLocaleString(); }
@@ -241,6 +247,8 @@ export function clSwitchMode(mode) {
   document.getElementById('cl-mode-tab-credit')?.classList.toggle('active', mode === 'credit');
   document.getElementById('cl-mode-tab-misc')?.classList.toggle('active', mode === 'misc');
   document.getElementById('cl-filter-row').style.display   = mode === 'credit' ? 'flex' : 'none';
+  const layoutRow = document.getElementById('cl-layout-row');
+  if(layoutRow) layoutRow.style.display = mode === 'credit' ? 'flex' : 'none';
   document.getElementById('cl-count-row-misc').classList.toggle('hidden', mode !== 'misc');
 
   const title = document.getElementById('cl-toolbar-title');
@@ -255,6 +263,16 @@ export function clSwitchMode(mode) {
     if(sub)   sub.textContent   = "Snapshot history of every shift's miscellaneous / ongoing charges";
     if(expT)  expT.textContent  = '📤 Export Misc History as .txt';
   }
+  renderCreditLedger();
+}
+
+/* Switch between the flat shift-wise list (default) and the grouped
+   by-date card view. Only applies to Credit mode — Misc/Ongoing keeps
+   its own date grouping. */
+export function clSwitchLayout(layout) {
+  clPageState.layout = layout;
+  document.getElementById('cl-layout-tab-shift')?.classList.toggle('active', layout === 'shift');
+  document.getElementById('cl-layout-tab-date')?.classList.toggle('active', layout === 'date');
   renderCreditLedger();
 }
 
@@ -300,15 +318,23 @@ export function renderCreditLedger() {
   }
 
   container.innerHTML = '';
+  container.classList.toggle('cl-flat-container', clPageState.layout === 'shift');
   const toShow = groups.slice(0, clPageState.visibleCount);
   const hidden = groups.slice(clPageState.visibleCount);
 
-  toShow.forEach(group => container.appendChild(clBuildDateCard(group, activeFilter)));
+  if(clPageState.layout === 'shift') {
+    toShow.forEach(group => clAppendFlatGroup(container, group, activeFilter));
+  } else {
+    toShow.forEach(group => container.appendChild(clBuildDateCard(group, activeFilter)));
+  }
 
   /* Show more button */
   const moreBtn = document.getElementById('cl-show-more-btn');
   if(hidden.length > 0) {
-    moreBtn.textContent = `Show ${hidden.length} more date${hidden.length !== 1 ? 's' : ''} ▼`;
+    const hiddenShiftCount = hidden.reduce((n, g) => n + g.snaps.length, 0);
+    moreBtn.textContent = clPageState.layout === 'shift'
+      ? `Show ${hiddenShiftCount} more shift${hiddenShiftCount !== 1 ? 's' : ''} ▼`
+      : `Show ${hidden.length} more date${hidden.length !== 1 ? 's' : ''} ▼`;
     moreBtn.classList.remove('hidden');
   } else {
     moreBtn.classList.add('hidden');
@@ -340,13 +366,10 @@ export function clBuildDateCard(group, activeFilter) {
   return card;
 }
 
-export function clBuildShiftBlock(snap, activeFilter) {
-  const isFinal = snap.mode === 'final';
-  const modeClass = isFinal ? 'mode-final' : '';
-  const badge = isFinal
-    ? `<span class="cl-badge-final">🟡 Final</span>`
-    : `<span class="cl-badge-shift">🔵 Shift</span>`;
-
+/* Builds the inner "cl-lines" markup (opening credit, named accounts,
+   staff/tier credits, free entries, adjustment, total) shared by both
+   the nested date-card view and the flat shift-row view. */
+export function clBuildShiftLinesHtml(snap, activeFilter) {
   /* Lines to display */
   let displayLines = snap.lines;
   if(activeFilter) displayLines = displayLines.filter(l => l.lbl === activeFilter);
@@ -395,6 +418,16 @@ export function clBuildShiftBlock(snap, activeFilter) {
     ? `<div class="cl-total-row"><span>TOTAL CREDIT</span><span>${clFmt(snap.totalCredit)}</span></div>`
     : `<div class="cl-total-row" style="color:var(--teal-dark);"><span>${escHtml(activeFilter)}</span><span>${clFmt(displayLines.reduce((s,l)=>s+l.val,0))}</span></div>`;
 
+  return linesHtml + totalRow;
+}
+
+export function clBuildShiftBlock(snap, activeFilter) {
+  const isFinal = snap.mode === 'final';
+  const modeClass = isFinal ? 'mode-final' : '';
+  const badge = isFinal
+    ? `<span class="cl-badge-final">🟡 Final</span>`
+    : `<span class="cl-badge-shift">🔵 Shift</span>`;
+
   return `
     <div class="cl-shift-block ${modeClass}">
       <div class="cl-shift-header">
@@ -405,10 +438,66 @@ export function clBuildShiftBlock(snap, activeFilter) {
         <button class="cl-open-btn" onclick="clOpenShift('${snap.key}')">Open →</button>
       </div>
       <div class="cl-lines">
-        ${linesHtml}
-        ${totalRow}
+        ${clBuildShiftLinesHtml(snap, activeFilter)}
       </div>
     </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   CREDIT LEDGER — FLAT SHIFT-WISE LIST
+   Default view: every shift is its own row, sorted newest first,
+   with the date as a subtle badge (not a wrapping container). The
+   daily total from the old date-card header is preserved as a
+   divider row whenever the date changes. Each row expands in place
+   to show the same detail lines as the date-card view.
+═══════════════════════════════════════════ */
+export function clAppendFlatGroup(container, group, activeFilter) {
+  const latestTotal = group.snaps[0]?.totalCredit || 0;
+
+  const divider = document.createElement('div');
+  divider.className = 'cl-date-divider';
+  divider.innerHTML = `
+    <span class="cl-date-divider-label">${clFmtDate(group.date)}</span>
+    <span class="cl-date-divider-total">Day total ${clFmt(latestTotal)}</span>`;
+  container.appendChild(divider);
+
+  group.snaps.forEach(snap => container.appendChild(clBuildShiftRowFlat(snap, group.date, activeFilter)));
+}
+
+export function clBuildShiftRowFlat(snap, dateStr, activeFilter) {
+  const isFinal = snap.mode === 'final';
+  const dot = CL_SHIFT_DOT[snap.shift] || 'var(--muted)';
+  const finalBadge = isFinal ? `<span class="cl-badge-final">🟡 Final</span>` : '';
+
+  const row = document.createElement('div');
+  row.className = 'cl-shift-row-flat';
+  row.innerHTML = `
+    <div class="cl-shift-row-head" onclick="clToggleShiftRow(this.parentElement)">
+      <span class="cl-shift-dot" style="background:${dot};"></span>
+      <div class="cl-shift-row-main">
+        <div class="cl-shift-row-title">
+          <span class="cl-shift-row-name">${snap.shift} Closing</span>
+          <span class="cl-shift-row-date">${clFmtDate(dateStr)}</span>
+          ${finalBadge}
+        </div>
+        <div class="cl-shift-row-sub">Opening ${clFmt(snap.openingCredit)}</div>
+      </div>
+      <span class="cl-shift-row-total">${clFmt(snap.totalCredit)}</span>
+      <button class="cl-print-btn" onclick="event.stopPropagation(); printThermalSnapshot('credit','${snap.key}')">🖨</button>
+      <span class="cl-chevron" aria-hidden="true">▶</span>
+    </div>
+    <div class="cl-shift-row-body">
+      <div class="cl-lines">
+        ${clBuildShiftLinesHtml(snap, activeFilter)}
+      </div>
+      <button class="cl-open-btn" style="margin:0 12px 10px;" onclick="clOpenShift('${snap.key}')">Open →</button>
+    </div>`;
+  return row;
+}
+
+/* Toggle a single shift row open/closed in the flat list */
+export function clToggleShiftRow(row) {
+  row.classList.toggle('open');
 }
 
 /* Toggle a date card open/closed */
@@ -416,9 +505,12 @@ export function clToggleDateCard(card) {
   card.classList.toggle('open');
 }
 
-/* Expand or collapse all date cards */
+/* Expand or collapse all date cards, or all shift rows in flat layout */
 export function clToggleAll(open) {
   document.querySelectorAll('#cl-cards-container .cl-date-card').forEach(c => {
+    c.classList.toggle('open', open);
+  });
+  document.querySelectorAll('#cl-cards-container .cl-shift-row-flat').forEach(c => {
     c.classList.toggle('open', open);
   });
 }
