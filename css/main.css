@@ -16,6 +16,7 @@
     --slate:       #3B4B44;
     --muted:       #63726C;  /* darkened from #7C8B85 — that failed WCAG AA (3.6:1) on white; this hits 5.1:1 */
     --border:      #E1E6E1;
+    --border-strong: #C3CCC5;  /* bolder cell/table-line border for ledger grids */
     --surface:     #F5F6F3;
     --paper-dim:   #EBEEEA;
     --white:       #ffffff;
@@ -100,7 +101,7 @@
   /* ── SECTION CARD ── */
   .card {
     background: var(--white);
-    border: 1px solid var(--border);
+    border: 1.5px solid var(--border-strong);
     border-radius: var(--radius-lg);
     margin-bottom: 16px;
     overflow: hidden;
@@ -109,7 +110,7 @@
   .card-head {
     padding: 12px 16px;
     display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1.5px solid var(--border-strong);
     background: var(--surface);
     cursor: pointer;
     user-select: none;
@@ -142,14 +143,22 @@
   .card.collapsed .divider,
   .card.collapsed .add-row-btn-wrap { display: none !important; }
 
-  /* ── ROWS ── */
+  /* ── ROWS ──
+     Each row is a bordered "cell" in the ledger grid. Borders are kept
+     slightly darker/bolder than the ambient --border tone so the grid
+     of cells reads clearly at a glance, on screen and on print. */
   .row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 9px 16px;
-    border: 1px solid var(--border); border-bottom: none;
+    border: 1px solid var(--border-strong, var(--border)); border-bottom: none;
     font-size: 0.85rem; transition: background .12s, box-shadow .12s;
   }
-  .row:last-child { border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: 1px solid var(--border-strong, var(--border)); }
+  /* Computed/subtotal rows get a bold double rule above them — the
+     classic ledger cue that "this cell is a total, not raw input". */
+  .row.computed {
+    border-top: 3px double var(--slate);
+  }
   .row:hover { background: var(--teal-pale); }
   /* Highlight the row that currently has keyboard/tap focus inside it */
   .row:focus-within {
@@ -445,7 +454,10 @@
     padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.08);
     font-size: 0.85rem; color: var(--on-dark-secondary);
   }
-  .banner-row:last-child { border: none; padding-top: 14px; font-size: 1.2rem; font-weight: 800; color: var(--white); }
+  .banner-row:last-child {
+    border: none; border-top: 3px double rgba(255,255,255,.55);
+    padding-top: 14px; font-size: 1.2rem; font-weight: 800; color: var(--white);
+  }
   .banner-row .val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
   .banner-row .val.pos { color: var(--status-ok); }
   .banner-row .val.neg { color: var(--status-bad); }
@@ -655,7 +667,7 @@
   .ps-sheet-scope .ps-page-final .ps-doctype .ps-doctype-tag { background:var(--amber-dark); }
   .ps-sheet-scope .ps-doctype .ps-doctype-date { margin-top: 3px; font-size: 8.5px; color: var(--navy); font-weight: 600; }
   .ps-sheet-scope .ps-box {
-    background:var(--white); border:1px solid var(--border); border-radius: 4px;
+    background:var(--white); border:1.25px solid var(--border-strong); border-radius: 4px;
     overflow:hidden; margin-bottom: 5px;
   }
   .ps-sheet-scope .ps-box h4 {
@@ -675,9 +687,15 @@
   .ps-sheet-scope .ps-row span:last-child {
     font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--navy); white-space:nowrap;
   }
-  .ps-sheet-scope .ps-row.ps-total { background:var(--paper-dim); }
+  .ps-sheet-scope .ps-row.ps-total {
+    background:var(--paper-dim);
+    border-top: 2px double var(--navy);
+  }
   .ps-sheet-scope .ps-row.ps-total span { color:var(--navy) !important; font-weight:700; }
-  .ps-sheet-scope .ps-row.ps-highlight { background:var(--teal-pale); border-top:1px solid var(--teal); border-bottom:1px solid var(--teal); }
+  .ps-sheet-scope .ps-row.ps-highlight {
+    background:var(--teal-pale);
+    border-top: 2px double var(--teal-dark); border-bottom:1px solid var(--teal);
+  }
   .ps-sheet-scope .ps-row.ps-highlight span { color:var(--teal) !important; font-weight:800; }
   .ps-sheet-scope .ps-row.ps-red { background:var(--red-pale); }
   .ps-sheet-scope .ps-row.ps-red span { color:var(--red) !important; font-weight:700; }
@@ -694,6 +712,7 @@
     border-radius: 4px; padding: 8px 12px; margin-top: 4px;
     display:flex; align-items:center; justify-content:space-between;
     background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    border: 2px double rgba(255,255,255,.4);
   }
   .ps-sheet-scope .ps-hero.ps-hero-short { background: linear-gradient(135deg, var(--red-dark) 0%, var(--red) 100%); }
   .ps-sheet-scope .ps-hero .ps-hero-label { font-size:7.5px; letter-spacing:1.4px; text-transform:uppercase; color:rgba(255,255,255,.6); }
@@ -788,8 +807,9 @@
   }
   .fcs-viewport { overflow: hidden; touch-action: pan-y; }
   .fcs-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-    background: var(--border); margin: 0 16px 16px; border-radius: var(--radius-md);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+    background: var(--border-strong); margin: 0 16px 16px; border-radius: var(--radius-md);
+    border: 1.5px solid var(--border-strong);
     overflow: hidden; cursor: pointer;
   }
   .fcs-stat {
