@@ -270,10 +270,21 @@
   .row.strip-row .strip-name { flex:1; font-weight:500; color:var(--slate); font-size:.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .row.strip-row input { width: 80px; margin: 0; }
 
-  /* three-cell credit row */
+  /* three-cell credit row — the two <select>s (Group/Name) need
+     flex-basis:0 + min-width:0, not the default "width:auto" content-
+     based basis, so they share the row's remaining space and actually
+     shrink when needed. Without min-width:0, a <select> refuses to
+     shrink below its own content width — the classic flexbox overflow
+     trap — which on a narrow phone silently pushed the amount input
+     off the row's edge, clipped invisibly by .shell's overflow:hidden
+     with no way to scroll to it. The amount input itself (wrapped
+     with its ± toggle in an unclassed flex div — see addTierCreditRow
+     in components.js) is left fixed-size on purpose: that's the one
+     number in this row the user actually needs to read, so it should
+     never be the thing that shrinks. */
   .row.three-col { gap: 6px; }
-  .row.three-col select { width: auto; flex: 1; text-align: left; font-family: 'Inter', sans-serif; font-weight: 500; }
-  .row.three-col input { width: 100px; }
+  .row.three-col select { flex: 1 1 0; min-width: 0; text-align: left; font-family: 'Inter', sans-serif; font-weight: 500; }
+  .row.three-col > div { flex: 0 0 auto; }
 
   /* delete row button */
   .del-row-btn {
@@ -1531,7 +1542,7 @@
   .row input[type="number"],
   .row input[type="text"],
   .row select { width: 140px; }
-  .row.three-col input { width: 120px; }
+  .row.three-col select { min-width: 90px; }
 
   /* Stat grids use the freed-up width instead of stacking 2-wide */
   .fcs-grid { grid-template-columns: repeat(4, 1fr); }
