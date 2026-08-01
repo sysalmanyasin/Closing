@@ -19,7 +19,7 @@
 import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
 import { db } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
-import { showAlert } from './notify.js';
+import { showAlert, showConfirm } from './notify.js';
 
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const SUPA_URL_KEY   = 'supabase_url';
@@ -326,8 +326,8 @@ async function _applyImportToken(raw) {
 }
 
 /* ── DISCONNECT ─────────────────────────────────────────── */
-export function dbxDisconnect() {
-  if(!confirm('Disconnect Supabase sync?\n\nYour local data will not be deleted. You can re-link at any time.')) return;
+export async function dbxDisconnect() {
+  if(!await showConfirm('Disconnect Supabase sync?\n\nYour local data will not be deleted. You can re-link at any time.', { tone: 'warn', confirmLabel: 'Disconnect' })) return;
   dbxClearToken();
   _teardownClient();
   dbxShowUnlinked();

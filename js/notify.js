@@ -82,3 +82,93 @@ export function showAlert(message, tone) {
   _overlay.classList.remove('hidden');
   _okBtn.focus();
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CONFIRM — styled stand-in for window.confirm(), same reasoning as
+   showAlert() above but for the app's highest-stakes moments: every
+   call site is an irreversible delete, a full data restore/replace,
+   or a sign-out — exactly where a bare OS dialog undercuts trust the
+   most in a cash-handling app, reading as a browser-level warning
+   rather than the app asking permission.
+
+   Promise-based so every call site becomes `await showConfirm(...)`
+   in place of `confirm(...)` — same "did the user say yes" shape,
+   just non-blocking. Cancel is the default-focused button (not
+   Confirm), so a reflexive tap/Enter can't fire a destructive action
+   — the same "default to safe" principle a well-designed physical
+   lock or guarded switch uses. */
+let _cBuilt = false;
+let _cOverlay, _cIcon, _cMsg, _cCancelBtn, _cConfirmBtn, _cPrevFocus, _cResolve;
+
+function buildConfirm() {
+  if(_cBuilt) return;
+  _cBuilt = true;
+
+  _cOverlay = document.createElement('div');
+  _cOverlay.id = 'app-confirm-overlay';
+  _cOverlay.className = 'hidden';
+  _cOverlay.setAttribute('role', 'alertdialog');
+  _cOverlay.setAttribute('aria-modal', 'true');
+
+  const sheet = document.createElement('div');
+  sheet.className = 'app-alert-sheet app-confirm-sheet';
+
+  _cIcon = document.createElement('div');
+  _cIcon.className = 'app-alert-icon';
+
+  _cMsg = document.createElement('div');
+  _cMsg.id = 'app-confirm-msg';
+  _cMsg.className = 'app-alert-msg';
+
+  const row = document.createElement('div');
+  row.className = 'app-confirm-btn-row';
+
+  _cCancelBtn = document.createElement('button');
+  _cCancelBtn.type = 'button';
+  _cCancelBtn.className = 'btn btn-ghost app-confirm-cancel';
+  _cCancelBtn.onclick = () => resolveConfirm(false);
+
+  _cConfirmBtn = document.createElement('button');
+  _cConfirmBtn.type = 'button';
+  _cConfirmBtn.className = 'btn btn-red app-confirm-ok';
+  _cConfirmBtn.onclick = () => resolveConfirm(true);
+
+  row.appendChild(_cCancelBtn);
+  row.appendChild(_cConfirmBtn);
+  sheet.appendChild(_cIcon);
+  sheet.appendChild(_cMsg);
+  sheet.appendChild(row);
+  _cOverlay.appendChild(sheet);
+  _cOverlay.addEventListener('click', (e) => { if(e.target === _cOverlay) resolveConfirm(false); });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && !_cOverlay.classList.contains('hidden')) resolveConfirm(false);
+  });
+
+  document.body.appendChild(_cOverlay);
+}
+
+function resolveConfirm(result) {
+  _cOverlay.classList.add('hidden');
+  _cPrevFocus?.focus?.();
+  const r = _cResolve;
+  _cResolve = null;
+  r?.(result);
+}
+
+/* tone: 'danger' (default) | 'warn'. confirmLabel defaults to "Delete"
+   for danger and "Continue" for warn — override for anything that
+   isn't a delete (e.g. "Log Out", "Restore"). */
+export function showConfirm(message, opts = {}) {
+  buildConfirm();
+  const tone = opts.tone || 'danger';
+  _cIcon.textContent = tone === 'danger' ? '⛔' : '⚠️';
+  _cOverlay.dataset.tone = tone;
+  _cMsg.textContent = message;
+  _cCancelBtn.textContent = opts.cancelLabel || 'Cancel';
+  _cConfirmBtn.textContent = opts.confirmLabel || (tone === 'danger' ? 'Delete' : 'Continue');
+  _cConfirmBtn.className = 'btn app-confirm-ok ' + (tone === 'danger' ? 'btn-red' : 'btn-teal');
+  _cPrevFocus = document.activeElement;
+  _cOverlay.classList.remove('hidden');
+  _cCancelBtn.focus();
+  return new Promise((resolve) => { _cResolve = resolve; });
+}

@@ -18,7 +18,7 @@ import { daySlots, db, getSeq, srLabel, session } from './state.js';
 import { initLedger, setLockedState } from './actions.js';
 import { buildPrintSheet, timelineStep } from './components.js';
 import { sheetSortKey } from './pages.js';
-import { showAlert } from './notify.js';
+import { showAlert, showConfirm } from './notify.js';
 
 /* CRITICAL: never use Date#toISOString() to derive a "date string" here.
    toISOString() always converts to UTC — for any timezone AHEAD of UTC
@@ -203,7 +203,7 @@ export async function generateClosingBook() {
 
   const entries = enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift);
   if(!entries.length) { showAlert('No shifts fall in that range.'); return; }
-  if(entries.length > 120 && !confirm(`This range covers ${entries.length} shifts and may take a little while to assemble. Continue?`)) return;
+  if(entries.length > 120 && !await showConfirm(`This range covers ${entries.length} shifts and may take a little while to assemble. Continue?`, { tone: 'warn' })) return;
 
   const cacheKey    = `${fromDs}_${fromShift}__${toDs}_${toShift}`;
   const fingerprint = computeClosingBookFingerprint(entries);

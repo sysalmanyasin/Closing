@@ -13,7 +13,7 @@
 import { repoGetLocal, repoSetLocal, repoRemoveLocal } from './repository.js';
 import { dbxGetAppKey, getAnonKey } from './sync.js';
 import { checkAdminPin } from './state.js';
-import { showAlert } from './notify.js';
+import { showAlert, showConfirm } from './notify.js';
 
 /* ── Admin-only gate ──────────────────────────────────────────────
    This whole card is Admin-only: hidden behind a PIN prompt in the
@@ -242,8 +242,8 @@ export async function driveListVersions() {
    already covering this whole card, since there's no undo for whatever
    was in the app the moment before. */
 export async function driveRestore(fileId) {
-  if (!confirm('Restore this backup?\n\nThis REPLACES all current shifts, ledgers, and settings with this backup\'s data. This cannot be undone.')) return;
-  if (!confirm('Really sure? Today\'s unsaved work (if any) will be lost.')) return;
+  if (!await showConfirm('Restore this backup?\n\nThis REPLACES all current shifts, ledgers, and settings with this backup\'s data. This cannot be undone.', { confirmLabel: 'Restore' })) return;
+  if (!await showConfirm('Really sure? Today\'s unsaved work (if any) will be lost.', { confirmLabel: 'Yes, restore' })) return;
   setStatus('Restoring…', 'busy');
   try {
     await callFunction({ action: 'restore', fileId });
@@ -256,7 +256,7 @@ export async function driveRestore(fileId) {
 }
 
 export async function driveDisconnect() {
-  if (!confirm('Disconnect Google Drive backup? Existing backup files in Drive are left as-is.')) return;
+  if (!await showConfirm('Disconnect Google Drive backup? Existing backup files in Drive are left as-is.', { tone: 'warn', confirmLabel: 'Disconnect' })) return;
   try {
     await callFunction({ action: 'disconnect' });
     driveShowUnlinked();

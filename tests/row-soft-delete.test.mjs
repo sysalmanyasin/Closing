@@ -29,10 +29,21 @@ Object.defineProperty(global, 'navigator', { value: dom.window.navigator, config
 global.localStorage = dom.window.localStorage;
 
 let confirmReturns = true;
+global.alert  = () => {};
+global.prompt = () => '1218';
+
+/* delRow() now awaits the app's own styled showConfirm() dialog (see
+   js/notify.js) instead of calling window.confirm(), so the test
+   drives the same DOM the user would: wait a tick for the sheet to
+   render, then click Cancel or Confirm. */
 let confirmCallCount = 0;
-global.confirm = () => { confirmCallCount++; return confirmReturns; };
-global.alert   = () => {};
-global.prompt  = () => '1218';
+async function answerConfirmDialog() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  confirmCallCount++;
+  const overlay = document.getElementById('app-confirm-overlay');
+  const btn = overlay.querySelector(confirmReturns ? '.app-confirm-ok' : '.app-confirm-cancel');
+  btn.click();
+}
 
 if(!dom.window.matchMedia) dom.window.matchMedia = () => ({ matches:false, addListener(){}, removeListener(){} });
 dom.window.Element.prototype.scrollIntoView = () => {};
@@ -63,21 +74,25 @@ test('Row soft-delete (strike-through + confirm + undo) — driven through the r
     assert.equal(miscTotal(), 1070);
   });
 
-  await t.test('delRow() asks for confirmation; declining leaves the row untouched', () => {
+  await t.test('delRow() asks for confirmation; declining leaves the row untouched', async () => {
     confirmReturns = false;
     confirmCallCount = 0;
     const rowId = lastMiscRowId(); // 'Khurram' row
-    Components.delRow(rowId, true);
+    const p = Components.delRow(rowId, true);
+    await answerConfirmDialog();
+    await p;
     assert.equal(confirmCallCount, 1, 'should have prompted for confirmation');
     const row = document.getElementById(rowId);
     assert.equal(row.classList.contains('row-deleted'), false, 'declined — must NOT be marked deleted');
     assert.equal(miscTotal(), 1070, 'total unchanged after a declined delete');
   });
 
-  await t.test('confirmed delete strikes the row through and drops it from the total', () => {
+  await t.test('confirmed delete strikes the row through and drops it from the total', async () => {
     confirmReturns = true;
     const rowId = lastMiscRowId(); // 'Khurram' row
-    Components.delRow(rowId, true);
+    const p = Components.delRow(rowId, true);
+    await answerConfirmDialog();
+    await p;
     const row = document.getElementById(rowId);
     assert.equal(row.classList.contains('row-deleted'), true);
     assert.equal(row.querySelector('input[type="number"]').readOnly, true, 'value input should be locked once deleted');
@@ -85,22 +100,26 @@ test('Row soft-delete (strike-through + confirm + undo) — driven through the r
     assert.equal(miscTotal(), 780, 'Khurram (290) must be excluded from Total Misc (C) once deleted');
   });
 
-  await t.test('delRow() on an already-deleted row undoes it immediately, no confirmation needed', () => {
+  await t.test('delRow() on an already-deleted row undoes it immediately, no confirmation needed', async () => {
     confirmReturns = false; /* if this were treated as a fresh delete it would bail out and stay deleted */
     confirmCallCount = 0;
     const rowId = lastMiscRowId(); // still the 'Khurram' row, now deleted
-    Components.delRow(rowId, true);
+    await Components.delRow(rowId, true);
     assert.equal(confirmCallCount, 0, 'undo must not prompt for confirmation');
+    const overlay = document.getElementById('app-confirm-overlay');
+    assert.ok(!overlay || overlay.classList.contains('hidden'), 'confirm dialog must not have been shown');
     const row = document.getElementById(rowId);
     assert.equal(row.classList.contains('row-deleted'), false);
     assert.equal(row.querySelector('.del-row-btn').textContent, '✕', 'button should flip back to delete');
     assert.equal(miscTotal(), 1070, 'restored row should count again');
   });
 
-  await t.test('buildSheetRecord()/hydrate() round-trip the deleted flag', () => {
+  await t.test('buildSheetRecord()/hydrate() round-trip the deleted flag', async () => {
     confirmReturns = true;
     const rowId = lastMiscRowId();
-    Components.delRow(rowId, true); // delete 'Khurram' again, for real this time
+    const p = Components.delRow(rowId, true); // delete 'Khurram' again, for real this time
+    await answerConfirmDialog();
+    await p;
     assert.equal(miscTotal(), 780);
 
     Actions.saveDraft();

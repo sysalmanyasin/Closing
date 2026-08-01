@@ -639,6 +639,26 @@
     .app-alert-sheet   { border-radius: var(--radius-xl); }
   }
 
+  /* ── APP CONFIRM ── styled stand-in for window.confirm(), reusing the
+     same sheet language as APP ALERT so a delete/restore/logout prompt
+     still feels like the app asking a question rather than the OS
+     throwing up a warning. Cancel sits first (left) and gets initial
+     focus — the safe, non-destructive choice is the path of least
+     resistance, so a reflexive Enter/tap can't fire a delete. */
+  #app-confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 10000; animation: fadeIn .15s ease;
+  }
+  #app-confirm-overlay.hidden { display: none; }
+  #app-confirm-overlay[data-tone="warn"] .app-alert-icon { background: var(--amber-pale); }
+  .app-confirm-btn-row { display: flex; gap: 10px; }
+  .app-confirm-btn-row .btn { flex: 1; padding: 13px; font-size: 0.9rem; }
+
+  @media (min-width: 480px) {
+    #app-confirm-overlay { align-items: center; }
+  }
+
   /* ── PDF MODAL ── */
   #pdf-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;animation:fadeIn .15s ease; }
   #pdf-modal-overlay.hidden { display:none; }

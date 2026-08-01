@@ -18,7 +18,7 @@ import { buildCalendar, goToDashboard, refreshRetentionStatus, renderFinalSummar
 import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
-import { showAlert } from './notify.js';
+import { showAlert, showConfirm } from './notify.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
   if(!opts.silent) showPage('page-ledger');
@@ -1424,11 +1424,11 @@ function unmarkKeyDeleted(key) {
   }
 }
 
-export function deleteCurrentSheet() {
+export async function deleteCurrentSheet() {
   if(!session.activeKey) return;
   if(!db.sheets[session.activeKey]) { showAlert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = session.activeKey.split('_');
-  if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
+  if(!await showConfirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
   alLog('delete', session.activeKey);
   markKeyDeleted(session.activeKey);
   delete db.sheets[session.activeKey];
@@ -1437,12 +1437,12 @@ export function deleteCurrentSheet() {
 }
 
 
-export function deleteSheet(key) {
+export async function deleteSheet(key) {
   if(!db.sheets[key]) return;
   const parts = key.split('_');
   const sr = srLabel(parts[1]);
   if(!gatePermission('delete', `Enter PIN to delete ${parts[0]} — ${sr}:`)) return;
-  if(!confirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
+  if(!await showConfirm(`Delete saved record for ${parts[0]} — ${sr}?\nThis cannot be undone.`)) return;
   alLog('delete', key);
   markKeyDeleted(key);
   delete db.sheets[key];
@@ -1576,13 +1576,13 @@ export function settingsSetRetentionMonths(months) {
   persist();
 }
 
-export function archiveOldRecords() {
+export async function archiveOldRecords() {
   const months = db.settings.retentionMonths || 6;
   const staleKeys = staleRecordKeys(months);
 
   if(!staleKeys.length) { showAlert(`No records older than ${months} months.`); return; }
 
-  if(!confirm(`This will permanently delete ${staleKeys.length} record(s) older than ${months} months.\nExport a backup first (Settings → Data Backup) if you want to keep them. Continue?`)) return;
+  if(!await showConfirm(`This will permanently delete ${staleKeys.length} record(s) older than ${months} months.\nExport a backup first (Settings → Data Backup) if you want to keep them. Continue?`, { confirmLabel: 'Delete records' })) return;
   if(!gatePermission('delete', 'Enter PIN to confirm deletion:')) return;
 
   staleKeys.forEach(key => { alLog('archive', key); markKeyDeleted(key); delete db.sheets[key]; });

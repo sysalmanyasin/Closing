@@ -15,7 +15,7 @@ import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
 import { dbxInit } from './sync.js';
 import { authInit } from './auth.js';
 import { driveInit } from './drive-backup.js';
-import { showAlert } from './notify.js';
+import { showAlert, showConfirm } from './notify.js';
 
 /* Floor 4's own transient UI state — file-local, never read by
    another floor. One object instead of scattered globals. */
@@ -352,7 +352,7 @@ export function markRowDeleted(el, deleted) {
   }
 }
 
-export function delRow(id, recalc) {
+export async function delRow(id, recalc) {
   const el = document.getElementById(id);
   if(!el) return;
 
@@ -365,7 +365,7 @@ export function delRow(id, recalc) {
     const question = lbl
       ? `Remove "${lbl}"?\n\nIt will be struck through and left out of totals and next shift's carry-forward, but stays visible here with an Undo option.`
       : `Remove this row?\n\nIt will be struck through and left out of totals and next shift's carry-forward, but stays visible here with an Undo option.`;
-    if(!confirm(question)) return;
+    if(!await showConfirm(question, { tone: 'warn', confirmLabel: 'Remove' })) return;
     markRowDeleted(el, true);
   }
   if(recalc) calc();
@@ -1209,7 +1209,7 @@ export function getEditModalMode() {
   return document.getElementById('em-btn-shift').dataset.selected === '1' ? 'shift' : 'final';
 }
 
-export function confirmEditModal() {
+export async function confirmEditModal() {
   const pin = document.getElementById('edit-modal-pin').value;
   const errEl = document.getElementById('edit-modal-err');
   const newMode = getEditModalMode();
@@ -1230,7 +1230,7 @@ export function confirmEditModal() {
     document.getElementById('edit-modal-pin').focus();
     return;
   }
-  if(newMode === 'final' && !confirm('Confirm: open this as a FINAL Closing?\n\nThis rolls up and audits every shift since the last Final. Press Cancel to open it as a regular Shift Closing instead.')) {
+  if(newMode === 'final' && !await showConfirm('Confirm: open this as a FINAL Closing?\n\nThis rolls up and audits every shift since the last Final. Press Cancel to open it as a regular Shift Closing instead.', { tone: 'warn', confirmLabel: 'Open as Final' })) {
     return;
   }
 
@@ -1263,8 +1263,8 @@ document.addEventListener('click', function(e) {
 /* ═══════════════════════════════════════════
    CLEAR ALL FIELDS
 ═══════════════════════════════════════════ */
-export function clearAllFields() {
-  if(!confirm('Clear ALL fields on this sheet? This cannot be undone unless you saved a draft.')) return;
+export async function clearAllFields() {
+  if(!await showConfirm('Clear ALL fields on this sheet? This cannot be undone unless you saved a draft.', { confirmLabel: 'Clear all' })) return;
   session.overrides = {};
   session.isSavedSheet = false;
   const parts = session.activeKey ? session.activeKey.split('_') : ['',''];

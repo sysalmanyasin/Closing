@@ -28,7 +28,7 @@
 
 import { repoGetLocal } from './repository.js';
 import { session } from './state.js';
-import { showAlert } from './notify.js';
+import { showAlert, showConfirm } from './notify.js';
 
 const SUPA_URL_KEY  = 'supabase_url';
 const SUPA_ANON_KEY = 'supabase_anon_key';
@@ -253,7 +253,7 @@ export async function authLogin() {
    PIN re-lock. */
 export async function confirmLogout() {
   if (!session.loggedInStaff) { showAlert('You are not signed in.'); return; }
-  if (!confirm('Log out of this device? You\'ll need your phone number and PIN to sign in again.')) return;
+  if (!await showConfirm('Log out of this device? You\'ll need your phone number and PIN to sign in again.', { tone: 'warn', confirmLabel: 'Log out' })) return;
   await authLogout();
 }
 
