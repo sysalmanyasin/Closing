@@ -19,6 +19,7 @@
 import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
 import { db } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
+import { showAlert } from './notify.js';
 
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const SUPA_URL_KEY   = 'supabase_url';
@@ -282,7 +283,7 @@ window.addEventListener('pageshow', (e) => {
    same idea as the old Dropbox token export) ────────────────────── */
 export function dbxExportConnection() {
   const url = dbxGetAppKey(), anonKey = getAnonKey();
-  if(!url || !anonKey) { alert('No active connection to export.'); return; }
+  if(!url || !anonKey) { showAlert('No active connection to export.'); return; }
   const payload = btoa(JSON.stringify({ url, anonKey }));
   navigator.clipboard.writeText(payload).then(() => {
     dbxSetStatus('Connection token copied! Paste it on your other device.', 'ok');
@@ -305,12 +306,12 @@ export async function dbxImportConnectionUnlinked() {
   await _applyImportToken(raw);
 }
 async function _applyImportToken(raw) {
-  if(!raw) { alert('Please paste a connection token first.'); return; }
+  if(!raw) { showAlert('Please paste a connection token first.'); return; }
   let parsed;
   try { parsed = JSON.parse(atob(raw)); }
-  catch(e) { alert('Invalid token — please copy it again from the source device.'); return; }
+  catch(e) { showAlert('Invalid token — please copy it again from the source device.'); return; }
   const { url, anonKey } = parsed;
-  if(!url || !anonKey) { alert('Token is incomplete. Please export again from the source device.'); return; }
+  if(!url || !anonKey) { showAlert('Token is incomplete. Please export again from the source device.'); return; }
   repoSetLocal(SUPA_URL_KEY, url);
   repoSetLocal(SUPA_ANON_KEY, anonKey);
   const i1 = document.getElementById('sync-import-input');

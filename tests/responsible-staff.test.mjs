@@ -76,7 +76,15 @@ test('Responsible Closing Person + Staff Ledger — driven through the real app'
     lastAlert = null;
     LedgerNav.openSummaryModal();
     LedgerNav.confirmSummaryAndSave();
-    assert.ok(lastAlert && /Responsible Closing Person/.test(lastAlert), 'should alert about the missing name');
+    /* window.alert() was replaced app-wide by a styled in-app modal
+       (js/notify.js showAlert) so an interruption still looks like
+       part of this app instead of a bare OS dialog — same guarantee,
+       new delivery mechanism, so we assert on the modal instead. */
+    const alertMsg = document.getElementById('app-alert-msg');
+    assert.ok(alertMsg && /Responsible Closing Person/.test(alertMsg.textContent),
+      'should show the app alert about the missing name');
+    const alertOverlay = document.getElementById('app-alert-overlay');
+    assert.equal(alertOverlay.classList.contains('hidden'), false, 'app alert should be visible');
     assert.equal(db.sheets[`${DS}_Night`], undefined, 'must NOT have been finalized/saved to db.sheets');
     const warn = document.getElementById('responsible-staff-warn');
     assert.equal(warn.classList.contains('hidden'), false, 'inline warning should now be visible');

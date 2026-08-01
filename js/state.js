@@ -16,6 +16,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoLoad } from './repository.js';
+import { showAlert } from './notify.js';
 
 /* ═══════════════════════════════════════════
    CONSTANTS
@@ -334,12 +335,12 @@ export function hasPermission(key) {
      Admin-only) instead of checkPin(). */
 export function gatePermission(key, promptText, viaAdminOnly = false) {
   if(hasPermission(key) === false) {
-    alert("You don't have permission for that. Ask an Admin to grant it in Settings → Permissions.");
+    showAlert("You don't have permission for that. Ask an Admin to grant it in Settings → Permissions.");
     return false;
   }
   const pin = prompt(promptText);
   const ok = viaAdminOnly ? checkAdminPin(pin) : checkPin(pin);
-  if(!ok) alert('Incorrect PIN.');
+  if(!ok) showAlert('Incorrect PIN.');
   return ok;
 }
 
@@ -358,7 +359,7 @@ export function confirmFinalClosingAccess() {
   const pin = prompt('Admin PIN required to open a Final Closing:');
   if(pin === null) return false; /* user cancelled the prompt */
   if(!checkAdminPin(pin)) {
-    alert("Incorrect Admin PIN — only an Admin can open a Final Closing.");
+    showAlert("Incorrect Admin PIN — only an Admin can open a Final Closing.");
     return false;
   }
   return confirm('Confirm: open this as a FINAL Closing?\n\nThis rolls up and audits every shift since the last Final. Press Cancel to open it as a regular Shift Closing instead.');

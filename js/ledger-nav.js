@@ -11,6 +11,7 @@
 import { DENOMS, db, escHtml, srLabel, session } from './state.js';
 import { calc, saveSheet } from './actions.js';
 import { getRealSheet, timelineStep } from './components.js';
+import { showAlert } from './notify.js';
 
 /* ── Section registry: id, label, icon, badge element id ──────
    Order matches the real DOM order of cards in the ledger.
@@ -466,7 +467,7 @@ export function confirmSummaryAndSave() {
     if (warn) warn.classList.remove('hidden');
     const note = document.getElementById('summary-responsible-note');
     if (note) note.classList.remove('hidden');
-    alert('⛔ Please select the Responsible Closing Person before saving this shift.');
+    showAlert('⛔ Please select the Responsible Closing Person before saving this shift.');
     respSel.focus();
     return; /* modal stays open so they can pick and re-confirm */
   }

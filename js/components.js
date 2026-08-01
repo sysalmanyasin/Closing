@@ -15,6 +15,7 @@ import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
 import { dbxInit } from './sync.js';
 import { authInit } from './auth.js';
 import { driveInit } from './drive-backup.js';
+import { showAlert } from './notify.js';
 
 /* Floor 4's own transient UI state — file-local, never read by
    another floor. One object instead of scattered globals. */
@@ -261,7 +262,7 @@ export function addTierCreditRow(num) {
   nameSel.addEventListener('mousedown', function(e) {
     e.preventDefault();
     const tIdx = tierSel.value;
-    if(tIdx === '') { alert('Please select a group first.'); return; }
+    if(tIdx === '') { showAlert('Please select a group first.'); return; }
     const tier = db.settings.subTiers[parseInt(tIdx)];
     const opts = [{value:'', label:'— Select name —'},
       ...(tier?.names||[]).map(n=>({value:n, label:n}))];
@@ -1002,7 +1003,7 @@ export function imageViewerPrev() {
 
 async function shareClosingImage(key) {
   const dataURL = await renderClosingImage(key);
-  if(!dataURL) { alert('Could not generate an image for this record.'); return; }
+  if(!dataURL) { showAlert('Could not generate an image for this record.'); return; }
   const parts = key.split('_');
   const fname = `${parts[0]}_${srLabel(parts[1]).replace(/\s+/g,'_')}.png`;
   const blob  = await (await fetch(dataURL)).blob();
@@ -1159,7 +1160,7 @@ export function openEditModal(key) {
      with no modal; granted (true) or not-yet-decided (null) both
      fall through to the PIN-prompt modal below. */
   const perm = hasPermission('edit');
-  if(perm === false) { alert("You don't have permission to edit closings. Ask an Admin to grant it in Settings → Permissions."); return; }
+  if(perm === false) { showAlert("You don't have permission to edit closings. Ask an Admin to grant it in Settings → Permissions."); return; }
 
   compState.editModalKey = key;
   const currentMode = db.sheets[key]?.profileMode || 'shift';

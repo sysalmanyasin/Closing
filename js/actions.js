@@ -18,6 +18,7 @@ import { buildCalendar, goToDashboard, refreshRetentionStatus, renderFinalSummar
 import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
+import { showAlert } from './notify.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
   if(!opts.silent) showPage('page-ledger');
@@ -442,7 +443,7 @@ export function computeNextHandoverSlot(ds) {
    pullPreviousShift() call below — resolves correctly. */
 export function insertHandoverClosing(ds) {
   const slot = computeNextHandoverSlot(ds);
-  if(slot.error) { alert(slot.error); return; }
+  if(slot.error) { showAlert(slot.error); return; }
   const { key, shift, seq } = slot;
 
   db.sheets[key] = { seq, shiftLabel: 'Handover', draft: true, profileMode: 'shift', _updatedAt: Date.now() };
@@ -1063,7 +1064,7 @@ export function saveSheet(silent=false) {
      → Permissions. Nobody logged in, or no permission row set for
      them yet, or Admin — all proceed exactly as before. */
   if(!silent && hasPermission('closing') === false) {
-    alert("You don't have permission to close shifts. Ask an Admin to grant it in Settings → Permissions.");
+    showAlert("You don't have permission to close shifts. Ask an Admin to grant it in Settings → Permissions.");
     return;
   }
   const record = buildSheetRecord();
@@ -1353,7 +1354,7 @@ export function persist() {
   if(!ok) {
     if(!_persistFailWarned) {
       _persistFailWarned = true;
-      alert('⚠️ Could not save to this device\'s storage — it may be full, or you may be in private/incognito browsing. Your last change may not be saved locally. Free up space or leave private browsing, then try saving again.');
+      showAlert('⚠️ Could not save to this device\'s storage — it may be full, or you may be in private/incognito browsing. Your last change may not be saved locally. Free up space or leave private browsing, then try saving again.');
     }
   } else {
     _persistFailWarned = false; /* a future failure will warn again */
@@ -1425,7 +1426,7 @@ function unmarkKeyDeleted(key) {
 
 export function deleteCurrentSheet() {
   if(!session.activeKey) return;
-  if(!db.sheets[session.activeKey]) { alert("This closing hasn't been saved yet — nothing to delete."); return; }
+  if(!db.sheets[session.activeKey]) { showAlert("This closing hasn't been saved yet — nothing to delete."); return; }
   const parts = session.activeKey.split('_');
   if(!confirm(`Delete saved record for ${parts[0]} — ${srLabel(parts[1])}?\nThis cannot be undone.`)) return;
   alLog('delete', session.activeKey);
@@ -1579,7 +1580,7 @@ export function archiveOldRecords() {
   const months = db.settings.retentionMonths || 6;
   const staleKeys = staleRecordKeys(months);
 
-  if(!staleKeys.length) { alert(`No records older than ${months} months.`); return; }
+  if(!staleKeys.length) { showAlert(`No records older than ${months} months.`); return; }
 
   if(!confirm(`This will permanently delete ${staleKeys.length} record(s) older than ${months} months.\nExport a backup first (Settings → Data Backup) if you want to keep them. Continue?`)) return;
   if(!gatePermission('delete', 'Enter PIN to confirm deletion:')) return;
@@ -1590,6 +1591,6 @@ export function archiveOldRecords() {
      live from db.sheets, so it's already clean now too. */
   persist();
 
-  alert(`Archived ${staleKeys.length} record(s).`);
+  showAlert(`Archived ${staleKeys.length} record(s).`);
   if(typeof refreshRetentionStatus === 'function') refreshRetentionStatus();
 }

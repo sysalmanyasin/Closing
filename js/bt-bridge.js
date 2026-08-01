@@ -19,6 +19,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal } from './repository.js';
+import { showAlert } from './notify.js';
 
 const SUPA_URL_KEY  = 'supabase_url';
 const SUPA_ANON_KEY = 'supabase_anon_key';
@@ -107,8 +108,8 @@ export async function loadTierNamesFromBtStaff(tierIdx) {
   const input = document.getElementById(`cfg-tier-names-${tierIdx + 1}`);
   if (!input) return;
   const client = getClient();
-  if (!client) { alert('Cloud Sync isn\'t set up yet — set that up first.'); return; }
+  if (!client) { showAlert('Cloud Sync isn\'t set up yet — set that up first.'); return; }
   const staff = await fetchActiveStaff(true);
-  if (!staff.length) { alert('No active staff found in BT Sale Data yet, or the connection failed.'); return; }
+  if (!staff.length) { showAlert('No active staff found in BT Sale Data yet, or the connection failed.'); return; }
   input.value = staff.map(s => s.name).join(', ');
 }

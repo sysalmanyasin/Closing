@@ -23,6 +23,7 @@ import {
 import { isRealSheet, timelineStep } from './components.js';
 import { initClosingBookDefaults } from './closing-book.js';
 import { fetchActiveStaff } from './bt-bridge.js';
+import { showAlert } from './notify.js';
 
 export function showPage(id) {
   document.querySelectorAll('.view-pane').forEach(p => p.classList.add('hidden'));
@@ -576,7 +577,7 @@ export function clExportTxt() {
     })
     .sort((a, b) => snapKey(a).localeCompare(snapKey(b)));
 
-  if(!filtered.length) { alert('No records found in that range.'); return; }
+  if(!filtered.length) { showAlert('No records found in that range.'); return; }
 
   const SEP = '─'.repeat(46);
   let txt = 'FAZAL DIN\'S PHARMA PLUS — CREDIT LEDGER\n';
@@ -724,7 +725,7 @@ export function mlExportTxt() {
     .filter(s => { const k = snapKey(s); return k >= fromKey && k <= toKey; })
     .sort((a, b) => snapKey(a).localeCompare(snapKey(b)));
 
-  if(!filtered.length) { alert('No records found in that range.'); return; }
+  if(!filtered.length) { showAlert('No records found in that range.'); return; }
 
   const SEP = '─'.repeat(46);
   let txt = "FAZAL DIN'S PHARMA PLUS — MISC / ONGOING LEDGER\n";
@@ -764,10 +765,10 @@ export function printThermalSnapshot(kind, key) {
   if(kind === 'credit') {
     clEnsureArray();
     snap = db.creditLedger.find(s => s.key === key);
-    if(!snap) { alert('Snapshot not found.'); return; }
+    if(!snap) { showAlert('Snapshot not found.'); return; }
   } else {
     const rec = db.sheets[key];
-    if(!rec) { alert('Snapshot not found.'); return; }
+    if(!rec) { showAlert('Snapshot not found.'); return; }
     const parts = key.split('_');
     const rows  = (rec.miscRows || []).filter(r => !r.deleted && ((parseFloat(r.val) || 0) !== 0 || (r.label || '').trim()));
     snap = {
@@ -1102,11 +1103,11 @@ export function openSheetFromPicker() {
     const prev2IsDraft = prev2Sheet && prev2Sheet.draft === true;
 
     if(prevIsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
+      showAlert(`⛔ Cannot open this closing.\n\n"${prev.date} — ${srLabel(prev.shift)}" has unsaved changes (draft).\n\nPlease open it, review, and press Save & Close before opening this one.`);
       return;
     }
     if(prevIsMissing && prev2IsDraft) {
-      alert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
+      showAlert(`⛔ Cannot open this closing.\n\n"${prev2.date} — ${srLabel(prev2.shift)}" has unsaved changes (draft).\n\nPlease save it first.`);
       return;
     }
   }
@@ -1395,7 +1396,7 @@ export function removeNamedCredit(i) {
    actually saved rather than showing a PIN that didn't take. */
 export function updateAdminPin(value) {
   if(!settingsSetAdminPin(value)) {
-    alert('That PIN is already used by a staff member. Choose a different one.');
+    showAlert('That PIN is already used by a staff member. Choose a different one.');
   }
   buildSettingsUI(); /* re-sync every PIN field to what's actually stored */
 }
@@ -1427,14 +1428,14 @@ export function addStaffSetting() {
    the whole point is this is a safe, repeatable, additive action. */
 export async function syncStaffFromBt() {
   const staff = await fetchActiveStaff(true);
-  if(!staff.length) { alert("No active staff found in BT Sale Data yet, or the connection failed."); return; }
+  if(!staff.length) { showAlert("No active staff found in BT Sale Data yet, or the connection failed."); return; }
   const existingNames = new Set((db.settings.staff || []).map(s => (s.name||'').trim().toLowerCase()));
   const toAdd = staff.filter(s => s.name && !existingNames.has(s.name.trim().toLowerCase()));
-  if(!toAdd.length) { alert('Everyone active in BT Staff is already listed here.'); return; }
+  if(!toAdd.length) { showAlert('Everyone active in BT Staff is already listed here.'); return; }
   toAdd.forEach(s => db.settings.staff.push({ name: s.name, pin: '' }));
   renderSettingsStaff();
   renderSettingsPermissions();
-  alert(`Added ${toAdd.length} new staff member${toAdd.length===1?'':'s'}. Give each a PIN below.`);
+  showAlert(`Added ${toAdd.length} new staff member${toAdd.length===1?'':'s'}. Give each a PIN below.`);
 }
 
 /* Permissions matrix — one row per active BT staff member (by
@@ -1495,7 +1496,7 @@ export function updateStaffName(i, name) {
 
 export function updateStaffPin(i, pin) {
   if(!settingsSetStaffPin(i, pin)) {
-    alert('That PIN is already in use (Admin PIN or another staff member). Choose a different one.');
+    showAlert('That PIN is already in use (Admin PIN or another staff member). Choose a different one.');
   }
   renderSettingsStaff(); /* re-sync every PIN field to what's actually stored */
 }
@@ -1575,7 +1576,7 @@ export function saveSettings() {
   }
 
   settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData);
-  alert("Settings saved.");
+  showAlert("Settings saved.");
   goToDashboard();
 
 }

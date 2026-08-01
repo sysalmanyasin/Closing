@@ -13,6 +13,7 @@
 import { repoGetLocal, repoSetLocal, repoRemoveLocal } from './repository.js';
 import { dbxGetAppKey, getAnonKey } from './sync.js';
 import { checkAdminPin } from './state.js';
+import { showAlert } from './notify.js';
 
 /* ── Admin-only gate ──────────────────────────────────────────────
    This whole card is Admin-only: hidden behind a PIN prompt in the
@@ -109,7 +110,7 @@ function driveShowLocked() {
 export async function driveUnlock() {
   const pin = prompt('Admin PIN required for Google Drive Backup:');
   if (pin === null) return;
-  if (!checkAdminPin(pin)) { alert('Incorrect Admin PIN.'); return; }
+  if (!checkAdminPin(pin)) { showAlert('Incorrect Admin PIN.'); return; }
   _adminPin = pin;
   try {
     await driveRefreshStatus();
@@ -118,7 +119,7 @@ export async function driveUnlock() {
        but if something throws before/outside that (e.g. a bug), never
        fail this silently again. */
     console.error('[Drive] driveUnlock failed unexpectedly:', err);
-    alert('Something went wrong opening Google Drive Backup: ' + (err?.message || err));
+    showAlert('Something went wrong opening Google Drive Backup: ' + (err?.message || err));
   }
 }
 
@@ -154,13 +155,13 @@ export async function driveRefreshStatus() {
          re-lock rather than show a card that can't actually do anything. */
       _adminPin = null;
       driveShowLocked();
-      alert("That PIN isn't authorized for Google Drive Backup.");
+      showAlert("That PIN isn't authorized for Google Drive Backup.");
     } else {
       /* Anything else — network failure, CORS, a 500 from the Edge
          Function, etc. Previously this just logged to the console and
          left the card looking exactly as before, with zero indication
          anything had gone wrong. Always show something now. */
-      alert('Could not reach Google Drive Backup: ' + err.message);
+      showAlert('Could not reach Google Drive Backup: ' + err.message);
     }
   }
 }
@@ -172,7 +173,7 @@ export async function driveRefreshStatus() {
 export function driveConnectStart() {
   const clientId = getClientId();
   if (!clientId || clientId.startsWith('YOUR_GOOGLE_OAUTH_CLIENT_ID')) {
-    alert('Set your Google OAuth Client ID first (paste it in the box below).');
+    showAlert('Set your Google OAuth Client ID first (paste it in the box below).');
     return;
   }
   const state = crypto.randomUUID();
@@ -249,7 +250,7 @@ export async function driveRestore(fileId) {
     setStatus('Restored — reloading…', 'ok');
     location.reload();
   } catch (err) {
-    alert('Restore failed: ' + err.message);
+    showAlert('Restore failed: ' + err.message);
     setStatus(`Restore failed: ${err.message.substring(0, 60)}`, 'error');
   }
 }
@@ -260,7 +261,7 @@ export async function driveDisconnect() {
     await callFunction({ action: 'disconnect' });
     driveShowUnlinked();
   } catch (err) {
-    alert('Failed to disconnect: ' + err.message);
+    showAlert('Failed to disconnect: ' + err.message);
   }
 }
 
@@ -291,7 +292,7 @@ export async function driveInit() {
         await afterLinked();
         return;
       } catch (err) {
-        alert('Google Drive connection failed: ' + err.message);
+        showAlert('Google Drive connection failed: ' + err.message);
       }
     }
   }

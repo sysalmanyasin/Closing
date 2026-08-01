@@ -229,7 +229,7 @@
     color: var(--amber) !important; font-weight: 700 !important;
   }
   /* final-editable rows */
-  .row.final-editable input[type="number"] { background: #F7E6CE !important; border-color: var(--amber) !important; cursor: pointer; }
+  .row.final-editable input[type="number"] { background: var(--amber-pale) !important; border-color: var(--amber) !important; cursor: pointer; }
   .row.final-editable label { color: var(--amber-dark); }
 
   /* inline-editable label */
@@ -577,7 +577,7 @@
   .edit-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
   .edit-modal-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
   .edit-modal-pin { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 1rem; font-family: 'JetBrains Mono', monospace; letter-spacing: 4px; text-align: center; }
-  .edit-modal-pin:focus { outline: none; border-color: var(--teal); }
+  .edit-modal-pin:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(13,140,120,.15); }
   .edit-mode-toggle { display: flex; gap: 0; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
   .edit-mode-btn { flex: 1; padding: 10px; border: none; background: var(--surface); font-size: 0.85rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
   .edit-mode-btn.active-shift { background: var(--navy); color: var(--white); }
@@ -603,6 +603,41 @@
   .save-action-sub   { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
   .save-action-btns  { display: flex; flex-direction: column; gap: 10px; }
   .save-action-btns .btn { font-size: 0.9rem; padding: 13px; }
+
+  /* ── APP ALERT ── styled stand-in for window.alert(); same bottom-sheet
+     language as Save Action so an interruption still feels like part of
+     this app, not an OS-level error. Tone only tints the icon chip —
+     amber/red stay reserved for their semantic meaning, not the whole sheet,
+     so a routine info message never reads as alarming. */
+  #app-alert-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 10000; animation: fadeIn .15s ease;
+  }
+  #app-alert-overlay.hidden { display: none; }
+  .app-alert-sheet {
+    background: var(--white); border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    width: 100%; max-width: 480px; padding: 24px 20px 28px;
+    box-shadow: var(--shadow-lg); text-align: center;
+    animation: slideUp .2s ease;
+  }
+  .app-alert-icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin: 0 auto 12px; background: var(--teal-light);
+  }
+  #app-alert-overlay[data-tone="warn"]   .app-alert-icon { background: var(--amber-pale); }
+  #app-alert-overlay[data-tone="danger"] .app-alert-icon { background: var(--red-pale); }
+  .app-alert-msg {
+    font-size: 0.9rem; color: var(--navy); line-height: 1.5;
+    margin-bottom: 20px; white-space: pre-line;
+  }
+  .app-alert-ok { width: 100%; padding: 13px; font-size: 0.9rem; }
+
+  @media (min-width: 480px) {
+    #app-alert-overlay { align-items: center; }
+    .app-alert-sheet   { border-radius: var(--radius-xl); }
+  }
 
   /* ── PDF MODAL ── */
   #pdf-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;animation:fadeIn .15s ease; }
@@ -1009,7 +1044,7 @@
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; cursor: pointer; background: var(--white);
   }
-  .cl-shift-row-head:hover { background: #f8fafc; }
+  .cl-shift-row-head:hover { background: var(--teal-pale); }
   .cl-shift-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .cl-shift-row-main { flex: 1; min-width: 0; }
   .cl-shift-row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1022,7 +1057,7 @@
   .cl-shift-row-body { display: none; border-top: 1px solid var(--border); }
   .cl-shift-row-flat.open .cl-shift-row-body { display: block; }
   .cl-shift-row-flat.mode-final .cl-shift-row-head,
-  .cl-shift-row-flat:has(.cl-badge-final) .cl-shift-row-head { background: #fffbeb; }
+  .cl-shift-row-flat:has(.cl-badge-final) .cl-shift-row-head { background: var(--amber-pale); }
 
   /* Shift snapshot block */
   .cl-shift-block {
@@ -1699,4 +1734,18 @@
   #page-closing-book .btn-row.back-row,
   #page-closing-book .cl-toolbar { grid-column: 1 / -1; }
   #page-closing-book #cb-reader:not(.hidden) { grid-column: 1 / -1; }
+}
+
+/* ── MOTION ── a cashier reopening this app dozens of times a shift
+   shouldn't be resold the same slide/pop/spin flourish every time if
+   their OS says to keep still — respect it instead of only ever
+   defaulting to "on". This still leaves state changes instant and
+   legible; nothing depends on the animation to convey information. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

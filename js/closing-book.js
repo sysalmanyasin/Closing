@@ -18,6 +18,7 @@ import { daySlots, db, getSeq, srLabel, session } from './state.js';
 import { initLedger, setLockedState } from './actions.js';
 import { buildPrintSheet, timelineStep } from './components.js';
 import { sheetSortKey } from './pages.js';
+import { showAlert } from './notify.js';
 
 /* CRITICAL: never use Date#toISOString() to derive a "date string" here.
    toISOString() always converts to UTC — for any timezone AHEAD of UTC
@@ -194,14 +195,14 @@ export async function generateClosingBook() {
 
   if(cbState.assemblyMode) return; /* already assembling — ignore a double-tap rather than run two overlapping loops */
 
-  if(!fromDs || !toDs) { alert('Pick both a "From" and "To" date.'); return; }
+  if(!fromDs || !toDs) { showAlert('Pick both a "From" and "To" date.'); return; }
 
   const fromCmp = fromDs + '_' + String(getSeq(fromDs, fromShift)).padStart(6,'0');
   const toCmp   = toDs   + '_' + String(getSeq(toDs, toShift)).padStart(6,'0');
-  if(fromCmp > toCmp) { alert('The "From" point must be before or equal to the "To" point.'); return; }
+  if(fromCmp > toCmp) { showAlert('The "From" point must be before or equal to the "To" point.'); return; }
 
   const entries = enumerateClosingBookEntries(fromDs, fromShift, toDs, toShift);
-  if(!entries.length) { alert('No shifts fall in that range.'); return; }
+  if(!entries.length) { showAlert('No shifts fall in that range.'); return; }
   if(entries.length > 120 && !confirm(`This range covers ${entries.length} shifts and may take a little while to assemble. Continue?`)) return;
 
   const cacheKey    = `${fromDs}_${fromShift}__${toDs}_${toShift}`;
@@ -266,7 +267,7 @@ export async function generateClosingBook() {
     cbState.cache[cacheKey] = { pages, fingerprint, builtAt: Date.now() };
   } catch(err) {
     console.error('Closing Book assembly failed:', err);
-    alert('Something went wrong assembling the book. Please try again — if it keeps happening, try a smaller date range.');
+    showAlert('Something went wrong assembling the book. Please try again — if it keeps happening, try a smaller date range.');
     return;
   } finally {
     /* guaranteed to run even on error, so a bad sheet can't permanently

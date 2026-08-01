@@ -10,6 +10,7 @@
 import { db, setDB } from './state.js';
 import { persist } from './actions.js';
 import { goToDashboard } from './pages.js';
+import { showAlert } from './notify.js';
 
 export const DB_STORAGE_KEY = 'pharmpos_v2';
 
@@ -96,14 +97,14 @@ export function importDataJSON(evt) {
   reader.onload = function(e) {
     try {
       const incoming = JSON.parse(e.target.result);
-      if(!incoming.sheets || !incoming.settings) { alert('Invalid backup file.'); return; }
+      if(!incoming.sheets || !incoming.settings) { showAlert('Invalid backup file.'); return; }
       if(!confirm('This will REPLACE all current data on this device with the backup file. Continue?')) return;
       setDB(incoming);
       persist(); /* Floor 3's door — also triggers the usual cloud push */
-      alert('Backup restored.');
+      showAlert('Backup restored.');
       goToDashboard();
     } catch(err) {
-      alert('Could not read backup file: ' + err.message);
+      showAlert('Could not read backup file: ' + err.message);
     }
   };
   reader.readAsText(file);
