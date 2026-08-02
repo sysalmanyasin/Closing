@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Closing Summary</string>
+    <string name="widget_title">CLOSING SUMMARY</string>
+    <string name="widget_loading">Loading latest closing…</string>
+    <string name="label_net_sale">Net Sale</string>
+    <string name="label_net_cash">Net Cash</string>
+    <string name="label_total_cash">Total Cash</string>
+</resources>
