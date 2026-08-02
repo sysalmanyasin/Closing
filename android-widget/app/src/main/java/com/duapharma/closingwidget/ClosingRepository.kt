@@ -33,7 +33,7 @@ object ClosingRepository {
         maximumFractionDigits = 0
     }
 
-    fun formatAmount(value: Double): String = "Rs. " + numberFormat.format(value)
+    fun formatAmount(value: Double): String = "Rs. " + numberFormat.format(kotlin.math.abs(value))
 
     /** Runs network I/O — must be called off the main thread. */
     fun fetchLatestClosing(): ClosingSummary? {
@@ -51,33 +51,25 @@ object ClosingRepository {
 
         val latest = sorted.first()
         val data = latest.data
-        val profileMode = data.optString("profileMode", "shift")
 
         val carriedCC = data.optDouble("outPrevCC", 0.0)
         val totalDeposits = data.optDouble("outTotalF", 0.0)
 
-        var bookBills: Double
-        var manualReturns: Double
-
-        if (profileMode == "final") {
-            bookBills = data.optDouble("inBook1", 0.0) + data.optDouble("inBook2", 0.0)
-            manualReturns = data.optDouble("posRet1", 0.0) +
-                data.optDouble("posRet2", 0.0) +
-                data.optDouble("posRet3", 0.0)
-        } else {
-            bookBills = 0.0
-            manualReturns = 0.0
-            // Walk backward through the reconstructed timeline, summing each
-            // shift's book bills / manual returns until we hit a "final"
-            // closing (exclusive) or run out of fetched history.
-            for (i in 1 until sorted.size) {
-                val rec = sorted[i].data
-                if (rec.optString("profileMode", "shift") == "final") break
-                bookBills += rec.optDouble("inBook1", 0.0) + rec.optDouble("inBook2", 0.0)
-                manualReturns += rec.optDouble("posRet1", 0.0) +
-                    rec.optDouble("posRet2", 0.0) +
-                    rec.optDouble("posRet3", 0.0)
-            }
+        // Walk backward starting at the current shift (inclusive), summing
+        // book bills / manual returns for every record, and stop right
+        // after including the first "final" closing encountered — that
+        // final closing's own totals are meant to be folded in, not
+        // excluded (confirmed against actions.js's aggregateSinceLastFinal,
+        // which adds the boundary final record's own values after its loop).
+        var bookBills = 0.0
+        var manualReturns = 0.0
+        for (sheet in sorted) {
+            val rec = sheet.data
+            bookBills += rec.optDouble("inBook1", 0.0) + rec.optDouble("inBook2", 0.0)
+            manualReturns += rec.optDouble("posRet1", 0.0) +
+                rec.optDouble("posRet2", 0.0) +
+                rec.optDouble("posRet3", 0.0)
+            if (rec.optString("profileMode", "shift") == "final") break
         }
 
         return ClosingSummary(

@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:gravity="center_vertical"
     android:background="@drawable/widget_background"
     android:padding="16dp"
     android:id="@+id/widget_root">
@@ -171,6 +172,15 @@
         android:layout_marginTop="8dp"
         android:text=""
         android:textColor="#B0B4BA"
+        android:textSize="9sp" />
+
+    <TextView
+        android:id="@+id/widget_footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_footer"
+        android:textColor="#C7CBD1"
         android:textSize="9sp" />
 
 </LinearLayout>

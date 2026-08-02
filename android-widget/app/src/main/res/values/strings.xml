@@ -6,4 +6,5 @@
     <string name="label_total_deposits">Total Deposits</string>
     <string name="label_book_bills">Book Bills</string>
     <string name="label_manual_returns">Manual Returns</string>
+    <string name="widget_footer">Fazal Din\'s Pharma Plus · Auto-refreshes every 30 min · Tap to refresh now</string>
 </resources>
