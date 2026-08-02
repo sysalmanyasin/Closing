@@ -63,10 +63,11 @@
                     android:textSize="15sp" />
             </LinearLayout>
 
-            <View
+            <LinearLayout
                 android:layout_width="1dp"
                 android:layout_height="match_parent"
-                android:background="#DCDFE3" />
+                android:background="#DCDFE3"
+                android:orientation="vertical" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -94,10 +95,11 @@
             </LinearLayout>
         </LinearLayout>
 
-        <View
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DCDFE3" />
+            android:background="#DCDFE3"
+            android:orientation="vertical" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -129,10 +131,11 @@
                     android:textSize="15sp" />
             </LinearLayout>
 
-            <View
+            <LinearLayout
                 android:layout_width="1dp"
                 android:layout_height="match_parent"
-                android:background="#DCDFE3" />
+                android:background="#DCDFE3"
+                android:orientation="vertical" />
 
             <LinearLayout
                 android:layout_width="0dp"
