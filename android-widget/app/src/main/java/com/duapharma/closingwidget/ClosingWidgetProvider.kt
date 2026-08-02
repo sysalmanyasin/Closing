@@ -29,7 +29,7 @@ class ClosingWidgetProvider : AppWidgetProvider() {
             // Show a loading state immediately, then fetch in the background.
             for (id in ids) {
                 val loadingViews = RemoteViews(context.packageName, R.layout.widget_closing_summary)
-                loadingViews.setTextViewText(R.id.widget_date_staff, context.getString(R.string.widget_loading))
+                loadingViews.setTextViewText(R.id.widget_subtitle, context.getString(R.string.widget_loading))
                 manager.updateAppWidget(id, loadingViews)
             }
 
@@ -46,17 +46,20 @@ class ClosingWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_closing_summary)
 
             if (summary == null) {
-                views.setTextViewText(R.id.widget_date_staff, "Couldn't load closing data")
-                views.setTextViewText(R.id.widget_shift_badge, "—")
-                views.setTextViewText(R.id.widget_net_sale, "—")
-                views.setTextViewText(R.id.widget_net_cash, "—")
-                views.setTextViewText(R.id.widget_total_cash, "—")
+                views.setTextViewText(R.id.widget_subtitle, "Couldn't load closing data")
+                views.setTextViewText(R.id.widget_carried_cc, "—")
+                views.setTextViewText(R.id.widget_total_deposits, "—")
+                views.setTextViewText(R.id.widget_book_bills, "—")
+                views.setTextViewText(R.id.widget_manual_returns, "—")
             } else {
-                views.setTextViewText(R.id.widget_date_staff, "${summary.date} · ${summary.staff}")
-                views.setTextViewText(R.id.widget_shift_badge, summary.shift)
-                views.setTextViewText(R.id.widget_net_sale, ClosingRepository.formatAmount(summary.netSale))
-                views.setTextViewText(R.id.widget_net_cash, ClosingRepository.formatAmount(summary.netCash))
-                views.setTextViewText(R.id.widget_total_cash, ClosingRepository.formatAmount(summary.totalCash))
+                views.setTextViewText(
+                    R.id.widget_subtitle,
+                    "${summary.date} — Closing ${summary.closingNumber} — ${summary.shift}"
+                )
+                views.setTextViewText(R.id.widget_carried_cc, ClosingRepository.formatAmount(summary.carriedCC))
+                views.setTextViewText(R.id.widget_total_deposits, ClosingRepository.formatAmount(summary.totalDeposits))
+                views.setTextViewText(R.id.widget_book_bills, ClosingRepository.formatAmount(summary.bookBills))
+                views.setTextViewText(R.id.widget_manual_returns, ClosingRepository.formatAmount(summary.manualReturns))
 
                 val timeFmt = SimpleDateFormat("h:mm a", Locale.getDefault())
                 views.setTextViewText(R.id.widget_synced_at, "Synced ${timeFmt.format(java.util.Date())}")

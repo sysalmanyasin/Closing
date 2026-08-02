@@ -4,118 +4,160 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="14dp"
+    android:padding="16dp"
     android:id="@+id/widget_root">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:id="@+id/widget_title"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/widget_title"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:textSize="13sp"
-            android:letterSpacing="0.05" />
-
-        <TextView
-            android:id="@+id/widget_shift_badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="—"
-            android:textColor="#B8FFFFFF"
-            android:textSize="12sp" />
-    </LinearLayout>
+        android:text="@string/widget_title"
+        android:textColor="#33363D"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:letterSpacing="0.02" />
 
     <TextView
-        android:id="@+id/widget_date_staff"
+        android:id="@+id/widget_subtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="10dp"
         android:text="@string/widget_loading"
-        android:textColor="#B8FFFFFF"
-        android:textSize="11sp" />
+        android:textColor="#1A1C1F"
+        android:textSize="13sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="10dp"
-        android:weightSum="3">
+        android:orientation="vertical"
+        android:background="@drawable/widget_grid_background">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/label_net_sale"
-                android:textColor="#80FFFFFF"
-                android:textSize="10sp" />
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:padding="12dp">
 
-            <TextView
-                android:id="@+id/widget_net_sale"
-                android:layout_width="wrap_content"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_carried_cc"
+                    android:textColor="#8A8F98"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/widget_carried_cc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="—"
+                    android:textColor="#1A1C1F"
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="#DCDFE3" />
+
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="—"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="15sp" />
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_total_deposits"
+                    android:textColor="#8A8F98"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/widget_total_deposits"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="—"
+                    android:textColor="#1A1C1F"
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
+            </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_net_cash"
-                android:textColor="#80FFFFFF"
-                android:textSize="10sp" />
-
-            <TextView
-                android:id="@+id/widget_net_cash"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="—"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="15sp" />
-        </LinearLayout>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#DCDFE3" />
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/label_total_cash"
-                android:textColor="#80FFFFFF"
-                android:textSize="10sp" />
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:padding="12dp">
 
-            <TextView
-                android:id="@+id/widget_total_cash"
-                android:layout_width="wrap_content"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_book_bills"
+                    android:textColor="#8A8F98"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/widget_book_bills"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="—"
+                    android:textColor="#1A1C1F"
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="#DCDFE3" />
+
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="—"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="15sp" />
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_manual_returns"
+                    android:textColor="#8A8F98"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/widget_manual_returns"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="—"
+                    android:textColor="#1A1C1F"
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
@@ -125,7 +167,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text=""
-        android:textColor="#66FFFFFF"
+        android:textColor="#B0B4BA"
         android:textSize="9sp" />
 
 </LinearLayout>
