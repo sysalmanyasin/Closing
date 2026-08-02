@@ -22,6 +22,7 @@
 
         <receiver
             android:name=".ClosingWidgetProvider"
+            android:label="@string/widget_title_label"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -30,6 +31,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/closing_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SalesWidgetProvider"
+            android:label="@string/sales_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.SALES_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sales_widget_info" />
         </receiver>
 
     </application>

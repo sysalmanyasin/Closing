@@ -1,10 +1,16 @@
 <resources>
     <string name="app_name">Closing Summary</string>
     <string name="widget_title">📊 LATEST CLOSING SUMMARY</string>
+    <string name="widget_title_label">Closing Summary</string>
+    <string name="sales_widget_title_label">Sales &amp; Target Pace</string>
     <string name="widget_loading">Loading…</string>
     <string name="label_carried_cc">Carried CC</string>
     <string name="label_total_deposits">Total Deposits</string>
     <string name="label_book_bills">Book Bills</string>
     <string name="label_manual_returns">Manual Returns</string>
     <string name="widget_footer">Fazal Din\'s Pharma Plus · Auto-refreshes every 30 min · Tap to refresh now</string>
+
+    <string name="sales_widget_title">📈 SALES</string>
+    <string name="sales_widget_loading">Loading…</string>
+    <string name="sales_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
 </resources>
