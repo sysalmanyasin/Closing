@@ -689,19 +689,27 @@ export function buildPrintSheet() {
   part1Rows += psRowOrEmpty('Additional System Returns', g('in-final-sys-returns')?.value, 'ps-minus ps-red');
   part1Rows += psRow('NET FINAL SALE', num('out-final-net-sale'), 'ps-highlight');
 
-  /* Part 2 — Net Final Cash Available */
+  /* Part 2 — Net Final Cash Available.
+     Pre-date POS Sales / Customers / System Returns are NOT three
+     independent deductions from Net Cash Available — only their
+     combined "Pre-date Total" subtotal is. Flagging all three as
+     ps-minus (as before) mislabeled POS Sales and Customers, which
+     are additions *within* that subtotal; only System Returns is a
+     subtraction there. Shown here nested under the subtotal, matching
+     the on-screen Pre-date Total subgroup. */
   let part2Rows = '';
   part2Rows += psRow('Net Cash Available (after float)', num('out-final-net-cash-base'));
-  part2Rows += psRow('Pre-date POS Sales', num('out-final-pre-sys'), 'ps-minus ps-red');
-  part2Rows += psRow('Pre-date Customers', num('out-final-pre-cust'), 'ps-minus ps-red');
-  part2Rows += psRow('Pre-date System Returns', num('out-final-pre-sysret'), 'ps-minus ps-red');
+  part2Rows += psRow('　Pre-date POS Sales', num('out-final-pre-sys'), 'ps-plus');
+  part2Rows += psRow('　Pre-date Customers', num('out-final-pre-cust'), 'ps-plus');
+  part2Rows += psRow('　Pre-date System Returns', num('out-final-pre-sysret'), 'ps-minus ps-red');
+  part2Rows += psRow('Pre-date Total (subtracted from Net Cash Available)', num('out-final-pre-total'), 'ps-minus ps-red');
   part2Rows += psRow('Extra Cash Added to Pharmacy', num('out-final-extra-cash'), 'ps-minus ps-red');
   part2Rows += psRow('Target Net Sale (Part 1 result)', num('out-final-target-sale'), 'ps-minus ps-red');
   part2Rows += psRow('NET FINAL CASH AVAILABLE', num('out-final-net-cash'), 'ps-highlight');
 
-  /* Variance detail box */
+  /* Aggregated Final Closing — single authoritative variance line,
+     mirrors the on-screen black summary strip. */
   let varRows = '';
-  varRows += psRow('Pre-date Total (POS + Cust − SysRet)', num('out-final-pre-total'));
   const diffLbl2 = g('out-final-diff-label')?.textContent?.trim() || 'Plus / Less (Final Audit)';
   const isShort2 = diffLbl2.toLowerCase().includes('less');
   varRows += psRow(diffLbl2, num('out-final-diff'), isShort2 ? 'ps-red' : 'ps-highlight');
@@ -741,7 +749,7 @@ export function buildPrintSheet() {
           <div class="ps-box ps-box-final"><h4><span class="ps-box-icon">📊</span>Part 1 — Net Final Sale</h4>${part1Rows}</div>
           <div class="ps-box ps-box-final"><h4><span class="ps-box-icon">💵</span>Part 2 — Net Final Cash Available</h4>${part2Rows}</div>
         </div>
-        <div class="ps-box"><h4><span class="ps-box-icon">⚖️</span>Variance (Final Audit)</h4>${varRows}</div>
+        <div class="ps-box"><h4><span class="ps-box-icon">🧮</span>Aggregated Final Closing</h4>${varRows}</div>
         ${hero2}
       </div>
       <div class="ps-foot"><span>Fazal Din's Pharma Plus — Shift Register</span><span class="ps-foot-page">Page 2 of 2 · Generated ${genStamp}</span></div>

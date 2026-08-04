@@ -472,6 +472,28 @@
   .banner-row .val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
   .banner-row .val.pos { color: var(--status-ok); }
   .banner-row .val.neg { color: var(--status-bad); }
+  .summary-banner-title {
+    font-size: 0.78rem; font-weight: 800; color: var(--white);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+  }
+
+  /* ── PRE-DATE TOTAL SUBGROUP (Final Closing, Part 2) ──
+     Visually contains the POS/Customers/System-Return breakdown inside a
+     single bordered box so it reads as "one deduction with its own math
+     shown", not three separate deductions from Net Cash Available. */
+  .predate-group {
+    background: var(--surface); border: 1px dashed var(--border);
+    border-radius: var(--radius); margin: 2px 0 8px; padding: 2px 0 0;
+  }
+  .predate-group-title {
+    font-size: 0.7rem; font-weight: 700; color: var(--muted);
+    padding: 6px 16px 2px; text-transform: uppercase; letter-spacing: .3px;
+  }
+  .predate-subrow { padding-left: 28px; }
+  .predate-subrow label { font-size: 0.82rem; }
+  .predate-subtotal {
+    border-top: 1px dashed var(--border); margin-top: 2px;
+  }
 
   /* ── SUMMARY CARDS ── */
   .shift-summary-card { padding: 16px; }

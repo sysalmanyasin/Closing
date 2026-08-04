@@ -845,15 +845,39 @@
           <div class="row highlight-green"><label for="out-final-net-sale"><strong>＝ Net Final Sale:</strong></label><input type="number" id="out-final-net-sale" readonly value="0"></div>
           <div style="background:var(--navy);padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:var(--on-dark-secondary);text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Part 2 — Net Final Cash Available</div>
           <div class="row computed"><label for="out-final-net-cash-base">Net Cash Available (after − Rs. 45,000):</label><input type="number" id="out-final-net-cash-base" readonly value="0"></div>
-          <div class="row computed highlight-red"><label id="lbl-final-pre-sys">－ Pre-date POS Sales:</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
-          <div class="row computed highlight-red"><label id="lbl-final-pre-cust">－ Pre-date Customers:</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
-          <div class="row computed highlight-red"><label id="lbl-final-pre-sysret">－ Less Pre-date System Return:</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
+
+          <!-- Pre-date Total subgroup: shows the POS/Customers/System-Return
+               math with its OWN correct internal signs (POS ＋, Customers ＋,
+               System Return －), so the subtotal it produces is unambiguous.
+               Only that single subtotal — not the three lines individually —
+               is what actually gets subtracted from Net Cash Available above. -->
+          <div class="predate-group">
+            <div class="predate-group-title">－ Pre-date Total (POS Sales ＋ Customers － System Return), shifts before today ＋ last final:</div>
+            <div class="row computed predate-subrow"><label id="lbl-final-pre-sys">＋ Pre-date POS Sales:</label><input type="number" id="out-final-pre-sys" readonly value="0"></div>
+            <div class="row computed predate-subrow"><label id="lbl-final-pre-cust">＋ Pre-date Customers:</label><input type="number" id="out-final-pre-cust" readonly value="0"></div>
+            <div class="row computed predate-subrow highlight-red"><label id="lbl-final-pre-sysret">－ Pre-date System Return:</label><input type="number" id="out-final-pre-sysret" readonly value="0"></div>
+            <div class="row predate-subtotal highlight-blue"><label for="out-final-pre-total"><strong>＝ Pre-date Total:</strong></label><input type="number" id="out-final-pre-total" readonly value="0"></div>
+          </div>
+
           <div class="row computed highlight-red"><label id="lbl-final-extra-cash">－ Extra Cash Added to Pharmacy:</label><input type="number" id="out-final-extra-cash" readonly value="0"></div>
           <div class="row computed highlight-red"><label for="out-final-target-sale">－ Target Net Sales (this Final):</label><input type="number" id="out-final-target-sale" readonly value="0"></div>
           <div class="row highlight-blue"><label for="out-final-net-cash"><strong>＝ Net Final Cash Available:</strong></label><input type="number" id="out-final-net-cash" readonly value="0"></div>
-          <div style="background:var(--navy);padding:6px 16px;margin:12px 0 0;font-size:0.71rem;font-weight:700;color:var(--on-dark-secondary);text-transform:uppercase;letter-spacing:.5px;border-radius:6px 6px 0 0;">Variance</div>
-          <div class="row computed"><label for="out-final-pre-total">Pre-date Total:</label><input type="number" id="out-final-pre-total" readonly value="0"></div>
-          <div class="row highlight-blue"><label id="out-final-diff-label"><strong>Plus / Less (Final Audit):</strong></label><input type="number" id="out-final-diff" readonly value="0"></div>
+
+          <!-- Hidden fields kept for save/print-sheet compatibility only —
+               the visible reconciliation now lives in the black
+               "Aggregated Final Closing" strip below. -->
+          <input type="hidden" id="out-final-diff-label" value="Variance">
+          <input type="hidden" id="out-final-diff" value="0">
+        </div>
+
+        <!-- AGGREGATED FINAL CLOSING — single authoritative variance strip,
+             styled like the Audit tab's dark summary banner, so this is the
+             one number users read as "the answer" for the whole period. -->
+        <div class="summary-banner" id="final-summary-banner">
+          <div class="summary-banner-title">🧮 Aggregated Final Closing</div>
+          <div class="banner-row"><span>Target Net Sales</span><span class="val" id="final-ban-target">Rs. 0</span></div>
+          <div class="banner-row"><span>Net Cash Available</span><span class="val" id="final-ban-cash">Rs. 0</span></div>
+          <div class="banner-row"><span id="final-ban-variance-label">Variance</span><span class="val" id="final-ban-variance">Rs. 0</span></div>
         </div>
       </div>
 

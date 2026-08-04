@@ -832,6 +832,41 @@ export function calc() {
     set('out-final-net-cash-adj', finalNetCash);
     set('out-final-prev-sale',    0);
 
+    /* ── AGGREGATED FINAL CLOSING (black strip) ──────────────────
+       Always shows the period-aggregated Part 1 / Part 2 figures
+       (finalNetSale / finalNetCash), regardless of which mode (Shift
+       or Final) is currently active on screen — this strip is the
+       permanent "roll-up" reconciliation for the period since the
+       last Final, so unlike the Audit-tab banner it never switches
+       to shift-only numbers. Cash is shown gross (target added back)
+       so it lines up with Target Net Sales the same way the Audit
+       banner already does; Variance = Net Cash Available − Target,
+       which by construction equals finalNetCash itself. */
+    const aggTarget    = finalNetSale;
+    const aggCashGross = finalNetCash + finalNetSale;
+    const aggDiff       = finalNetCash;
+    const aggTargetEl  = document.getElementById('final-ban-target');
+    const aggCashEl    = document.getElementById('final-ban-cash');
+    const aggVarEl     = document.getElementById('final-ban-variance');
+    const aggVarLbl    = document.getElementById('final-ban-variance-label');
+    if(aggTargetEl && aggCashEl && aggVarEl) {
+      aggTargetEl.textContent = "Rs. " + aggTarget.toLocaleString('en-PK');
+      aggCashEl.textContent   = "Rs. " + aggCashGross.toLocaleString('en-PK');
+      if(aggDiff === 0) {
+        if(aggVarLbl) aggVarLbl.textContent = 'Variance';
+        aggVarEl.textContent = "Rs. 0";
+        aggVarEl.className = 'val pos';
+      } else if(aggDiff > 0) {
+        if(aggVarLbl) aggVarLbl.textContent = 'Plus';
+        aggVarEl.textContent = "Rs. " + aggDiff.toLocaleString('en-PK');
+        aggVarEl.className = 'val pos';
+      } else {
+        if(aggVarLbl) aggVarLbl.textContent = 'Less';
+        aggVarEl.textContent = "Rs. " + Math.abs(aggDiff).toLocaleString('en-PK');
+        aggVarEl.className = 'val neg';
+      }
+    }
+
     /* ── Keep the on-screen banner (Audit tab + View-all popup) in
        lock-step with what actually gets SAVED as finalDiff above, for
        whichever mode is active. In Shift mode both banner and saved
