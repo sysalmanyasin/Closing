@@ -846,11 +846,13 @@ export function calc() {
     const aggCashGross = finalNetCash + finalNetSale;
     const aggDiff       = finalNetCash;
     const aggTargetEl  = document.getElementById('final-ban-target');
+    const aggPredateEl = document.getElementById('final-ban-predate');
     const aggCashEl    = document.getElementById('final-ban-cash');
     const aggVarEl     = document.getElementById('final-ban-variance');
     const aggVarLbl    = document.getElementById('final-ban-variance-label');
     if(aggTargetEl && aggCashEl && aggVarEl) {
       aggTargetEl.textContent = "Rs. " + aggTarget.toLocaleString('en-PK');
+      if(aggPredateEl) aggPredateEl.textContent = "Rs. " + preDateTotal.toLocaleString('en-PK');
       aggCashEl.textContent   = "Rs. " + aggCashGross.toLocaleString('en-PK');
       if(aggDiff === 0) {
         if(aggVarLbl) aggVarLbl.textContent = 'Variance';
