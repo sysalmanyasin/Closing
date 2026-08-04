@@ -2,10 +2,11 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 /* Everything runs in the browser as ES modules loaded via
-   <script type="module">. Two library globals come from plain
+   <script type="module">. Three library globals come from plain
    CDN <script> tags (not modules) and never get imported:
-   html2canvas and Dropbox. jsPDF is always accessed as
-   `window.jspdf`, so it needs no separate global entry. */
+   html2canvas, jsPDF (always accessed as `window.jspdf`, so it
+   needs no separate global entry), and Supabase (accessed as
+   `window.supabase`). */
 export default [
   { ignores: ['node_modules/**'] },
   js.configs.recommended,
@@ -16,7 +17,7 @@ export default [
       globals: {
         ...globals.browser,
         html2canvas: 'readonly',
-        Dropbox: 'readonly',
+        supabase: 'readonly',
       },
     },
     rules: {

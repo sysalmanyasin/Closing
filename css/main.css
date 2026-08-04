@@ -944,17 +944,18 @@
     font-size: 0.8rem; color: var(--on-dark-secondary); line-height: 1.6; margin-bottom: 14px;
   }
   .sync-unlinked-text strong { color: var(--on-dark-primary); }
-  .btn-dropbox {
-    /* #0061ff/#0052d9 are Dropbox's own brand blue, not app tokens —
-       intentional, so the button is recognizable as "the Dropbox
-       button" rather than looking like a themed in-app action. */
+  .btn-cloud-connect {
+    /* Shared primary-action color for cloud connect/setup buttons
+       (Supabase and Google Drive) — deliberately a plain blue rather
+       than an app token, so these read as "connect an outside
+       account" rather than a themed in-app action. */
     display: inline-flex; align-items: center; gap: 8px;
     background: #0061ff; color: var(--white); border: none; border-radius: var(--radius-md);
     padding: 11px 20px; font-size: 0.88rem; font-weight: 700; cursor: pointer;
     font-family: 'Inter', sans-serif; transition: all .15s; width: 100%; justify-content: center;
   }
-  .btn-dropbox:hover { background: #0052d9; box-shadow: 0 4px 14px rgba(0,97,255,.4); }
-  .btn-dropbox:active { transform: translateY(1px); }
+  .btn-cloud-connect:hover { background: #0052d9; box-shadow: 0 4px 14px rgba(0,97,255,.4); }
+  .btn-cloud-connect:active { transform: translateY(1px); }
 
   /* State B — linked */
   .sync-linked-state { display: flex; flex-direction: column; gap: 12px; }

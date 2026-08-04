@@ -7,8 +7,8 @@
 
 <!-- ── Content-Security-Policy ──
      Scoped to exactly what this app loads: itself, the three cdnjs
-     libraries in the head below, Google Fonts, and the Dropbox API/
-     auth domains sw.js already treats as network-only.
+     libraries in the head below, Google Fonts, and the Supabase API/
+     realtime domains sw.js already treats as network-only.
 
      NOTE on 'unsafe-inline' in script-src: this codebase's whole UI
      wiring is ~160 onclick/onchange/oninput attributes in this file
@@ -340,18 +340,18 @@
                     4. Copy the <strong style="color:var(--status-ok);">Project URL</strong> and the <strong style="color:var(--status-ok);">anon public</strong> key and paste them below
                   </p>
                 </div>
-                <input type="text" id="dbx-app-key-input" placeholder="Project URL (https://xxxx.supabase.co)"
+                <input type="text" id="supa-url-input" placeholder="Project URL (https://xxxx.supabase.co)"
                   style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
-                  oninput="dbxShowKeyError('')">
+                  oninput="supaShowKeyError('')">
                 <input type="text" id="supa-anon-key-input" placeholder="anon public key"
                   style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;"
-                  oninput="dbxShowKeyError('')">
-                <div id="dbx-key-error" style="display:none;color:var(--status-bad);font-size:0.75rem;margin-bottom:8px;"></div>
-                <button class="btn-dropbox" style="width:100%;" onclick="dbxSaveAppKey()">✓ Save & Connect</button>
+                  oninput="supaShowKeyError('')">
+                <div id="supa-key-error" style="display:none;color:var(--status-bad);font-size:0.75rem;margin-bottom:8px;"></div>
+                <button class="btn-cloud-connect" style="width:100%;" onclick="supaSaveAppKey()">✓ Save & Connect</button>
                 <div style="margin-top:12px;border-top:1px solid var(--navy-light);padding-top:12px;">
                   <p class="sync-unlinked-text" style="margin-bottom:8px;font-size:0.75rem;">Already connected on another device? Paste your exported token instead:</p>
                   <textarea id="sync-import-input-unlinked" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid rgba(255,255,255,.15);color:var(--on-dark-primary);border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
-                  <button class="btn-dropbox" style="margin-top:6px;background:var(--teal);" onclick="dbxImportConnectionUnlinked()">📥 Connect via Imported Token</button>
+                  <button class="btn-cloud-connect" style="margin-top:6px;background:var(--teal);" onclick="supaImportConnectionUnlinked()">📥 Connect via Imported Token</button>
                 </div>
               </div>
             </div>
@@ -373,20 +373,20 @@
                 <button class="btn-sync-action" id="btn-pull" onclick="syncPullFromCloud(true)">⬇ Pull From Cloud</button>
                 <button class="btn-sync-action" id="btn-push" onclick="syncPushToCloud(true)">⬆ Push To Cloud</button>
               </div>
-              <button class="btn-sync-disconnect" onclick="dbxDisconnect()">Disconnect Account</button>
+              <button class="btn-sync-disconnect" onclick="supaDisconnect()">Disconnect Account</button>
               <div class="sync-btn-row" style="margin-top:6px;">
-                <button class="btn-sync-action" onclick="dbxExportConnection()" title="Copy connection token to use on another device">📤 Export Connection</button>
-                <button class="btn-sync-action" onclick="dbxShowImport()" title="Paste connection token from another device">📥 Import Connection</button>
+                <button class="btn-sync-action" onclick="supaExportConnection()" title="Copy connection token to use on another device">📤 Export Connection</button>
+                <button class="btn-sync-action" onclick="supaShowImport()" title="Paste connection token from another device">📥 Import Connection</button>
               </div>
               <div id="sync-import-box" style="display:none;margin-top:8px;">
                 <textarea id="sync-import-input" placeholder="Paste connection token here…" style="width:100%;box-sizing:border-box;background:var(--navy);border:1px solid rgba(255,255,255,.15);color:var(--on-dark-primary);border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;resize:vertical;min-height:60px;"></textarea>
                 <div style="display:flex;gap:8px;margin-top:6px;">
-                  <button class="btn-sync-action" style="flex:1;" onclick="dbxImportConnection()">✓ Apply Token</button>
+                  <button class="btn-sync-action" style="flex:1;" onclick="supaImportConnection()">✓ Apply Token</button>
                   <button class="btn-sync-disconnect" style="flex:1;" onclick="document.getElementById('sync-import-box').style.display='none'">Cancel</button>
                 </div>
               </div>
               <div style="text-align:center;margin-top:4px;">
-                <button onclick="dbxClearAppKey()" style="background:none;border:none;color:var(--on-dark-secondary);font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
+                <button onclick="supaClearAppKey()" style="background:none;border:none;color:var(--on-dark-secondary);font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;">
                   ⚙ Change App Key
                 </button>
               </div>
@@ -424,7 +424,7 @@
               <p style="color:var(--on-dark-secondary);font-size:0.82rem;margin-bottom:10px;">
                 🔒 Admin access only.
               </p>
-              <button class="btn-dropbox" style="width:100%;background:var(--teal-dark);" onclick="driveUnlock()">Unlock with Admin PIN</button>
+              <button class="btn-cloud-connect" style="width:100%;background:var(--teal-dark);" onclick="driveUnlock()">Unlock with Admin PIN</button>
             </div>
 
             <!-- STATE A: Not linked -->
@@ -434,8 +434,8 @@
               </p>
               <input type="text" id="drive-client-id-input" placeholder="Google OAuth Client ID (…apps.googleusercontent.com)"
                 style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:var(--white);font-size:0.85rem;font-family:'JetBrains Mono',monospace;margin-bottom:8px;outline:none;">
-              <button class="btn-dropbox" style="width:100%;" onclick="driveSaveClientId()">Save Client ID</button>
-              <button class="btn-dropbox" style="width:100%;margin-top:8px;background:var(--teal-dark);" onclick="driveConnectStart()">🔗 Connect Google Drive</button>
+              <button class="btn-cloud-connect" style="width:100%;" onclick="driveSaveClientId()">Save Client ID</button>
+              <button class="btn-cloud-connect" style="width:100%;margin-top:8px;background:var(--teal-dark);" onclick="driveConnectStart()">🔗 Connect Google Drive</button>
             </div>
 
             <!-- STATE B: Linked -->

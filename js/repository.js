@@ -2,7 +2,7 @@
    FLOOR 1 — REPOSITORY
    The ONLY layer that touches localStorage — for the main `db`
    blob AND for every auxiliary key any other file needs to persist
-   (Dropbox tokens, reader "last page seen", etc). Nothing outside
+   (Supabase connection credentials, reader "last page seen", etc). Nothing outside
    this file should call localStorage.* directly.
    Export/Import backup also lives here since it's raw data movement.
 ═══════════════════════════════════════════════════════════════ */

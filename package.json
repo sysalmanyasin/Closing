@@ -1,7 +1,7 @@
 {
   "name": "closing-main",
   "version": "1.0.0",
-  "description": "A single-page, installable web app (PWA) for cashier shift closing, cash reconciliation, and daily/period closing reports. Runs entirely client-side; data lives in `localStorage` with optional Dropbox sync.",
+  "description": "A single-page, installable web app (PWA) for cashier shift closing, cash reconciliation, and daily/period closing reports. Runs entirely client-side; data lives in `localStorage` with optional Supabase cloud sync.",
   "main": "sw.js",
   "type": "module",
   "scripts": {

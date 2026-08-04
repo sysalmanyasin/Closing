@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    FLOOR 1 (Extension) — SUPABASE CLOUD SYNC ENGINE
-   Client-side only, no OAuth (Project URL + anon key, like the old
-   Dropbox App Key). Reads/writes via repoReplaceDB()/repoPersist()
-   only — same contract the Dropbox version had.
+   Client-side only, no OAuth — just a Project URL + anon key. Reads/
+   writes via repoReplaceDB()/repoPersist() only.
 
    STORAGE MODEL — db.sheets / db.creditLedger / db.settings /
    db.activityLog are decomposed into real Postgres tables (see
@@ -28,7 +27,7 @@ const SUPA_ANON_KEY  = 'supabase_anon_key';
 /* Baked-in default connection — every device/install auto-connects to
    this project without needing to open Settings and paste the Project
    URL + anon key first (that manual step is still there, and still
-   wins if the user ever saves a different key — see dbxGetAppKey()/
+   wins if the user ever saves a different key — see supaGetAppKey()/
    getAnonKey() below). Safe to commit: it's the anon/publishable key,
    not a service-role key — Row Level Security is the real boundary,
    same trust model documented in BT's audit-bridge.js. */
@@ -39,12 +38,12 @@ const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
    page reload doesn't re-push (harmless, just noisy) duplicates. */
 const SUPA_AL_PUSHED_KEY = 'supabase_al_pushed_count';
 
-/* ── RETRY CONFIG (same shape as the old Dropbox version) ── */
+/* ── RETRY CONFIG ───────────────────────────────────────── */
 const QUICK_RETRIES  = 3;
 const QUICK_DELAY_MS = 5000;
 const BACKOFF_DELAYS = [30000, 120000, 300000];
 
-export function dbxGetAppKey() {
+export function supaGetAppKey() {
   return (repoGetLocal(SUPA_URL_KEY) || '').trim() || DEFAULT_SUPA_URL;
 }
 export function getAnonKey() {
@@ -66,8 +65,8 @@ const supaState = {
    actions.js — instead of it reaching into supaState directly. */
 export function syncIsReady() { return !!supaState.client; }
 
-/* ── UI HELPERS (unchanged from the Dropbox version) ────── */
-export function dbxSetStatus(text, type = 'ok', spinner = false) {
+/* ── UI HELPERS ─────────────────────────────────────────── */
+export function supaSetStatus(text, type = 'ok', spinner = false) {
   const line = document.getElementById('sync-status-line');
   const icon = document.getElementById('sync-status-icon');
   const msg  = document.getElementById('sync-status-text');
@@ -91,7 +90,7 @@ export function dbxSetStatus(text, type = 'ok', spinner = false) {
   }
 }
 
-export function dbxSetBusy(busy) {
+export function supaSetBusy(busy) {
   supaState.busy = busy;
   const btnPull = document.getElementById('btn-pull');
   const btnPush = document.getElementById('btn-push');
@@ -99,7 +98,7 @@ export function dbxSetBusy(busy) {
   if(btnPush) btnPush.disabled = busy;
 }
 
-export function dbxShowLinked(label) {
+export function supaShowLinked(label) {
   const u = document.getElementById('sync-state-unlinked');
   const l = document.getElementById('sync-state-linked');
   const a = document.getElementById('sync-account-name');
@@ -108,7 +107,7 @@ export function dbxShowLinked(label) {
   if(a) a.textContent = label || 'Connected';
 }
 
-export function dbxShowUnlinked() {
+export function supaShowUnlinked() {
   const u = document.getElementById('sync-state-unlinked');
   const l = document.getElementById('sync-state-linked');
   if(u) u.classList.remove('hidden');
@@ -117,53 +116,54 @@ export function dbxShowUnlinked() {
 
 /* ── CREDENTIAL STORAGE ─────────────────────────────────────
    Project URL + anon key are the whole trust model — anyone who has
-   both can read/write, same as the old Dropbox App Key + refresh
-   token. Keep the anon key off public repos/screenshots. ────────── */
-export function dbxClearToken() {
+   both can read/write. Keep the anon key off public repos/
+   screenshots. ─────────────────────────────────────────────── */
+export function supaClearToken() {
   repoRemoveLocal(SUPA_ANON_KEY);
-  /* SUPA_URL_KEY intentionally NOT cleared — matches old "user keeps their key" behavior */
+  /* SUPA_URL_KEY intentionally NOT cleared — the user keeps their
+     project link even after disconnecting the anon key. */
 }
 
-export function dbxShowKeyError(msg) {
-  const el = document.getElementById('dbx-key-error');
+export function supaShowKeyError(msg) {
+  const el = document.getElementById('supa-key-error');
   if(el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
 }
 
 /* Reads the two connect-card inputs (Project URL + anon key) and
    connects immediately — no OAuth redirect needed for Supabase. */
-export function dbxSaveAppKey() {
-  const urlInp  = document.getElementById('dbx-app-key-input');
+export function supaSaveAppKey() {
+  const urlInp  = document.getElementById('supa-url-input');
   const keyInp  = document.getElementById('supa-anon-key-input');
   const url     = (urlInp?.value || '').trim().replace(/\/+$/, '');
   const anonKey = (keyInp?.value || '').trim();
-  if(!url || !anonKey) { dbxShowKeyError('Please paste both the Project URL and the anon key.'); return; }
+  if(!url || !anonKey) { supaShowKeyError('Please paste both the Project URL and the anon key.'); return; }
   if(!/^https:\/\/.+\.supabase\.co$/.test(url)) {
-    dbxShowKeyError('That doesn\'t look like a Supabase Project URL (should end in .supabase.co).');
+    supaShowKeyError('That doesn\'t look like a Supabase Project URL (should end in .supabase.co).');
     return;
   }
   repoSetLocal(SUPA_URL_KEY, url);
   repoSetLocal(SUPA_ANON_KEY, anonKey);
-  dbxShowKeyError('');
-  dbxInit();
+  supaShowKeyError('');
+  supaInit();
 }
 
 /* Kept so index.html doesn't need to drop the "Change key" link
    wiring — just re-shows the setup form. */
-export function dbxShowConnectStep() {
+export function supaShowConnectStep() {
   document.getElementById('sync-setup-step')?.classList.remove('hidden');
   document.getElementById('sync-connect-step')?.classList.add('hidden');
 }
-export async function dbxAuthStart() {
-  /* No OAuth step for Supabase — Save & Connect (dbxSaveAppKey) does
+export async function supaAuthStart() {
+  /* No OAuth step for Supabase — Save & Connect (supaSaveAppKey) does
      the whole job. Kept as a no-op alias in case anything still calls it. */
-  dbxShowConnectStep();
+  supaShowConnectStep();
 }
 
-export function dbxClearAppKey() {
+export function supaClearAppKey() {
   repoRemoveLocal(SUPA_URL_KEY);
-  dbxClearToken();
+  supaClearToken();
   _teardownClient();
-  dbxShowUnlinked();
+  supaShowUnlinked();
   document.getElementById('sync-setup-step')?.classList.remove('hidden');
   document.getElementById('sync-connect-step')?.classList.add('hidden');
 }
@@ -179,28 +179,28 @@ function _teardownClient() {
 /* ── CLIENT INIT ──────────────────────────────────────────
    Runs on every app load and on retry. Builds the client, does an
    initial pull, and opens the realtime channel. ─────────────────── */
-export async function dbxInit() {
-  const url     = dbxGetAppKey();
+export async function supaInit() {
+  const url     = supaGetAppKey();
   const anonKey = getAnonKey();
 
-  const urlInput = document.getElementById('dbx-app-key-input');
+  const urlInput = document.getElementById('supa-url-input');
   if(urlInput && url) urlInput.value = url;
   const keyInput = document.getElementById('supa-anon-key-input');
   if(keyInput && anonKey) keyInput.value = anonKey;
 
-  if(!url || !anonKey) { dbxShowUnlinked(); return; }
+  if(!url || !anonKey) { supaShowUnlinked(); return; }
 
   try {
     if(typeof window.supabase?.createClient !== 'function') {
-      dbxSetStatus('Supabase library failed to load — check your connection.', 'error');
+      supaSetStatus('Supabase library failed to load — check your connection.', 'error');
       return;
     }
     supaState.client = window.supabase.createClient(url, anonKey, {
       realtime: { params: { eventsPerSecond: 5 } }
     });
 
-    dbxShowLinked('Connected');
-    dbxSetStatus('Checking for updates…', 'busy', true);
+    supaShowLinked('Connected');
+    supaSetStatus('Checking for updates…', 'busy', true);
 
     await syncPullFromCloud(false);
 
@@ -211,8 +211,8 @@ export async function dbxInit() {
 
   } catch(err) {
     console.warn('[Supabase] Init failed:', err);
-    dbxSetStatus('Supabase unreachable — retrying…', 'error');
-    dbxScheduleRetry();
+    supaSetStatus('Supabase unreachable — retrying…', 'error');
+    supaScheduleRetry();
   }
 }
 
@@ -235,10 +235,10 @@ function _openRealtimeChannel() {
   channel.subscribe((status, err) => {
     console.log('[Supabase Realtime] channel status:', status, err || '');
     if(status === 'SUBSCRIBED') {
-      dbxSetStatus('Live sync connected', 'ok');
+      supaSetStatus('Live sync connected', 'ok');
     } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      dbxSetStatus('Live sync unavailable — ' + (err?.message || status) + ' (still syncing on save/reload)', 'error');
-      supaState.channel = null; /* let a future dbxHealConnection() retry cleanly */
+      supaSetStatus('Live sync unavailable — ' + (err?.message || status) + ' (still syncing on save/reload)', 'error');
+      supaState.channel = null; /* let a future supaHealConnection() retry cleanly */
     } else if(status === 'CLOSED') {
       supaState.channel = null;
     }
@@ -246,8 +246,8 @@ function _openRealtimeChannel() {
   supaState.channel = channel;
 }
 
-/* ── RETRY SCHEDULER (same shape as the old Dropbox version) ── */
-export function dbxScheduleRetry() {
+/* ── RETRY SCHEDULER ────────────────────────────────────── */
+export function supaScheduleRetry() {
   if(supaState.retryTimer) clearTimeout(supaState.retryTimer);
   let delay;
   if(supaState.quickRetryCount < QUICK_RETRIES) {
@@ -259,49 +259,49 @@ export function dbxScheduleRetry() {
   }
   supaState.retryTimer = setTimeout(() => {
     supaState.retryTimer = null;
-    if(dbxGetAppKey() && getAnonKey()) dbxInit();
+    if(supaGetAppKey() && getAnonKey()) supaInit();
   }, delay);
 }
 
-function dbxHealConnection(reason) {
-  if(!dbxGetAppKey() || !getAnonKey() || supaState.client) return;
+function supaHealConnection(reason) {
+  if(!supaGetAppKey() || !getAnonKey() || supaState.client) return;
   console.log(`[Supabase] ${reason} — healing connection…`);
   if(supaState.retryTimer) { clearTimeout(supaState.retryTimer); supaState.retryTimer = null; }
   supaState.quickRetryCount = 0;
   supaState.backoffIndex    = 0;
-  dbxInit();
+  supaInit();
 }
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') dbxHealConnection('Tab focused');
+  if(document.visibilityState === 'visible') supaHealConnection('Tab focused');
 });
-window.addEventListener('online', () => dbxHealConnection('Network back online'));
+window.addEventListener('online', () => supaHealConnection('Network back online'));
 window.addEventListener('pageshow', (e) => {
-  if(e.persisted) dbxHealConnection('Page restored from bfcache');
+  if(e.persisted) supaHealConnection('Page restored from bfcache');
 });
 
-/* ── EXPORT / IMPORT CONNECTION (move credentials to another device,
-   same idea as the old Dropbox token export) ────────────────────── */
-export function dbxExportConnection() {
-  const url = dbxGetAppKey(), anonKey = getAnonKey();
+/* ── EXPORT / IMPORT CONNECTION (move credentials to another
+   device via a copy-pasted token) ───────────────────────────────── */
+export function supaExportConnection() {
+  const url = supaGetAppKey(), anonKey = getAnonKey();
   if(!url || !anonKey) { showAlert('No active connection to export.'); return; }
   const payload = btoa(JSON.stringify({ url, anonKey }));
   navigator.clipboard.writeText(payload).then(() => {
-    dbxSetStatus('Connection token copied! Paste it on your other device.', 'ok');
+    supaSetStatus('Connection token copied! Paste it on your other device.', 'ok');
   }).catch(() => {
     prompt('Copy this connection token:', payload);
   });
 }
 
-export function dbxShowImport() {
+export function supaShowImport() {
   const box = document.getElementById('sync-import-box');
   if(box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
 
-export async function dbxImportConnection() {
+export async function supaImportConnection() {
   const raw = (document.getElementById('sync-import-input')?.value || '').trim();
   await _applyImportToken(raw);
 }
-export async function dbxImportConnectionUnlinked() {
+export async function supaImportConnectionUnlinked() {
   const raw = (document.getElementById('sync-import-input-unlinked')?.value || '').trim();
   await _applyImportToken(raw);
 }
@@ -322,15 +322,15 @@ async function _applyImportToken(raw) {
   if(box) box.style.display = 'none';
   supaState.quickRetryCount = 0;
   supaState.backoffIndex    = 0;
-  await dbxInit();
+  await supaInit();
 }
 
 /* ── DISCONNECT ─────────────────────────────────────────── */
-export async function dbxDisconnect() {
+export async function supaDisconnect() {
   if(!await showConfirm('Disconnect Supabase sync?\n\nYour local data will not be deleted. You can re-link at any time.', { tone: 'warn', confirmLabel: 'Disconnect' })) return;
-  dbxClearToken();
+  supaClearToken();
   _teardownClient();
-  dbxShowUnlinked();
+  supaShowUnlinked();
 }
 
 /* ── PUSH: Local → Cloud ────────────────────────────────────
@@ -341,8 +341,8 @@ export async function dbxDisconnect() {
 export async function syncPushToCloud(manual = false) {
   if(!supaState.client) return;
   if(supaState.busy && !manual) return;
-  dbxSetBusy(true);
-  dbxSetStatus('Syncing to cloud…', 'busy', true);
+  supaSetBusy(true);
+  supaSetStatus('Syncing to cloud…', 'busy', true);
 
   try {
     const sheetRows = Object.entries(db.sheets || {}).map(([key, rec]) => ({
@@ -418,7 +418,7 @@ export async function syncPushToCloud(manual = false) {
     }
 
     const ts = new Date().toLocaleTimeString('en-PK');
-    dbxSetStatus(`Synced at ${ts}`, 'ok');
+    supaSetStatus(`Synced at ${ts}`, 'ok');
     if(manual) {
       const statusEl = document.getElementById('sync-status-line');
       if(statusEl) {
@@ -428,9 +428,9 @@ export async function syncPushToCloud(manual = false) {
     }
   } catch(err) {
     console.error('[Supabase] Push failed:', err);
-    dbxSetStatus(`Upload failed: ${(err?.message || 'Unknown error').substring(0,50)}`, 'error');
+    supaSetStatus(`Upload failed: ${(err?.message || 'Unknown error').substring(0,50)}`, 'error');
   } finally {
-    dbxSetBusy(false);
+    supaSetBusy(false);
   }
 }
 
@@ -479,8 +479,8 @@ function _mergeByKey(localMap, cloudMap, tsOf) {
 
 export async function syncPullFromCloud(_manual = false) {
   if(!supaState.client) return;
-  dbxSetBusy(true);
-  dbxSetStatus('Checking for updates…', 'busy', true);
+  supaSetBusy(true);
+  supaSetStatus('Checking for updates…', 'busy', true);
 
   try {
     const [sheetsRes, clRes, settingsRes, alRes, delRes] = await Promise.all([
@@ -554,7 +554,7 @@ export async function syncPullFromCloud(_manual = false) {
     renderFinalSummaryCard();
     const ts = new Date().toLocaleTimeString('en-PK');
     const recordCount = Object.keys(cloudDb.sheets).length;
-    dbxSetStatus(`Synced at ${ts} (${recordCount} records)`, 'ok');
+    supaSetStatus(`Synced at ${ts} (${recordCount} records)`, 'ok');
 
     /* If local had anything the merge kept (an unpushed edit, a
        record cloud didn't have yet, a pending tombstone, unpushed
@@ -566,9 +566,9 @@ export async function syncPullFromCloud(_manual = false) {
 
   } catch(err) {
     console.error('[Supabase] Pull failed:', err);
-    dbxSetStatus(`Sync error: ${(err?.message || 'Network error').substring(0,50)}`, 'error');
-    dbxScheduleRetry();
+    supaSetStatus(`Sync error: ${(err?.message || 'Network error').substring(0,50)}`, 'error');
+    supaScheduleRetry();
   } finally {
-    dbxSetBusy(false);
+    supaSetBusy(false);
   }
 }

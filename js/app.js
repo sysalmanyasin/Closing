@@ -7,7 +7,7 @@
 
    Everything inside each module stays properly encapsulated:
    internal state objects (compState, cbState, navState, clPageState,
-   dbxState) are NOT re-exported here, so they're now genuinely
+   supaState) are NOT re-exported here, so they're now genuinely
    private to their own file — not just private by convention.
 
    The one necessary compromise: index.html's onclick/onchange
@@ -158,16 +158,16 @@ Object.assign(window, {
   setClosingBookShortcutClosings: ClosingBook.setClosingBookShortcutClosings,
 
   // sync.js
-  dbxAuthStart:         Sync.dbxAuthStart,
-  dbxClearAppKey:       Sync.dbxClearAppKey,
-  dbxDisconnect:        Sync.dbxDisconnect,
-  dbxExportConnection:  Sync.dbxExportConnection,
-  dbxImportConnection:  Sync.dbxImportConnection,
-  dbxImportConnectionUnlinked: Sync.dbxImportConnectionUnlinked,
-  dbxSaveAppKey:        Sync.dbxSaveAppKey,
-  dbxShowConnectStep:   Sync.dbxShowConnectStep,
-  dbxShowImport:        Sync.dbxShowImport,
-  dbxShowKeyError:      Sync.dbxShowKeyError,
+  supaAuthStart:         Sync.supaAuthStart,
+  supaClearAppKey:       Sync.supaClearAppKey,
+  supaDisconnect:        Sync.supaDisconnect,
+  supaExportConnection:  Sync.supaExportConnection,
+  supaImportConnection:  Sync.supaImportConnection,
+  supaImportConnectionUnlinked: Sync.supaImportConnectionUnlinked,
+  supaSaveAppKey:        Sync.supaSaveAppKey,
+  supaShowConnectStep:   Sync.supaShowConnectStep,
+  supaShowImport:        Sync.supaShowImport,
+  supaShowKeyError:      Sync.supaShowKeyError,
   syncPullFromCloud:    Sync.syncPullFromCloud,
   syncPushToCloud:      Sync.syncPushToCloud,
 

@@ -206,7 +206,7 @@ export function setDB(newDb) { db = applySettingsDefaults(newDb); }
    `x" onfocus="..." autofocus="` or `"><img src=x onerror=...>`
    breaks out of the attribute/tag it was placed in and runs as
    real HTML/script in whoever's browser next renders that row,
-   including across Dropbox sync to every other linked device.
+   including across Supabase sync to every other linked device.
    Pure, no DOM dependency, safe to import from every floor. */
 export function escHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, ch => ({

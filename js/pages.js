@@ -1523,7 +1523,7 @@ export function removeStrip(i) { settingsRemoveStrip(i); renderSettingsStrips();
 
 /* ── Item Groups (Settings) ─────────────────────────────────
    Every add/rename/remove persists (and therefore syncs to
-   Dropbox, same as everything else) immediately — it doesn't
+   Supabase, same as everything else) immediately — it doesn't
    wait for the page-wide "Save Settings" click, so a group
    isn't silently lost if someone navigates away first. ───── */
 export function renderSettingsStripGroups() {

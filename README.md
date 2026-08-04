@@ -3,7 +3,7 @@
 A single-page, installable web app (PWA) for cashier shift closing, cash
 reconciliation, credit tracking, and daily/period closing reports. Runs
 entirely client-side as native ES modules — no bundler, no build step.
-Data lives in `localStorage`, with optional Dropbox sync for
+Data lives in `localStorage`, with optional Supabase cloud sync for
 across-device backup.
 
 **Live URL:** https://closing.duapharma.com
@@ -31,8 +31,9 @@ across-device backup.
   with an optional description and signed amount), staff/tier credit
   groups, and free-label credit entries.
 - **Backup & restore** — full JSON export/import of all local data.
-- **Dropbox cloud sync** (optional) — pushes a copy after every save
-  so the same data is available across devices.
+- **Supabase cloud sync** (optional) — pushes a copy after every save
+  and subscribes to realtime changes, so the same data stays in sync
+  across devices within about a second.
 - **Installable PWA** with offline support via a service worker.
 
 ---
@@ -81,8 +82,9 @@ from any other file, not just "private by agreement."
     │                          bar, jump-nav, end-of-shift summary modal.
     ├── closing-book.js       ← FLOOR 5 (ext) — Closing Book assembly,
     │                          fullscreen reader, PDF export.
-    └── sync.js               ← FLOOR 1 (ext) — Dropbox OAuth2 PKCE cloud
-                                  sync, client-side only, no backend.
+    └── sync.js               ← FLOOR 1 (ext) — Supabase cloud sync engine:
+                                  Project URL + anon key, realtime channel,
+                                  per-record last-write-wins merge on pull.
 ```
 
 **Shift order:** `Night → Morning → Evening` — Night starts the day,

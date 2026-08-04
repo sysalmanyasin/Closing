@@ -22,7 +22,7 @@
    checks are for UX, not the actual security boundary.
 
    Uses the same Project URL + anon key already saved by the Cloud
-   Sync setup in sync.js (dbxSaveAppKey) — this only runs once that
+   Sync setup in sync.js (supaSaveAppKey) — this only runs once that
    exists.
 ═══════════════════════════════════════════════════════════════ */
 
@@ -90,7 +90,7 @@ export function authShowError(msg) {
   if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
 }
 
-/* Runs once at boot, after dbxInit() has had a chance to set up the
+/* Runs once at boot, after supaInit() has had a chance to set up the
    Cloud Sync connection. If there's no Supabase connection configured
    yet, the login gate stays out of the way — Cloud Sync setup comes
    first (see sync.js's unlinked-state card). */

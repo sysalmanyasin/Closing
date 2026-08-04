@@ -11,7 +11,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal, repoSetLocal, repoRemoveLocal } from './repository.js';
-import { dbxGetAppKey, getAnonKey } from './sync.js';
+import { supaGetAppKey, getAnonKey } from './sync.js';
 import { checkAdminPin } from './state.js';
 import { showAlert, showConfirm } from './notify.js';
 
@@ -60,7 +60,7 @@ function redirectUri() {
 
 function functionUrl() {
   /* Same Supabase project as Cloud Sync — Project URL + '/functions/v1/<name>' */
-  return dbxGetAppKey().replace(/\/+$/, '') + '/functions/v1/google-drive';
+  return supaGetAppKey().replace(/\/+$/, '') + '/functions/v1/google-drive';
 }
 
 async function callFunction(body) {
@@ -265,7 +265,7 @@ export async function driveDisconnect() {
   }
 }
 
-/* Runs once at boot (see components.js, alongside dbxInit()/authInit()).
+/* Runs once at boot (see components.js, alongside supaInit()/authInit()).
    Finishes the OAuth redirect if we just came back from Google with a
    ?code=, then reflects current connection status either way. */
 export async function driveInit() {

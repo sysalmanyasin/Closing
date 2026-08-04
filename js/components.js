@@ -12,7 +12,7 @@ import {
 } from './actions.js';
 import { buildCalendar, goToDashboard, renderManifest, sheetSortKey } from './pages.js';
 import { initLedgerSwipeNav, onCardToggled } from './ledger-nav.js';
-import { dbxInit } from './sync.js';
+import { supaInit } from './sync.js';
 import { authInit } from './auth.js';
 import { driveInit } from './drive-backup.js';
 import { showAlert, showConfirm } from './notify.js';
@@ -113,7 +113,7 @@ window.onload = () => {
   buildDenomRows();
   buildCalendar();
   renderManifest();
-  dbxInit(); /* ── Cloud sync: parse token & init on load ── */
+  supaInit(); /* ── Cloud sync: parse token & init on load ── */
   authInit(); /* ── Login gate: phone + PIN, only once Cloud Sync is set up ── */
   driveInit(); /* ── Google Drive backup: resume OAuth redirect (if any) & refresh status ── */
   if (typeof initLedgerSwipeNav === 'function') initLedgerSwipeNav(); /* mobile swipe-to-navigate */
