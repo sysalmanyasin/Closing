@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp"
+    android:id="@+id/inv_total_widget_root">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/inv_total_widget_title"
+        android:textColor="#33363D"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:letterSpacing="0.02" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/inv_label_total_level"
+        android:textColor="#8A8F98"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/inv_total_value"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="—"
+        android:textColor="#1A1C1F"
+        android:textStyle="bold"
+        android:textSize="22sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="#DCDFE3" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/inv_label_negative_value"
+        android:textColor="#B3261E"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/inv_negative_value"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="—"
+        android:textColor="#B3261E"
+        android:textStyle="bold"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/inv_total_asof"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text=""
+        android:textColor="#B0B4BA"
+        android:textSize="9sp" />
+
+</LinearLayout>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp"
+    android:id="@+id/inv_health_widget_root">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/inv_health_widget_title"
+        android:textColor="#33363D"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:letterSpacing="0.02" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="12dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/inv_label_never_sold" android:textColor="#4B5058" android:textSize="12sp" />
+        <TextView android:id="@+id/inv_never_sold_value" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#B3261E" android:textStyle="bold" android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/inv_label_dead_stock" android:textColor="#4B5058" android:textSize="12sp" />
+        <TextView android:id="@+id/inv_dead_stock_value" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#B3261E" android:textStyle="bold" android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:background="#DCDFE3" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/inv_label_excess_raw" android:textColor="#4B5058" android:textSize="12sp" />
+        <TextView android:id="@+id/inv_excess_raw_value" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#B58500" android:textStyle="bold" android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/inv_label_excess_corrected" android:textColor="#1A1C1F" android:textStyle="bold" android:textSize="13sp" />
+        <TextView android:id="@+id/inv_excess_corrected_value" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#B58500" android:textStyle="bold" android:textSize="14sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/inv_health_footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text=""
+        android:textColor="#B0B4BA"
+        android:textSize="9sp" />
+
+</LinearLayout>

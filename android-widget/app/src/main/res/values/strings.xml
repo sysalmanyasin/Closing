@@ -50,4 +50,30 @@
     <string name="staff_credit_widget_title">👥 STAFF CREDIT</string>
     <string name="staff_credit_widget_title_label">Staff Credit</string>
     <string name="staff_credit_widget_loading">Loading…</string>
+
+    <string name="inv_total_widget_title">📦 INVENTORY — TOTAL STOCK</string>
+    <string name="inv_total_widget_title_label">Inventory — Total Stock</string>
+    <string name="inv_label_total_level">Total Inventory Level</string>
+    <string name="inv_label_negative_value">Negative Value</string>
+
+    <string name="inv_health_widget_title">🩺 INVENTORY HEALTH</string>
+    <string name="inv_health_widget_title_label">Inventory Health</string>
+    <string name="inv_label_never_sold">Never Sold (60D)</string>
+    <string name="inv_label_dead_stock">Dead Stock (60D)</string>
+    <string name="inv_label_excess_raw">Excess Stock Total</string>
+    <string name="inv_label_excess_corrected">Corrected Excess Stock</string>
+
+    <string name="inv_reorder_widget_title">🚨 REORDER NOW — MOST URGENT</string>
+    <string name="inv_reorder_widget_title_label">Reorder Now — Most Urgent</string>
+    <string name="inv_reorder_widget_subtitle">30D window · &lt;7D cover</string>
+
+    <string name="inv_excess_top_widget_title">📦 EXCESS STOCK — HIGHEST VALUE</string>
+    <string name="inv_excess_top_widget_title_label">Excess Stock — Highest Value</string>
+
+    <string name="inv_top_running_widget_title">🏆 TOP RUNNING ITEMS — VALUE-WISE</string>
+    <string name="inv_top_running_widget_title_label">Top Running Items — Value-Wise</string>
+
+    <string name="inv_search_widget_title">Search Inventory</string>
+    <string name="inv_search_widget_title_label">Search Inventory</string>
+    <string name="inv_search_widget_subtitle">Tap to search a product</string>
 </resources>

@@ -111,6 +111,89 @@
                 android:resource="@xml/staff_credit_widget_info" />
         </receiver>
 
+        <activity
+            android:name=".ProductSearchActivity"
+            android:exported="false"
+            android:label="@string/inv_search_widget_title_label"
+            android:windowSoftInputMode="adjustResize" />
+
+        <receiver
+            android:name=".InventoryTotalWidgetProvider"
+            android:label="@string/inv_total_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVTOTAL_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_total_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".InventoryHealthWidgetProvider"
+            android:label="@string/inv_health_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVHEALTH_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_health_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".InventoryReorderWidgetProvider"
+            android:label="@string/inv_reorder_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVREORDER_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_reorder_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".InventoryExcessTopWidgetProvider"
+            android:label="@string/inv_excess_top_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVEXCESSTOP_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_excess_top_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".InventoryTopRunningWidgetProvider"
+            android:label="@string/inv_top_running_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVTOPRUNNING_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_top_running_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".InventorySearchWidgetProvider"
+            android:label="@string/inv_search_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_search_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
