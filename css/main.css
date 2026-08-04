@@ -474,8 +474,21 @@
   .banner-row .val.neg { color: var(--status-bad); }
   .summary-banner-title {
     font-size: 0.78rem; font-weight: 800; color: var(--white);
-    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px;
   }
+  .summary-banner-subtitle {
+    font-size: 0.71rem; color: rgba(255,255,255,.6); margin-bottom: 10px;
+    line-height: 1.35;
+  }
+  /* Amber variant — reserved for banners that ALWAYS show the
+     period-aggregated ("since last Final") figures, so they're visually
+     distinct at a glance from banners whose scope changes with the
+     active Shift/Final mode (which keep the default navy/teal look). */
+  .summary-banner.summary-banner-amber {
+    background: linear-gradient(135deg, #6b4a12 0%, #8a5a10 100%);
+  }
+  .summary-banner-amber .summary-banner-title { color: #ffe9b8; }
+  .summary-banner-amber .banner-row:last-child { color: #ffe9b8; }
 
   /* ── PRE-DATE TOTAL SUBGROUP (Final Closing, Part 2) ──
      Visually contains the POS/Customers/System-Return breakdown inside a

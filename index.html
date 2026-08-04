@@ -625,6 +625,8 @@
         <div class="viewall-list" id="viewall-list"></div>
         <div class="viewall-foot" id="viewall-foot"></div>
         <div class="summary-banner">
+          <div class="summary-banner-title">📋 Reconciliation</div>
+          <div class="summary-banner-subtitle" id="ban-subtitle">This shift only</div>
           <div class="banner-row"><span>Target Net Sales</span><span class="val" id="ban-target">Rs. 0</span></div>
           <div class="banner-row"><span>Net Cash Available</span><span class="val" id="ban-cash">Rs. 0</span></div>
           <div class="banner-row"><span id="ban-variance-label">Variance</span><span class="val" id="ban-variance">Rs. 0</span></div>
@@ -821,6 +823,8 @@
           <div class="row"><label for="in-extra-cash">Extra Cash Added to Pharmacy (− from Net Cash, applied at next Final):</label><input type="number" id="in-extra-cash" value="0" oninput="calc()"></div>
         </div>
         <div class="summary-banner" id="audit-summary-banner">
+          <div class="summary-banner-title">📋 Reconciliation</div>
+          <div class="summary-banner-subtitle" id="audit-ban-subtitle">This shift only</div>
           <div class="banner-row"><span>Target Net Sales</span><span class="val" id="audit-ban-target">Rs. 0</span></div>
           <div class="banner-row"><span>Net Cash Available</span><span class="val" id="audit-ban-cash">Rs. 0</span></div>
           <div class="banner-row"><span id="audit-ban-variance-label">Variance</span><span class="val" id="audit-ban-variance">Rs. 0</span></div>
@@ -873,8 +877,9 @@
         <!-- AGGREGATED FINAL CLOSING — single authoritative variance strip,
              styled like the Audit tab's dark summary banner, so this is the
              one number users read as "the answer" for the whole period. -->
-        <div class="summary-banner" id="final-summary-banner">
+        <div class="summary-banner summary-banner-amber" id="final-summary-banner">
           <div class="summary-banner-title">🧮 Aggregated Final Closing</div>
+          <div class="summary-banner-subtitle">Always the full period since the last Final Closing — same numbers in Shift or Final mode</div>
           <div class="banner-row"><span>Target Net Sales</span><span class="val" id="final-ban-target">Rs. 0</span></div>
           <div class="banner-row"><span>Net Cash Available</span><span class="val" id="final-ban-cash">Rs. 0</span></div>
           <div class="banner-row"><span id="final-ban-variance-label">Variance</span><span class="val" id="final-ban-variance">Rs. 0</span></div>

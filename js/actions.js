@@ -733,7 +733,7 @@ export function calc() {
   set('out-net-cash', netCash);
 
   /* ── Final Closing aggregation — computed in ALL modes ── */
-  let bannerTarget = netSale, bannerCash = netCash;
+  let bannerTarget = netSale, bannerCash = netCash, isFinal = false;
   if(session.activeKey) {
     const parts2 = session.activeKey.split('_');
     const agg    = aggregateSinceLastFinal(parts2[0], parts2[1]);
@@ -811,7 +811,7 @@ export function calc() {
        instead of its own, which then propagated into the Staff Ledger's
        per-shift variance feature and made individual shifts look off
        by the whole period's drift rather than their own. */
-    const isFinal   = session.activeMode === 'final';
+    isFinal = session.activeMode === 'final';
     const finalDiff = isFinal ? finalNetCash : netCash - netSale;
     const fdEl  = document.getElementById('out-final-diff');
     const fdLbl = document.getElementById('out-final-diff-label');
@@ -895,7 +895,11 @@ export function calc() {
     const cashEl   = document.getElementById(idPrefix + 'cash');
     const varEl    = document.getElementById(idPrefix + 'variance');
     const varLbl   = document.getElementById(idPrefix + 'variance-label');
+    const subEl    = document.getElementById(idPrefix + 'subtitle');
     if(!targetEl || !cashEl || !varEl) return;
+    if(subEl) subEl.textContent = isFinal
+      ? 'Period since last Final Closing'
+      : 'This shift only';
     targetEl.textContent = "Rs. " + bannerTarget.toLocaleString('en-PK');
     cashEl.textContent   = "Rs. " + bannerCash.toLocaleString('en-PK');
     if(diff === 0) {
