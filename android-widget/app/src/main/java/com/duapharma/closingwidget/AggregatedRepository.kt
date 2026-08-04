@@ -26,12 +26,6 @@ data class AggregatedSummary(
     val varianceLabel: String
 )
 
-private data class RawSheet(
-    val date: String,
-    val shift: String,
-    val data: JSONObject
-)
-
 object AggregatedRepository {
 
     // Chronological shift order within a day — Night starts the day, not

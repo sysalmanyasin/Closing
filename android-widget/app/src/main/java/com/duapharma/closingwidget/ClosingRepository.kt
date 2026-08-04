@@ -18,12 +18,6 @@ data class ClosingSummary(
     val manualReturns: Double
 )
 
-private data class RawSheet(
-    val date: String,
-    val shift: String,
-    val data: JSONObject
-)
-
 object ClosingRepository {
 
     private val SHIFT_ORDER = listOf("Night", "Morning", "Evening")
