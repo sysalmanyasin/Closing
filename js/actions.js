@@ -1025,6 +1025,7 @@ export function buildSheetRecord() {
     outFinalManRet:  val('out-final-man-ret'),
     finalNetCash:    val('out-final-net-cash'),
     finalNetCashAdj: val('out-final-net-cash-adj'),
+    finalPreTotal:   val('out-final-pre-total'),
     finalDiff:       val('out-final-diff'),
     finalDiffLabel:  document.getElementById('out-final-diff-label')?.textContent || '',
     finalPrevSale:   val('out-final-prev-sale'),

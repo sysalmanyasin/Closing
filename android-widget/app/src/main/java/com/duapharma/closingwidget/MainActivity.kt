@@ -13,6 +13,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.refresh_button).setOnClickListener {
             ClosingWidgetProvider.updateAllWidgets(applicationContext)
             SalesWidgetProvider.updateAllWidgets(applicationContext)
+            AggregatedWidgetProvider.updateAllWidgets(applicationContext)
             Toast.makeText(this, "Refreshing widgets…", Toast.LENGTH_SHORT).show()
         }
     }

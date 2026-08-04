@@ -13,4 +13,13 @@
     <string name="sales_widget_title">📈 SALES</string>
     <string name="sales_widget_loading">Loading…</string>
     <string name="sales_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
+
+    <string name="agg_widget_title">🧮 AGGREGATED FINAL CLOSING</string>
+    <string name="agg_widget_title_label">Aggregated Final Closing</string>
+    <string name="agg_widget_loading">Loading…</string>
+    <string name="agg_label_target">Target Net Sales</string>
+    <string name="agg_label_predate">Pre-date Total</string>
+    <string name="agg_label_cash">Net Cash Available</string>
+    <string name="agg_label_variance">Variance</string>
+    <string name="agg_widget_footer">Always the full period since last Final · Tap to refresh now</string>
 </resources>
