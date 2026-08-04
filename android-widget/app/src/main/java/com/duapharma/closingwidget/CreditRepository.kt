@@ -5,46 +5,63 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.NumberFormat
+import java.util.Calendar
 import java.util.Locale
 
 /**
- * Reads the shared `credit_ledger` + `bt_staff` tables (same Supabase
- * project the Closing web app and BT Sale Data already write to) and
- * reassembles the "Credit Details" breakdown shown on BT Sale Data's
- * Manager > Credit report — same math, computed independently here so
- * the widgets don't depend on either app being open.
+ * Reads the shared `bt_salesdata` table (single row, id="main", column
+ * `payload`) — the same Supabase row BT Sale Data's own Manager > Credit
+ * report (js/analytics.js getCreditSectionData()) reads from — and
+ * reproduces its "Section-wise summary" / "Total Outstanding Credits"
+ * math independently here, so the widgets don't depend on either app
+ * being open.
  *
- * `credit_ledger.data` is one persisted shift snapshot
- * (Closing's `js/ledger-engine.js` clBuildSnapshot()) — a `lines[]`
- * array of {category, lbl, desc, val}:
- *   - category "tier"  → one line per Staff Credit name (lbl = staff name)
- *   - category "named" → named credit accounts (Jazz Cash, Patty/Expenses,
- *     Pharmacy, Miscellaneous, Less Amounts, Extra Credits, Adjustments
- *     & Strips, ...) — lbl is whatever the account is called in Settings.
- *   - category "aux"   → free-label one-off credit entries.
+ * IMPORTANT: this is a completely different table from Closing's own
+ * `credit_ledger` (that table is Closing's per-shift closing-book
+ * snapshot feature — unrelated to BT Sale's Staff Credit / Jazz Cash /
+ * Patty / Misc Sections, which live only inside `bt_salesdata.payload`).
+ * An earlier version of this file read `credit_ledger` by mistake,
+ * which is why the widgets used to show numbers that didn't match the
+ * BT Sale Data app at all.
  *
- * Bucketing (mirrors the "Section-wise summary" in the reference
- * screenshot, and reproduces its "Total Outstanding Credits" formula
- * exactly): Staff Credit is the *latest month with data* only (all
- * other sections are all-time). Named accounts are matched by keyword
- * so newly added/renamed misc accounts fall into Misc Sections
- * automatically instead of silently vanishing from the total:
- *   - lbl contains "jazz"            → Jazz Cash
- *   - lbl contains "patty"/"expense" → Patty / Expenses
- *   - everything else (named + aux)  → Misc Sections
+ * `payload` shape (see BT Sale Data's js/supabase.js _buildPayload() /
+ * js/manager-credit.js / js/ledger-store.js):
+ *   payload.manager.credit[monthLabel] = [
+ *     { staffId, name, prevBal, salary, lessGeneric,
+ *       entries: [{ date, desc, amount }] }, ...
+ *   ]
+ *   — monthLabel is "July 2026" etc. Net per employee =
+ *     prevBal + sum(entries.amount) - salary - lessGeneric.
+ *   payload.ledger = {
+ *     entries: [{ id, ledgerType, date, categoryId, amount, desc }],
+ *     openingBalances: { [ledgerType]: number }
+ *   }
+ *   payload.ledgerCustomTypes = {
+ *     [ledgerType]: { label, categories: [{ id, label, sign, ... }] }
+ *   }
+ *
+ * Bucketing (mirrors js/analytics.js getCreditSectionData() and its
+ * "Total Outstanding Credits" formula exactly):
+ *   - Staff Credit  → *latest month with real data* only, summed net.
+ *   - Jazz Cash     → LedgerStore running balance of ledgerType
+ *     "jazzcash", all-time (opening balance + signed entries).
+ *   - Patty/Expenses→ same, ledgerType "expense".
+ *   - Misc Sections → same, summed across every *custom* ledgerType
  *     (Pharmacy, Miscellaneous, Less Amounts, Extra Credits,
- *      Adjustments & Strips, and any future misc account land here)
+ *     Adjustments & Strips, and any future misc account — whatever is
+ *     currently registered in payload.ledgerCustomTypes), all-time.
+ * grandTotal = staffCreditTotal + jazzCashTotal + pattyExpensesTotal + miscSectionsTotal
  */
 object CreditRepository {
 
     data class StaffCreditRow(val srNum: Int, val name: String, val amount: Double)
 
     data class CreditSummary(
-        val monthLabel: String,        // e.g. "July 2026" — the latest month with data
+        val monthLabel: String,        // e.g. "July 2026" — the latest month with real Staff Credit data
         val staffCreditTotal: Double,  // sum of Staff Credit, that month only
-        val jazzCashTotal: Double,     // all-time
-        val pattyExpensesTotal: Double,// all-time
-        val miscSectionsTotal: Double, // all-time
+        val jazzCashTotal: Double,     // all-time running balance
+        val pattyExpensesTotal: Double,// all-time running balance
+        val miscSectionsTotal: Double, // all-time, every custom ledger type summed
         val totalOutstanding: Double,  // sum of the four above
         val staffRows: List<StaffCreditRow> // sorted by Sr#, active staff only, that month's amount (0 if none)
     )
@@ -52,6 +69,19 @@ object CreditRepository {
     private val MONTH_NAMES = listOf(
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
+    )
+
+    // Mirrors js/ledger-store.js LEDGER_CATEGORIES exactly (sign per category id).
+    // "petty" ledgerType is intentionally omitted — BT Sale's own Credit
+    // report (analytics.js) never reads it either; "expense" is the real,
+    // currently-used Patty/Expenses ledger.
+    private val JAZZCASH_SIGNS = mapOf(
+        "credit" to 1.0, "debit" to -1.0, "withdrawal" to -1.0,
+        "commission" to -1.0, "transfer" to -1.0
+    )
+    private val EXPENSE_SIGNS = mapOf(
+        "bill" to 1.0, "fuel" to 1.0, "soap" to 1.0, "refresh" to 1.0,
+        "extra" to 1.0, "guardIncentive" to 1.0, "pattyHO" to -1.0
     )
 
     private val numberFormat = NumberFormat.getNumberInstance(Locale.US).apply {
@@ -63,53 +93,52 @@ object CreditRepository {
         return "$sign₨${numberFormat.format(kotlin.math.abs(value))}"
     }
 
-    private data class Line(val category: String, val lbl: String, val val_: Double)
-    private data class Snapshot(val date: String, val lines: List<Line>)
+    private data class LedgerEntry(val ledgerType: String, val categoryId: String, val amount: Double)
 
     /** Runs network I/O — must be called off the main thread. */
     fun fetchCreditSummary(): CreditSummary? {
-        val snapshots = fetchAllSnapshots() ?: return null
-        if (snapshots.isEmpty()) return null
+        val payload = fetchPayload() ?: return null
 
-        val latestMonthPrefix = snapshots.map { it.date }
-            .filter { it.length >= 7 }
-            .maxOrNull()
-            ?.substring(0, 7) ?: return null
+        val managerObj = payload.optJSONObject("manager")
+        val creditObj = managerObj?.optJSONObject("credit")
 
-        val staffMap = LinkedHashMap<String, Double>()   // name -> total, latest month only
-        val namedMap = LinkedHashMap<String, Double>()   // lbl  -> total, all-time
-        var auxTotal = 0.0
-
-        snapshots.forEach { snap ->
-            val inLatestMonth = snap.date.length >= 7 && snap.date.substring(0, 7) == latestMonthPrefix
-            snap.lines.forEach { line ->
-                when (line.category) {
-                    "tier" -> if (inLatestMonth) {
-                        val key = line.lbl.trim()
-                        if (key.isNotEmpty()) staffMap[key] = (staffMap[key] ?: 0.0) + line.val_
-                    }
-                    "named" -> {
-                        val key = line.lbl.trim()
-                        if (key.isNotEmpty()) namedMap[key] = (namedMap[key] ?: 0.0) + line.val_
-                    }
-                    "aux" -> auxTotal += line.val_
-                }
+        // ── Staff Credit — latest month WITH real data only ────────────
+        val monthLabel = latestStaffCreditMonth(creditObj)
+        val staffMap = LinkedHashMap<String, Double>() // name -> net, that month only
+        if (monthLabel.isNotEmpty() && creditObj != null) {
+            val rows = creditObj.optJSONArray(monthLabel) ?: JSONArray()
+            for (i in 0 until rows.length()) {
+                val emp = rows.optJSONObject(i) ?: continue
+                val name = emp.optString("name", "").trim()
+                if (name.isEmpty()) continue
+                val entriesTotal = sumEntriesAmount(emp.optJSONArray("entries"))
+                val net = numOf(emp.opt("prevBal")) + entriesTotal -
+                    numOf(emp.opt("salary")) - numOf(emp.opt("lessGeneric"))
+                staffMap[name] = (staffMap[name] ?: 0.0) + net
             }
         }
-
-        var jazzCashTotal = 0.0
-        var pattyExpensesTotal = 0.0
-        var miscSectionsTotal = auxTotal
-        namedMap.forEach { (lbl, total) ->
-            val l = lbl.lowercase(Locale.US)
-            when {
-                l.contains("jazz") -> jazzCashTotal += total
-                l.contains("patty") || l.contains("expense") -> pattyExpensesTotal += total
-                else -> miscSectionsTotal += total
-            }
-        }
-
         val staffCreditTotal = staffMap.values.sum()
+
+        // ── Jazz Cash / Patty / Misc Sections — all-time running balances ──
+        val ledgerObj = payload.optJSONObject("ledger")
+        val entries = parseLedgerEntries(ledgerObj?.optJSONArray("entries"))
+        val openingBalances = ledgerObj?.optJSONObject("openingBalances")
+
+        val jazzCashTotal = runningBalance(entries, "jazzcash", openingBalances, JAZZCASH_SIGNS)
+        val pattyExpensesTotal = runningBalance(entries, "expense", openingBalances, EXPENSE_SIGNS)
+
+        var miscSectionsTotal = 0.0
+        val customTypes = payload.optJSONObject("ledgerCustomTypes")
+        if (customTypes != null) {
+            val keys = customTypes.keys()
+            while (keys.hasNext()) {
+                val ledgerType = keys.next()
+                val def = customTypes.optJSONObject(ledgerType) ?: continue
+                val signs = parseCategorySigns(def.optJSONArray("categories"))
+                miscSectionsTotal += runningBalance(entries, ledgerType, openingBalances, signs)
+            }
+        }
+
         val totalOutstanding = staffCreditTotal + jazzCashTotal + pattyExpensesTotal + miscSectionsTotal
 
         val activeStaff = fetchActiveStaffSorted()
@@ -120,21 +149,14 @@ object CreditRepository {
             }
         } else {
             /* bt_staff unreachable/empty — fall back to whatever names showed up
-               in this month's ledger, alphabetically, so the widget still shows
-               something rather than nothing. */
+               in this month's credit data, alphabetically, so the widget still
+               shows something rather than nothing. */
             staffMap.entries.sortedBy { it.key }
                 .mapIndexed { i, e -> StaffCreditRow(i + 1, e.key, e.value) }
         }
 
-        val parts = latestMonthPrefix.split("-")
-        val monthLabel = if (parts.size == 2) {
-            val idx = (parts[1].toIntOrNull() ?: 1) - 1
-            val name = MONTH_NAMES.getOrNull(idx) ?: parts[1]
-            "$name ${parts[0]}"
-        } else latestMonthPrefix
-
         return CreditSummary(
-            monthLabel = monthLabel,
+            monthLabel = monthLabel.ifEmpty { currentMonthLabel() },
             staffCreditTotal = staffCreditTotal,
             jazzCashTotal = jazzCashTotal,
             pattyExpensesTotal = pattyExpensesTotal,
@@ -144,8 +166,138 @@ object CreditRepository {
         )
     }
 
-    private fun fetchAllSnapshots(): List<Snapshot>? {
-        val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/credit_ledger?select=date,data"
+    // ── Staff Credit month resolution — mirrors js/analytics.js
+    // latestStaffCreditMonth() exactly: among every month key present in
+    // payload.manager.credit, pick the most recent one (not in the
+    // future) that has at least one employee with a nonzero prevBal/
+    // salary/lessGeneric OR a real dated entry. A month with entries
+    // that are all blank/zero (e.g. the new calendar month before
+    // anyone's touched it yet) is skipped in favor of the last month
+    // that actually has something in it — this is what keeps the
+    // widget on "July 2026" instead of jumping to an empty "August 2026"
+    // just because the calendar turned over. ──
+    private fun latestStaffCreditMonth(creditObj: JSONObject?): String {
+        if (creditObj == null) return ""
+        val current = currentMonthSortVal()
+        var best = ""
+        var bestVal = Int.MIN_VALUE
+        val keys = creditObj.keys()
+        while (keys.hasNext()) {
+            val month = keys.next()
+            val sortVal = monthSortVal(month)
+            if (sortVal < 0 || sortVal > current) continue
+            if (!monthHasCreditData(creditObj.optJSONArray(month))) continue
+            if (sortVal > bestVal) { bestVal = sortVal; best = month }
+        }
+        return best
+    }
+
+    private fun monthHasCreditData(rows: JSONArray?): Boolean {
+        if (rows == null) return false
+        for (i in 0 until rows.length()) {
+            val emp = rows.optJSONObject(i) ?: continue
+            if (numOf(emp.opt("prevBal")) != 0.0) return true
+            if (numOf(emp.opt("salary")) != 0.0) return true
+            if (numOf(emp.opt("lessGeneric")) != 0.0) return true
+            val entries = emp.optJSONArray("entries")
+            if (entries != null) {
+                for (j in 0 until entries.length()) {
+                    val e = entries.optJSONObject(j) ?: continue
+                    if (numOf(e.opt("amount")) != 0.0) return true
+                    if (e.optString("desc", "").isNotEmpty()) return true
+                    if (e.optString("date", "").isNotEmpty()) return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun sumEntriesAmount(entries: JSONArray?): Double {
+        if (entries == null) return 0.0
+        var total = 0.0
+        for (i in 0 until entries.length()) {
+            val e = entries.optJSONObject(i) ?: continue
+            total += numOf(e.opt("amount"))
+        }
+        return total
+    }
+
+    // ── LedgerStore running-balance reproduction (mirrors
+    // js/ledger-store.js getCurrentBalance() exactly): opening balance
+    // for that ledgerType, plus every entry's signed amount, where the
+    // sign comes from that ledgerType's category config — unknown
+    // category ids default to sign -1, same as the web app. ──
+    private fun runningBalance(
+        entries: List<LedgerEntry>,
+        ledgerType: String,
+        openingBalances: JSONObject?,
+        signs: Map<String, Double>
+    ): Double {
+        var bal = openingBalances?.let { if (it.has(ledgerType)) numOf(it.opt(ledgerType)) else 0.0 } ?: 0.0
+        entries.forEach { e ->
+            if (e.ledgerType == ledgerType) {
+                val sign = signs[e.categoryId] ?: -1.0
+                bal += sign * e.amount
+            }
+        }
+        return bal
+    }
+
+    private fun parseCategorySigns(categories: JSONArray?): Map<String, Double> {
+        val map = HashMap<String, Double>()
+        if (categories != null) {
+            for (i in 0 until categories.length()) {
+                val c = categories.optJSONObject(i) ?: continue
+                val id = c.optString("id", "")
+                if (id.isNotEmpty()) map[id] = numOf(c.opt("sign")).let { if (it == 0.0) -1.0 else it }
+            }
+        }
+        return map
+    }
+
+    private fun parseLedgerEntries(arr: JSONArray?): List<LedgerEntry> {
+        if (arr == null) return emptyList()
+        val out = ArrayList<LedgerEntry>(arr.length())
+        for (i in 0 until arr.length()) {
+            val e = arr.optJSONObject(i) ?: continue
+            out.add(
+                LedgerEntry(
+                    ledgerType = e.optString("ledgerType", ""),
+                    categoryId = e.optString("categoryId", ""),
+                    amount = numOf(e.opt("amount"))
+                )
+            )
+        }
+        return out
+    }
+
+    private fun numOf(v: Any?): Double = when (v) {
+        is Number -> v.toDouble()
+        is String -> v.toDoubleOrNull() ?: 0.0
+        else -> 0.0
+    }
+
+    private fun monthSortVal(my: String): Int {
+        val parts = my.trim().split(" ")
+        if (parts.size != 2) return -1
+        val idx = MONTH_NAMES.indexOf(parts[0])
+        val yr = parts[1].toIntOrNull() ?: return -1
+        return if (idx >= 0) yr * 12 + idx else -1
+    }
+
+    private fun currentMonthSortVal(): Int {
+        val cal = Calendar.getInstance()
+        return cal.get(Calendar.YEAR) * 12 + cal.get(Calendar.MONTH)
+    }
+
+    private fun currentMonthLabel(): String {
+        val cal = Calendar.getInstance()
+        return "${MONTH_NAMES[cal.get(Calendar.MONTH)]} ${cal.get(Calendar.YEAR)}"
+    }
+
+    /** Fetches the single `bt_salesdata` row (id="main") and returns its `payload` JSON object. */
+    private fun fetchPayload(): JSONObject? {
+        val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_salesdata?select=payload&id=eq.main"
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
@@ -157,32 +309,8 @@ object CreditRepository {
 
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             val array = JSONArray(body)
-            val result = ArrayList<Snapshot>(array.length())
-            for (i in 0 until array.length()) {
-                val row = array.getJSONObject(i)
-                val date = row.optString("date", "")
-                val data = row.optJSONObject("data") ?: continue
-                val linesArr = data.optJSONArray("lines") ?: JSONArray()
-                val lines = ArrayList<Line>(linesArr.length())
-                for (j in 0 until linesArr.length()) {
-                    val l = linesArr.optJSONObject(j) ?: continue
-                    lines.add(
-                        Line(
-                            category = l.optString("category", ""),
-                            lbl = l.optString("lbl", ""),
-                            val_ = l.opt("val").let { v ->
-                                when (v) {
-                                    is Number -> v.toDouble()
-                                    is String -> v.toDoubleOrNull() ?: 0.0
-                                    else -> 0.0
-                                }
-                            }
-                        )
-                    )
-                }
-                result.add(Snapshot(date = date, lines = lines))
-            }
-            result
+            if (array.length() == 0) return null
+            array.getJSONObject(0).optJSONObject("payload")
         } catch (e: Exception) {
             null
         } finally {
