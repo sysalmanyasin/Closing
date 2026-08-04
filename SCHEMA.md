@@ -129,41 +129,29 @@ outlive the sheet record the way credit history does. Don't add a
 ## BT Sale Data bridge (bt-bridge.js)
 
 Closing and BT Sale Data are two separate app codebases sharing **one**
-Supabase project (`wetbugzzchkghpzmowod.supabase.co`). Neither app
-writes into the other's real tables directly — all cross-app writes
-land in three staging "inbox" tables, which BT-side Postgres triggers
-(`bt_fold_ledger_inbox`, `bt_fold_staff_credit_inbox`,
-`bt_fold_unmatched_inbox` — confirmed via direct SQL inspection, not
-present in this repo) fold into BT's real `bt_salesdata` blob
-automatically, server-side:
+Supabase project (`wetbugzzchkghpzmowod.supabase.co`). The bridge is
+**read-only, one direction only**: Closing fetches BT's shared
+`bt_staff` roster; Closing never writes into any of BT's tables.
 
-| Inbox table | Written for | Key columns |
-|---|---|---|
-| `bt_inbox_ledger` | Jazz Cash, Expense/Patty, and any of BT's live custom "Other Sections" | `ledger_type` (e.g. `'jazzcash'`, `'expense'`, or a custom type's own id like `'custom:less-amounts'` — the fold trigger stores this verbatim, no allow-list), `category_id`, `amount`, `description`, `shift` (jazzcash only), `entry_date`, `source` |
-| `bt_inbox_staff_credit` | Staff Credit | `staff_id` (must match a real `bt_staff` row id), `amount`, `description`, `entry_date`, `source` |
-| `bt_inbox_unmatched` | Fallback for a staff name that doesn't match `bt_staff` | `kind`, `raw_label`, `amount`, `description`, `shift`, `entry_date` |
+| Function | Used for |
+|---|---|
+| `fetchStaff(force)` | Raw mirror of `bt_staff` (id/name/active), 60s cache |
+| `fetchActiveStaff(force)` | `fetchStaff()` filtered to active rows, deduped by name — the list every UI actually builds from |
+| `loadTierNamesFromBtStaff(tierIdx)` | Settings helper — fills a credit-tier textbox with comma-joined active staff names |
 
-Two write paths feed these tables:
-1. **`btBridgeSyncRecord(key, record)`** — runs after every real shift
-   save, scans `namedCredits`/`tierCredits`/`auxCredits` for accounts
-   pre-mapped to a sync target in Settings (`syncTarget: 'jazzcash'|
-   'expense'`), and pushes those.
-2. **`btBridgeQuickAdd(input)`** — the Quick Add widget on the Credit
-   Ledger page (`pages.js`: `btQaInit`/`btQaSectionChange`/`btQaSubmit`).
-   Ad-hoc, independent of the shift-save cycle — same inbox tables,
-   same trusted triggers, just a direct insert instead of scanning a
-   saved sheet. `fetchCustomLedgerTypes()` reads BT's live
-   `bt_ledger_custom_types` (read-only) so the widget's "Other
-   Sections" option and its category list always reflect whatever BT
-   currently has, rather than a guess. The Jazz Cash/Expense builtin
-   category id lists (`BT_BUILTIN_CATEGORIES` in bt-bridge.js) are the
-   one hardcoded piece — they mirror BT's own code-defined
-   `LEDGER_CATEGORIES` and need a matching update if BT ever
-   renames/adds one.
+Consumers: Settings' "Sync from BT Staff" / "Load active names from
+BT Staff" buttons, and the Responsible Closing Person dropdown
+(`initLedger()` in actions.js, with a fallback to
+`db.settings.staff` if BT Sale Data isn't reachable).
 
-RLS on all three inbox tables requires an authenticated, active-staff
-Supabase session (`is_active_staff(auth.uid())`) — satisfied already
-by Closing's existing PIN login flow (`auth.js`), nothing extra needed.
+A two-way sync used to exist here — `btBridgeSyncRecord`/
+`btBridgeQuickAdd` pushing into `bt_inbox_ledger`/
+`bt_inbox_staff_credit`/`bt_inbox_unmatched` staging tables, including
+a Quick Add widget on the Credit Ledger page — and was removed by
+request: Closing's and BT's ledgers are meant to stay two independent
+records, not auto-merged into one. If that's ever wanted again it
+needs to be redesigned and turned back on deliberately, not restored
+as a side effect of some other change.
 
 ---
 

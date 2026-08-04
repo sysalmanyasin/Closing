@@ -10,7 +10,7 @@
    is never referenced here; it only lives as an Edge Function secret.
 ═══════════════════════════════════════════════════════════════ */
 
-import { repoGetLocal, repoSetLocal, repoRemoveLocal } from './repository.js';
+import { repoGetLocal, repoSetLocal } from './repository.js';
 import { supaGetAppKey, getAnonKey } from './sync.js';
 import { checkAdminPin } from './state.js';
 import { showAlert, showConfirm } from './notify.js';

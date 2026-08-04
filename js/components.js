@@ -1179,23 +1179,6 @@ export function openEditModal(key) {
   setTimeout(() => document.getElementById('edit-modal-pin').focus(), 120);
 }
 
-/* Shared with confirmEditModal() below — opens the record for
-   editing using whatever mode it's already saved as (the modal
-   path lets the PIN-prompt case also switch Shift↔Final while
-   unlocking; the permission-skip path above keeps it simple and
-   just reopens as-is, since that choice was designed for the rare
-   "unlock to fix a mistake" case, not routine edits). */
-function openEditModalDirect(key) {
-  const mode = db.sheets[key]?.profileMode || 'shift';
-  alLog('edit-open', key);
-  session.activeKey  = key;
-  session.activeMode = mode;
-  session.overrides  = db.sheets[key]?.overrides || {};
-  const p = key.split('_');
-  initLedger(p[0], p[1], session.activeMode, { forEdit: true });
-  setLockedState(false);
-}
-
 export function closeEditModal() {
   document.getElementById('edit-modal-overlay').classList.add('hidden');
   compState.editModalKey = null;
