@@ -143,6 +143,7 @@ Object.assign(window, {
   jumpToSection:        LedgerNav.jumpToSection,
   openSummaryModal:     LedgerNav.openSummaryModal,
   openViewAll:          LedgerNav.openViewAll,
+  viewAllJumpTo:         LedgerNav.viewAllJumpTo,
   viewAllOutsideClick:  LedgerNav.viewAllOutsideClick,
 
   // closing-book.js

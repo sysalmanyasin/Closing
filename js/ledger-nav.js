@@ -507,17 +507,27 @@ export function openViewAll() {
       }
 
       return `
-        <div class="viewall-row ${isCurrent ? 'va-current' : ''}">
+        <div class="viewall-row ${isCurrent ? 'va-current' : ''}" role="button" tabindex="0"
+             onclick="viewAllJumpTo('${sec.key}')" onkeydown="if(event.key==='Enter'){viewAllJumpTo('${sec.key}')}">
           <span class="va-icon">${sec.icon}</span>
           <span class="va-label">${sec.label}</span>
           <span class="va-value">${valueText}</span>
-          ${isCurrent ? '<span class="va-here">← you are here</span>' : ''}
+          ${isCurrent ? '<span class="va-here">← you are here</span>' : '<span class="va-go">›</span>'}
         </div>`;
     }).join('');
 
   foot.textContent = countedAny ? `Entered so far: Rs. ${runningTotal.toLocaleString()}` : 'Nothing entered yet';
 
   document.getElementById('viewall-overlay').classList.remove('hidden');
+}
+
+/* Row tap in "View all" — jump straight to that card (closing the
+   overlay first, since it's a read-only glance, not a second editing
+   surface) and re-open the overlay isn't implied; this mirrors what
+   tapping a chip in the sticky nav already does. */
+export function viewAllJumpTo(key) {
+  closeViewAll();
+  jumpToSection(key);
 }
 
 export function closeViewAll() {

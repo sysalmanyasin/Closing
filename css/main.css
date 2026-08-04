@@ -1324,14 +1324,25 @@
   .viewall-row {
     display: flex; align-items: center; gap: 8px; padding: 10px 16px;
     border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--slate);
+    cursor: pointer; transition: background .12s;
+  }
+  .viewall-row:hover, .viewall-row:focus-visible {
+    background: var(--surface); outline: none;
   }
   .viewall-row .va-icon { font-size: 0.95rem; }
   .viewall-row .va-label { flex: 1; font-weight: 600; }
   .viewall-row .va-value { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); }
   .viewall-row.va-current { background: var(--teal-pale); }
+  .viewall-row.va-current:hover { background: var(--teal-pale); }
   .viewall-row.va-current .va-label { color: var(--teal-dark); }
   .viewall-row .va-here {
     font-size: 0.65rem; font-weight: 700; color: var(--teal-dark); white-space: nowrap;
+  }
+  .viewall-row .va-go {
+    font-size: 1rem; font-weight: 700; color: var(--border); line-height: 1;
+  }
+  .viewall-row:hover .va-go, .viewall-row:focus-visible .va-go {
+    color: var(--teal-dark);
   }
   .viewall-foot {
     text-align: center; padding: 12px 16px 0; font-size: 0.8rem; font-weight: 700; color: var(--navy);
