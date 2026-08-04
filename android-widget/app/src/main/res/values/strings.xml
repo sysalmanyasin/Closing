@@ -32,4 +32,22 @@
     <string name="month_sale_label_credit">CREDIT CLIENTS</string>
     <string name="month_sale_label_customers">CUSTOMERS</string>
     <string name="month_sale_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
+
+    <string name="total_credit_widget_title">💳 TOTAL OUTSTANDING CREDIT</string>
+    <string name="total_credit_widget_title_label">Total Outstanding Credit</string>
+    <string name="total_credit_widget_loading">Loading…</string>
+    <string name="total_credit_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
+
+    <string name="section_summary_widget_title">📋 CREDIT — SECTION SUMMARY</string>
+    <string name="section_summary_widget_title_label">Credit Section Summary</string>
+    <string name="section_summary_widget_loading">Loading…</string>
+    <string name="section_label_staff_credit">Staff Credit</string>
+    <string name="section_label_jazz_cash">Jazz Cash</string>
+    <string name="section_label_patty_expenses">Patty / Expenses</string>
+    <string name="section_label_misc_sections">Misc Sections</string>
+    <string name="section_label_total">Total Outstanding</string>
+
+    <string name="staff_credit_widget_title">👥 STAFF CREDIT</string>
+    <string name="staff_credit_widget_title_label">Staff Credit</string>
+    <string name="staff_credit_widget_loading">Loading…</string>
 </resources>

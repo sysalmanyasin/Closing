@@ -18,6 +18,18 @@ project:
    into Cash, Banks, Cash & Banks combined, Credit Clients (including
    free issue), and Customers, mirroring the hero card at the top of
    the Sales section on the web app's Cover dashboard.
+5. **Total Outstanding Credit** — one number: Staff Credit for the
+   latest month with data, plus Jazz Cash / Patty-Expenses / Misc
+   Sections all-time, mirroring BT Sale Data's Manager > Credit
+   report's bottom total.
+6. **Credit — Section Summary** — the same total broken into its four
+   sections: Staff Credit (latest month), Jazz Cash (all-time),
+   Patty/Expenses (all-time), Misc Sections (all-time — Pharmacy,
+   Miscellaneous, Less Amounts, Extra Credits, Adjustments & Strips,
+   and any other named credit account).
+7. **Staff Credit** — every active staff member from `bt_staff`,
+   ordered by their Sr# (the same field that orders Salary/Generic/
+   Credit sheets in BT Sale Data), with that month's credit amount.
 
 ## How it works
 
@@ -38,6 +50,17 @@ project:
     in `js/cover-dashboard.js`, and folds in any custom Bank/Credit
     Clients fields from `bt_col_config` the same way `mBanks()`/
     `creditSales()` do in `js/config.js`.
+  - `CreditRepository` powers the three credit widgets. It reads
+    `credit_ledger` (Closing's own `js/ledger-engine.js` snapshots —
+    each shift's Staff/Jazz Cash/Patty/Misc credit lines) plus
+    `bt_staff` (for Sr#-ordered active names), all client-side, no
+    re-implementation of either app's save-time logic. Staff Credit is
+    scoped to the latest month with any snapshot; named credit
+    accounts are bucketed into Jazz Cash / Patty-Expenses / Misc
+    Sections by keyword match on their label (`"jazz"`, `"patty"`/
+    `"expense"`, else Misc) so a renamed or newly added misc account
+    (Pharmacy, Miscellaneous, Less Amounts, Extra Credits, Adjustments
+    & Strips, ...) is never silently dropped from the total.
 - `ClosingWidgetProvider.kt` / `SalesWidgetProvider.kt` /
   `AggregatedWidgetProvider.kt` / `MonthSaleWidgetProvider.kt` are
   `AppWidgetProvider`s that render their result into the widget via

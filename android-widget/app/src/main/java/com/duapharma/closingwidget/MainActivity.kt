@@ -15,6 +15,9 @@ class MainActivity : AppCompatActivity() {
             SalesWidgetProvider.updateAllWidgets(applicationContext)
             AggregatedWidgetProvider.updateAllWidgets(applicationContext)
             MonthSaleWidgetProvider.updateAllWidgets(applicationContext)
+            TotalCreditWidgetProvider.updateAllWidgets(applicationContext)
+            SectionSummaryWidgetProvider.updateAllWidgets(applicationContext)
+            StaffCreditWidgetProvider.updateAllWidgets(applicationContext)
             Toast.makeText(this, "Refreshing widgets…", Toast.LENGTH_SHORT).show()
         }
     }

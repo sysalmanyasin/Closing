@@ -72,6 +72,45 @@
                 android:resource="@xml/month_sale_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".TotalCreditWidgetProvider"
+            android:label="@string/total_credit_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.TOTALCREDIT_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/total_credit_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SectionSummaryWidgetProvider"
+            android:label="@string/section_summary_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.SECTIONSUMMARY_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/section_summary_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".StaffCreditWidgetProvider"
+            android:label="@string/staff_credit_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.STAFFCREDIT_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/staff_credit_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
