@@ -8,6 +8,9 @@ on:
       - ".github/workflows/build-widget-apk.yml"
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,7 +37,42 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        id: build
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon 2>&1 | tee gradle-output.log
+        continue-on-error: true
+
+      - name: Post failure log as a commit comment
+        if: steps.build.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          tail -c 55000 gradle-output.log > gradle-output-trimmed.log
+          python3 - << 'PYEOF'
+          import json, os, urllib.request
+          body = open('gradle-output-trimmed.log').read()
+          payload = json.dumps({
+              "body": "**Build debug APK failed** — automated log excerpt (last ~55KB):\n\n```\n" + body + "\n```"
+          }).encode()
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['REPO']}/commits/{os.environ['SHA']}/comments",
+              data=payload, method="POST",
+              headers={
+                  "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
+                  "Accept": "application/vnd.github+json",
+                  "Content-Type": "application/json",
+              },
+          )
+          with urllib.request.urlopen(req) as resp:
+              print(resp.status, resp.read().decode())
+          PYEOF
+
+      - name: Fail job if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
