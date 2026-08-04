@@ -14,22 +14,35 @@ project:
    strip in the web app. Unlike the other two, its numbers never
    switch to shift-only figures — same as the web app's strip, it's
    always the period roll-up.
+4. **Latest Month Total Sale** — the current month's TOTAL broken down
+   into Cash, Banks, Cash & Banks combined, Credit Clients (including
+   free issue), and Customers, mirroring the hero card at the top of
+   the Sales section on the web app's Cover dashboard.
 
 ## How it works
 
-- `ClosingRepository.kt` / `SalesRepository.kt` / `AggregatedRepository.kt`
-  each do a plain `GET` against the Supabase REST API using the
-  project's anon/publishable key. Read access is governed by each
-  table's Row Level Security policy, not by keeping this key secret —
-  that's expected for a client-side key.
+- `ClosingRepository.kt` / `SalesRepository.kt` / `AggregatedRepository.kt` /
+  `MonthSaleRepository.kt` each do a plain `GET` against the Supabase
+  REST API using the project's anon/publishable key. Read access is
+  governed by each table's Row Level Security policy, not by keeping
+  this key secret — that's expected for a client-side key.
   - `AggregatedRepository` reads `finalNetSale` / `finalNetCash` /
     `finalPreTotal` straight off the latest saved sheet — the web app's
     `calc()` computes and saves these on every closing (Shift or
     Final), so no re-aggregation happens on the Android side.
+  - `MonthSaleRepository` reads the current month's row from
+    `bt_monthly` (falling back to the chronologically-latest row if
+    the current month hasn't been saved yet, same as the web app's
+    `_latestMonthlyRecord()`), splits it into Cash / Banks / Cash &
+    Banks / Credit Clients / Customers exactly like `_monthSaleBreakdown()`
+    in `js/cover-dashboard.js`, and folds in any custom Bank/Credit
+    Clients fields from `bt_col_config` the same way `mBanks()`/
+    `creditSales()` do in `js/config.js`.
 - `ClosingWidgetProvider.kt` / `SalesWidgetProvider.kt` /
-  `AggregatedWidgetProvider.kt` are `AppWidgetProvider`s that render
-  their result into the widget via `RemoteViews`. Each auto-refreshes
-  every 30 minutes (the Android-enforced minimum) and refreshes on tap.
+  `AggregatedWidgetProvider.kt` / `MonthSaleWidgetProvider.kt` are
+  `AppWidgetProvider`s that render their result into the widget via
+  `RemoteViews`. Each auto-refreshes every 30 minutes (the
+  Android-enforced minimum) and refreshes on tap.
 - `MainActivity.kt` — a placeholder launcher screen with a manual
   "refresh all widgets" button; not required for the widgets to work,
   just gives the app something to open from the launcher.
@@ -60,6 +73,6 @@ own device, not for the Play Store.
 2. Enable "Install unknown apps" for whatever app you download it
    with.
 3. Install the APK, open it once, then long-press your home screen →
-   Widgets → **Closing Summary** → drag any of the three widgets
+   Widgets → **Closing Summary** → drag any of the four widgets
    (**Closing Summary**, **Sales & Target Pace**, **Aggregated Final
-   Closing**) onto your home screen.
+   Closing**, **Latest Month Total Sale**) onto your home screen.

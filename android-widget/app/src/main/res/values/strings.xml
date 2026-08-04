@@ -22,4 +22,14 @@
     <string name="agg_label_cash">Net Cash Available</string>
     <string name="agg_label_variance">Variance</string>
     <string name="agg_widget_footer">Always the full period since last Final · Tap to refresh now</string>
+
+    <string name="month_sale_widget_title">🧾 LATEST MONTH TOTAL SALE</string>
+    <string name="month_sale_widget_title_label">Latest Month Total Sale</string>
+    <string name="month_sale_widget_loading">Loading…</string>
+    <string name="month_sale_label_cash">CASH</string>
+    <string name="month_sale_label_banks">BANKS</string>
+    <string name="month_sale_label_cashbanks">CASH &amp; BANKS</string>
+    <string name="month_sale_label_credit">CREDIT CLIENTS</string>
+    <string name="month_sale_label_customers">CUSTOMERS</string>
+    <string name="month_sale_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
 </resources>

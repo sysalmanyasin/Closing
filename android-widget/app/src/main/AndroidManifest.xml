@@ -59,6 +59,19 @@
                 android:resource="@xml/aggregated_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".MonthSaleWidgetProvider"
+            android:label="@string/month_sale_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.MONTHSALE_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/month_sale_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
