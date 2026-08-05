@@ -199,6 +199,73 @@
                 android:resource="@xml/inventory_search_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".InventoryNegativeStockWidgetProvider"
+            android:label="@string/inv_negative_stock_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVNEGSTOCK_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_negative_stock_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".InventoryNegativeStockWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <receiver
+            android:name=".InventoryDeadStockWidgetProvider"
+            android:label="@string/inv_dead_stock_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVDEADSTOCK_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_dead_stock_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".InventoryDeadStockWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <receiver
+            android:name=".InventoryNeverStockWidgetProvider"
+            android:label="@string/inv_never_stock_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.INVNEVERSTOCK_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/inventory_never_stock_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".InventoryNeverStockWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <receiver
+            android:name=".LastShiftsWidgetProvider"
+            android:label="@string/last_shifts_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.LASTSHIFTS_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/last_shifts_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

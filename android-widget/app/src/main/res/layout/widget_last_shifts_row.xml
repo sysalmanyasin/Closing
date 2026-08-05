@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/ls_row_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:text="—"
+        android:textColor="#1A1C1F"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/ls_label_cash" android:textColor="#4B5058" android:textSize="10sp" />
+        <TextView android:id="@+id/ls_row_cash" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#1A1C1F" android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="3dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/ls_label_prev" android:textColor="#4B5058" android:textSize="10sp" />
+        <TextView android:id="@+id/ls_row_prev" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#1A1C1F" android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="3dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/ls_label_net_committed" android:textColor="#1A1C1F" android:textStyle="bold" android:textSize="11sp" />
+        <TextView android:id="@+id/ls_row_net_committed" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#0E8F72" android:textStyle="bold" android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="3dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/ls_label_target" android:textColor="#4B5058" android:textSize="10sp" />
+        <TextView android:id="@+id/ls_row_target" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#1A1C1F" android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="#DCDFE3" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/ls_row_diff_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="—" android:textColor="#1A1C1F" android:textStyle="bold" android:textSize="12sp" />
+        <TextView android:id="@+id/ls_row_diff" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textStyle="bold" android:textSize="14sp" />
+    </LinearLayout>
+
+</LinearLayout>

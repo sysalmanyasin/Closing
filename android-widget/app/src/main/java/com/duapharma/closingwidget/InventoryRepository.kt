@@ -320,6 +320,68 @@ object InventoryRepository {
         return topNByValue(all, topN).map { SellerRow(it.p.code, it.p.name, it.saleQtyP, it.saleValueP) }
     }
 
+    // ── Negative Stock / Dead Stock / Never-Sold — per-item rows behind
+    // heroStats()'s three aggregate totals above, sorted value-wise. ──
+    data class StockValueRow(val code: String, val name: String, val company: String, val extra: String, val value: Double)
+
+    /** Every item with stock < 0, most negative value first — mirrors the
+        `negativeValue` branch of heroStats() but per-item instead of summed. */
+    fun negativeStockRows(rows: List<Row>, topN: Int = 50): List<StockValueRow> {
+        return rows.asSequence()
+            .filter { it.p.stock < 0 }
+            .map { r ->
+                StockValueRow(
+                    r.p.code, r.p.name, r.p.company.ifEmpty { r.p.supplier },
+                    "${formatQty(r.p.stock)} units", r.p.stock * r.p.unitPrice
+                )
+            }
+            .sortedBy { it.value } // most negative first
+            .take(topN)
+            .toList()
+    }
+
+    /** Every item flagged Dead Stock (sold before, nothing in 60D+), highest
+        value first — same eligibility test as heroStats()'s deadStock60Value
+        branch, just kept per-item instead of summed. */
+    fun deadStockRows(rows: List<Row>, topN: Int = 20): List<StockValueRow> {
+        val out = ArrayList<StockValueRow>()
+        rows.forEach { r ->
+            val stock = r.p.stock
+            if (stock > 0 && r.packValid) {
+                val recDays = r.recDays; val saleDays = r.saleDays
+                if (r.hasSale && saleDays != null && saleDays > DEAD_STOCK_DAYS && recDays != null && recDays > DEAD_STOCK_DAYS) {
+                    val dr = downRoundQty(stock, r.pack)
+                    if (dr > 0) {
+                        val value = dr * r.p.unitPrice
+                        out.add(StockValueRow(r.p.code, r.p.name, r.p.company.ifEmpty { r.p.supplier }, "${saleDays.toInt()}d since last sale", value))
+                    }
+                }
+            }
+        }
+        return out.sortedByDescending { it.value }.take(topN)
+    }
+
+    /** Every item flagged Never Sold (received 60D+ ago, no sale ever),
+        highest value first — same eligibility test as heroStats()'s
+        neverSold60Value branch, just kept per-item instead of summed. */
+    fun neverSoldStockRows(rows: List<Row>, topN: Int = 20): List<StockValueRow> {
+        val out = ArrayList<StockValueRow>()
+        rows.forEach { r ->
+            val stock = r.p.stock
+            if (stock > 0 && r.packValid) {
+                val recDays = r.recDays
+                if (!r.hasSale && recDays != null && recDays > NEVER_SOLD_DAYS) {
+                    val dr = downRoundQty(stock, r.pack)
+                    if (dr > 0) {
+                        val value = dr * r.p.unitPrice
+                        out.add(StockValueRow(r.p.code, r.p.name, r.p.company.ifEmpty { r.p.supplier }, "${recDays.toInt()}d since receive", value))
+                    }
+                }
+            }
+        }
+        return out.sortedByDescending { it.value }.take(topN)
+    }
+
     // ---------------------------------------------------------------
     // Product search (Widget 6) — server-side ilike on name/code, same
     // fields inventory_products already carries (no separate fetch-all).

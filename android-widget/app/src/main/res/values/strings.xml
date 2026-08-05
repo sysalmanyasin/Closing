@@ -76,4 +76,25 @@
     <string name="inv_search_widget_title">Search Inventory</string>
     <string name="inv_search_widget_title_label">Search Inventory</string>
     <string name="inv_search_widget_subtitle">Tap to search a product</string>
+
+    <string name="inv_negative_stock_widget_title">🔻 NEGATIVE STOCK — VALUE-WISE</string>
+    <string name="inv_negative_stock_widget_title_label">Negative Stock — Value-Wise</string>
+    <string name="inv_negative_stock_widget_subtitle">Most negative value first</string>
+
+    <string name="inv_dead_stock_widget_title">💀 DEAD STOCK — TOP 20</string>
+    <string name="inv_dead_stock_widget_title_label">Dead Stock — Top 20</string>
+    <string name="inv_dead_stock_widget_subtitle">Sold before · nothing moved in 60D+ · value-wise</string>
+
+    <string name="inv_never_stock_widget_title">🚫 NEVER SOLD — TOP 20</string>
+    <string name="inv_never_stock_widget_title_label">Never Sold — Top 20</string>
+    <string name="inv_never_stock_widget_subtitle">Received 60D+ ago · never sold · value-wise</string>
+
+    <string name="last_shifts_widget_title">🗓 LAST 3 SHIFT CLOSINGS</string>
+    <string name="last_shifts_widget_title_label">Last 3 Shift Closings</string>
+    <string name="last_shifts_widget_loading">Loading…</string>
+    <string name="last_shifts_widget_subtitle">This shift only — most recent 3 saved</string>
+    <string name="ls_label_cash">Net Cash Available</string>
+    <string name="ls_label_prev">Less: Previous Shift\'s Cash</string>
+    <string name="ls_label_net_committed">Net Committed Cash</string>
+    <string name="ls_label_target">Target Net Sales</string>
 </resources>
