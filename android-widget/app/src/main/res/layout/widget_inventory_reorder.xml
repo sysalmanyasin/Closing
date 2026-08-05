@@ -25,16 +25,29 @@
         android:textColor="#8A8F98"
         android:textSize="10sp" />
 
-    <ScrollView
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
-        <LinearLayout
-            android:id="@+id/inv_reorder_list_container"
+
+        <ListView
+            android:id="@+id/inv_reorder_listview"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
+            android:layout_height="match_parent"
+            android:divider="#DCDFE3"
+            android:dividerHeight="1px"
+            android:scrollbars="none" />
+
+        <TextView
+            android:id="@+id/inv_reorder_empty_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Loading…"
+            android:textColor="#8A8F98"
+            android:textSize="12sp" />
+
+    </FrameLayout>
 
     <TextView
         android:id="@+id/inv_reorder_footer"

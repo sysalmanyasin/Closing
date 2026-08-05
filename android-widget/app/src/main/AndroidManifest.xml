@@ -156,6 +156,11 @@
                 android:resource="@xml/inventory_reorder_widget_info" />
         </receiver>
 
+        <service
+            android:name=".InventoryReorderWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
         <receiver
             android:name=".InventoryExcessTopWidgetProvider"
             android:label="@string/inv_excess_top_widget_title_label"
