@@ -40,7 +40,7 @@ jobs:
         id: build
         run: |
           set -o pipefail
-          gradle assembleDebug --no-daemon 2>&1 | tee gradle-output.log
+          gradle assembleDebug --no-daemon -PappVersionCode=${{ github.run_number }} 2>&1 | tee gradle-output.log
         continue-on-error: true
 
       - name: Post failure log as a commit comment
