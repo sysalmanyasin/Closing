@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Surfaces -->
+    <color name="surface_card">#FFFFFF</color>
+    <color name="surface_card_top">#FFFFFF</color>
+    <color name="surface_card_bottom">#F7F8FC</color>
+    <color name="surface_inset">#F4F5FA</color>
+    <color name="surface_inset_border">#E9EBF3</color>
+    <color name="hairline">#EDEFF5</color>
+
+    <!-- Ink -->
+    <color name="ink_900">#12131A</color>
+    <color name="ink_700">#3A3D4A</color>
+    <color name="ink_500">#8388A0</color>
+    <color name="ink_400">#A6AABD</color>
+    <color name="ink_300">#C6C9D6</color>
+
+    <!-- Brand accents (per module) -->
+    <color name="accent_sales">#4F46E5</color>
+    <color name="accent_sales_soft">#EEECFC</color>
+    <color name="accent_sales_dark">#3730A3</color>
+
+    <color name="accent_credit">#D97706</color>
+    <color name="accent_credit_soft">#FDF1DF</color>
+    <color name="accent_credit_dark">#92400E</color>
+
+    <color name="accent_inventory">#0D9488</color>
+    <color name="accent_inventory_soft">#E1F5F2</color>
+    <color name="accent_inventory_dark">#065F5A</color>
+
+    <color name="accent_closing">#16A34A</color>
+    <color name="accent_closing_soft">#E4F7EA</color>
+    <color name="accent_closing_dark">#0F7A38</color>
+
+    <!-- Status -->
+    <color name="status_positive">#16A34A</color>
+    <color name="status_positive_soft">#E4F7EA</color>
+    <color name="status_negative">#DC2626</color>
+    <color name="status_negative_soft">#FCE8E8</color>
+    <color name="status_warning">#D97706</color>
+    <color name="status_warning_soft">#FDF1DF</color>
+    <color name="status_info">#2563EB</color>
+    <color name="status_info_soft">#E7EEFD</color>
+
+    <!-- Aggregated (dark) widget -->
+    <color name="agg_bg_top">#241A3D</color>
+    <color name="agg_bg_bottom">#120D24</color>
+    <color name="agg_hairline">#3C3160</color>
+    <color name="agg_gold">#F4C56A</color>
+    <color name="agg_gold_soft">#B79A6B</color>
+    <color name="agg_text_dim">#B7ADD6</color>
+    <color name="agg_mint">#4ADE80</color>
+</resources>

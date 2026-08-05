@@ -6,141 +6,121 @@
     android:gravity="center_vertical"
     android:background="@drawable/widget_amber_background"
     android:padding="16dp"
+    android:elevation="2dp"
     android:id="@+id/agg_widget_root">
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/agg_widget_title"
-        android:textColor="#FFE9B8"
-        android:textStyle="bold"
-        android:textSize="14sp"
-        android:letterSpacing="0.02" />
-
-    <TextView
-        android:id="@+id/agg_subtitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="10dp"
-        android:text="@string/agg_widget_loading"
-        android:textColor="#EAD9B0"
-        android:textSize="11sp" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/agg_label_target"
-            android:textColor="#EAD9B0"
-            android:textSize="11sp" />
-
-        <TextView
-            android:id="@+id/agg_target"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="—"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="4dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/agg_label_cash"
-            android:textColor="#EAD9B0"
-            android:textSize="11sp" />
-
-        <TextView
-            android:id="@+id/agg_cash"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="—"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginBottom="8dp"
-        android:background="#8A6A2A"
-        android:orientation="vertical" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
+        <FrameLayout
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/badge_circle_closing">
+            <ImageView android:layout_width="16dp" android:layout_height="16dp"
+                android:layout_gravity="center" android:src="@drawable/ic_target" />
+        </FrameLayout>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="@string/agg_widget_title"
+            android:textColor="@color/agg_gold"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:letterSpacing="0.01" />
+    </LinearLayout>
 
+    <TextView
+        android:id="@+id/agg_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="12dp"
+        android:text="@string/agg_widget_loading"
+        android:textColor="@color/agg_text_dim"
+        android:textSize="11sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/agg_label_target" android:textColor="@color/agg_text_dim" android:textSize="11sp" />
+        <TextView android:id="@+id/agg_target" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
+        <TextView
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/agg_label_cash" android:textColor="@color/agg_text_dim" android:textSize="11sp" />
+        <TextView android:id="@+id/agg_cash" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="13sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="10dp"
+        android:background="@color/agg_hairline" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
         <TextView
             android:id="@+id/agg_variance_label"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/agg_label_variance"
-            android:textColor="#FFE9B8"
+            android:textColor="@color/agg_gold"
             android:textStyle="bold"
             android:textSize="15sp" />
-
         <TextView
             android:id="@+id/agg_variance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="@drawable/chip_agg_variance"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
             android:text="—"
-            android:textColor="#7CE38B"
+            android:textColor="@color/agg_mint"
             android:textStyle="bold"
             android:textSize="18sp" />
     </LinearLayout>
 
-    <!-- Secondary/footnote line — same info as the web app's Pre-date Total,
-         kept below the main Target/Cash/Variance computation rather than
-         between them. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="8dp">
-
+        android:layout_marginTop="10dp">
         <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/agg_label_predate"
-            android:textColor="#C7B482"
-            android:textSize="10sp" />
-
-        <TextView
-            android:id="@+id/agg_predate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="—"
-            android:textColor="#DCC594"
-            android:textSize="10sp" />
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/agg_label_predate" android:textColor="@color/agg_gold_soft" android:textSize="10sp" />
+        <TextView android:id="@+id/agg_predate" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="—" android:textColor="@color/agg_text_dim" android:textSize="10sp" />
     </LinearLayout>
 
     <TextView
         android:id="@+id/agg_synced_at"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:text=""
-        android:textColor="#C7B482"
+        android:textColor="@color/agg_gold_soft"
         android:textSize="9sp" />
 
     <TextView
@@ -148,7 +128,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:text="@string/agg_widget_footer"
-        android:textColor="#B2A074"
+        android:textColor="@color/agg_gold_soft"
         android:textSize="9sp" />
 
 </LinearLayout>

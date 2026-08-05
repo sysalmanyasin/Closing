@@ -5,22 +5,38 @@
     android:orientation="vertical"
     android:background="@drawable/widget_background"
     android:padding="16dp"
+    android:elevation="2dp"
     android:id="@+id/inv_top_running_widget_root">
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/inv_top_running_widget_title"
-        android:textColor="#1B3A6B"
-        android:textStyle="bold"
-        android:textSize="14sp"
-        android:letterSpacing="0.02" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <FrameLayout
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/badge_circle_info">
+            <ImageView android:layout_width="15dp" android:layout_height="15dp"
+                android:layout_gravity="center" android:src="@drawable/ic_trending_up" />
+        </FrameLayout>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="9dp"
+            android:text="@string/inv_top_running_widget_title"
+            android:textColor="@color/status_info"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:letterSpacing="0.01" />
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/inv_top_running_list_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:orientation="vertical" />
 
     <TextView
@@ -29,7 +45,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text=""
-        android:textColor="#B0B4BA"
+        android:textColor="@color/ink_400"
         android:textSize="9sp" />
 
 </LinearLayout>

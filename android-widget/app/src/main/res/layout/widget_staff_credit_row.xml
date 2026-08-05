@@ -3,15 +3,16 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingTop="3dp"
-    android:paddingBottom="3dp">
+    android:gravity="center_vertical"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <TextView
         android:id="@+id/staff_row_srnum"
-        android:layout_width="20dp"
+        android:layout_width="22dp"
         android:layout_height="wrap_content"
         android:text="—"
-        android:textColor="#8A8F98"
+        android:textColor="@color/ink_400"
         android:textSize="11sp" />
 
     <TextView
@@ -20,7 +21,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:text="—"
-        android:textColor="#4B5058"
+        android:textColor="@color/ink_700"
         android:textSize="12sp"
         android:ellipsize="end"
         android:maxLines="1" />
@@ -30,7 +31,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="—"
-        android:textColor="#1A1C1F"
+        android:textColor="@color/ink_900"
         android:textStyle="bold"
         android:textSize="12sp" />
 
