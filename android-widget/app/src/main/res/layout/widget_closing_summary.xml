@@ -68,7 +68,7 @@
                     android:layout_marginTop="2dp" android:text="—" android:textColor="@color/ink_900" android:textStyle="bold" android:textSize="15sp" />
             </LinearLayout>
 
-            <View android:layout_width="1dp" android:layout_height="match_parent" android:background="@color/hairline" />
+            <TextView android:layout_width="1dp" android:layout_height="match_parent" android:background="@color/hairline" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -83,7 +83,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/hairline" />
+        <TextView android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/hairline" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -102,7 +102,7 @@
                     android:layout_marginTop="2dp" android:text="—" android:textColor="@color/ink_900" android:textStyle="bold" android:textSize="15sp" />
             </LinearLayout>
 
-            <View android:layout_width="1dp" android:layout_height="match_parent" android:background="@color/hairline" />
+            <TextView android:layout_width="1dp" android:layout_height="match_parent" android:background="@color/hairline" />
 
             <LinearLayout
                 android:layout_width="0dp"
