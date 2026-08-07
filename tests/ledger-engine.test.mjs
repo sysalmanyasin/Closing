@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { db } from '../js/state.js';
 import {
   clBuildSnapshot, clGroupByDate, clAllLabels,
-  mlAllSnapshots, retentionCutoffDate, staleRecordKeys, countRecordsOlderThan,
+  mlAllSnapshots, mlLatestSnapshot, mlComputeAging,
+  retentionCutoffDate, staleRecordKeys, countRecordsOlderThan,
 } from '../js/ledger-engine.js';
 
 function resetDb() {
@@ -112,6 +113,91 @@ describe('mlAllSnapshots (Misc/Ongoing Ledger)', () => {
     assert.equal(snaps[0].key, '2026-07-03_Night');
     assert.equal(snaps[0].lines.length, 2);
     assert.equal(snaps[0].total, 3122);
+  });
+});
+
+/* YYYY-MM-DD n days ago, in local time — keeps aging assertions valid
+   regardless of what "today" is when the suite runs. */
+function daysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+describe('mlLatestSnapshot', () => {
+  test('returns null when there are no misc records', () => {
+    resetDb();
+    assert.equal(mlLatestSnapshot(), null);
+  });
+
+  test('returns the newest snapshot, matching clGroupByDate ordering', () => {
+    resetDb();
+    db.sheets = {
+      [`${daysAgo(5)}_Night`]:   { draft: false, profileMode: 'shift', miscRows: [{ label: 'Old Charge', val: 100 }] },
+      [`${daysAgo(0)}_Evening`]: { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+    };
+    const latest = mlLatestSnapshot();
+    assert.equal(latest.date, daysAgo(0));
+    assert.equal(latest.shift, 'Evening');
+  });
+});
+
+describe('mlComputeAging', () => {
+  test('empty when there is no misc history', () => {
+    resetDb();
+    assert.deepEqual(mlComputeAging(), []);
+  });
+
+  test('a charge present in every shift ages from its first appearance', () => {
+    resetDb();
+    db.sheets = {
+      [`${daysAgo(10)}_Night`]:   { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+      [`${daysAgo(5)}_Night`]:    { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+      [`${daysAgo(0)}_Night`]:    { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+    };
+    const aging = mlComputeAging();
+    assert.equal(aging.length, 1);
+    assert.equal(aging[0].lbl, 'Rent');
+    assert.equal(aging[0].since, daysAgo(10));
+    assert.equal(aging[0].ageDays, 10);
+  });
+
+  test('a gap in the history breaks the streak and resets aging', () => {
+    resetDb();
+    db.sheets = {
+      [`${daysAgo(10)}_Night`]: { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+      // gap here — Rent absent from the middle shift
+      [`${daysAgo(5)}_Night`]:  { draft: false, profileMode: 'shift', miscRows: [{ label: 'Other', val: 50 }] },
+      [`${daysAgo(0)}_Night`]:  { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+    };
+    const aging = mlComputeAging();
+    const rent = aging.find(a => a.lbl === 'Rent');
+    assert.equal(rent.since, daysAgo(0), 'streak should restart at the most recent reappearance, not the original one');
+    assert.equal(rent.ageDays, 0);
+  });
+
+  test('label matching is trim/case-insensitive but preserves latest display label', () => {
+    resetDb();
+    db.sheets = {
+      [`${daysAgo(3)}_Night`]: { draft: false, profileMode: 'shift', miscRows: [{ label: '  rent  ', val: 500 }] },
+      [`${daysAgo(0)}_Night`]: { draft: false, profileMode: 'shift', miscRows: [{ label: 'Rent', val: 500 }] },
+    };
+    const aging = mlComputeAging();
+    assert.equal(aging.length, 1);
+    assert.equal(aging[0].lbl, 'Rent', 'display label comes from the latest snapshot as-typed');
+    assert.equal(aging[0].since, daysAgo(3));
+    assert.equal(aging[0].ageDays, 3);
+  });
+
+  test('only lines from the latest snapshot are reported', () => {
+    resetDb();
+    db.sheets = {
+      [`${daysAgo(5)}_Night`]: { draft: false, profileMode: 'shift', miscRows: [{ label: 'Gone Now', val: 200 }] },
+      [`${daysAgo(0)}_Night`]: { draft: false, profileMode: 'shift', miscRows: [{ label: 'Still Here', val: 300 }] },
+    };
+    const aging = mlComputeAging();
+    assert.equal(aging.length, 1);
+    assert.equal(aging[0].lbl, 'Still Here');
   });
 });
 

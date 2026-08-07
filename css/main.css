@@ -1092,6 +1092,18 @@
   .cl-date-body { display: none; padding: 8px 10px 10px; }
   .cl-date-card.open .cl-date-body { display: block; }
 
+  /* Misc/Ongoing "Latest Snapshot + Aging" summary card */
+  .ml-aging-card { border: 1px solid var(--teal-dark); margin-bottom: 14px; }
+  .ml-aging-line { align-items: center; gap: 8px; }
+  .ml-aging-since { font-weight: 400; color: var(--muted); font-size: 0.68rem; }
+  .ml-aging-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .ml-aging-new { background: var(--green-pale); color: var(--green-dark); }
+  .ml-aging-mid { background: var(--amber-pale); color: var(--amber-dark); }
+  .ml-aging-old { background: var(--red-pale);   color: var(--red-dark); }
+
   /* Flat shift-wise list (default Credit Ledger layout) */
   .cl-flat-container { display: flex; flex-direction: column; gap: 6px; }
 

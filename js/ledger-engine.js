@@ -142,6 +142,55 @@ export function mlAllSnapshots() {
   return out;
 }
 
+/* Most recent saved shift that has any misc/ongoing rows, or null if
+   none exist yet. Just the newest entry of mlAllSnapshots() — reuses
+   clGroupByDate() so "newest" is defined identically to the rest of
+   the Credit/Misc Ledger (date desc, then real shift seq desc, not a
+   fixed Night/Morning/Evening map). */
+export function mlLatestSnapshot() {
+  const groups = clGroupByDate(mlAllSnapshots());
+  return groups[0]?.snaps[0] || null;
+}
+
+/* Aging for every line in the latest snapshot: how many days each
+   charge has been continuously present.
+
+   IMPORTANT — this matches by label text, not row id. Misc rows carry
+   forward shift-to-shift (pullPreviousShift() in actions.js), but each
+   carried-forward row is rebuilt via addMiscRow() with a *new* id (the
+   old id is never passed through) — so id can't be used to track a
+   charge's history the way the Activity Log tracks other rows. Label
+   is the only stable-ish handle we have. Practical effect: renaming a
+   charge, or deleting-then-recreating it under the same name after a
+   gap, resets its aging clock. That's a real limitation of the current
+   data shape, not a bug in this function.
+
+   Snapshots are walked newest → oldest; a label's streak breaks (and
+   its "first seen" stops updating) the moment a snapshot in between
+   doesn't contain that label at all. */
+export function mlComputeAging() {
+  const groups = clGroupByDate(mlAllSnapshots()); /* newest date first */
+  const latest = groups[0]?.snaps[0];
+  if(!latest) return [];
+
+  return latest.lines.map(line => {
+    const key = line.lbl.trim().toLowerCase();
+    let firstSeenDate = latest.date;
+
+    outer:
+    for(const g of groups) {
+      for(const snap of g.snaps) {
+        const stillThere = snap.lines.some(l => l.lbl.trim().toLowerCase() === key);
+        if(!stillThere) break outer;
+        firstSeenDate = snap.date;
+      }
+    }
+
+    const ageDays = Math.max(0, Math.floor((Date.now() - new Date(firstSeenDate + 'T00:00:00').getTime()) / 86400000));
+    return { lbl: line.lbl, val: line.val, since: firstSeenDate, ageDays };
+  });
+}
+
 /* ═══════════════════════════════════════════
    DATA RETENTION — pure queries only. The actual
    delete (archiveOldRecords) is a mutation and

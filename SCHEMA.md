@@ -124,6 +124,17 @@ derived live from `db.sheets[key].miscRows` on every render via
 outlive the sheet record the way credit history does. Don't add a
 `db.miscLedger` array unless the "why" changes.
 
+**`mlLatestSnapshot()` / `mlComputeAging()`** (both in
+`ledger-engine.js`, both pure reads over `mlAllSnapshots()` — nothing
+new is persisted) power the "Latest Snapshot + Aging" card at the top
+of the Misc/Ongoing Ledger page. `mlComputeAging()` matches charges
+**by label text, not row id** — carried-forward misc rows get a fresh
+`id` from `addMiscRow()` every time (`pullPreviousShift()` never passes
+the old `rid` through), so `id` can't track a charge's history the way
+the Activity Log tracks other rows. Renaming a charge, or deleting and
+recreating it under the same name after a gap, resets its aging clock.
+This is a known limitation of the current data shape, not a bug.
+
 ---
 
 ## BT Sale Data bridge (bt-bridge.js)

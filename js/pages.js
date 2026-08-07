@@ -18,7 +18,7 @@ import { alAllEntries } from './activity-log.js';
 import { checkShiftCollision, showCollisionBanner } from './auth.js';
 import {
   clAllLabels, clBackfillSnapshots, clEnsureArray, clGroupByDate,
-  countRecordsOlderThan, mlAllSnapshots
+  countRecordsOlderThan, mlAllSnapshots, mlComputeAging
 } from './ledger-engine.js';
 import { isRealSheet, timelineStep } from './components.js';
 import { initClosingBookDefaults } from './closing-book.js';
@@ -251,6 +251,7 @@ export function clSwitchMode(mode) {
   const layoutRow = document.getElementById('cl-layout-row');
   if(layoutRow) layoutRow.style.display = mode === 'credit' ? 'flex' : 'none';
   document.getElementById('cl-count-row-misc').classList.toggle('hidden', mode !== 'misc');
+  document.getElementById('cl-aging-container')?.classList.toggle('hidden', mode !== 'misc');
 
   const title = document.getElementById('cl-toolbar-title');
   const sub   = document.getElementById('cl-toolbar-sub');
@@ -625,13 +626,16 @@ export function clExportTxt() {
 ═══════════════════════════════════════════ */
 
 export function renderMiscLedgerInternal() {
-  const snapshots = mlAllSnapshots();
-  const groups    = clGroupByDate(snapshots);
-  const container = document.getElementById('cl-cards-container');
+  const snapshots  = mlAllSnapshots();
+  const groups     = clGroupByDate(snapshots);
+  const container  = document.getElementById('cl-cards-container');
+  const agingSlot  = document.getElementById('cl-aging-container');
   if(!container) return;
 
   const countBadge = document.getElementById('cl-count-badge-misc');
   if(countBadge) countBadge.textContent = `${snapshots.length} shift${snapshots.length !== 1 ? 's' : ''} · ${groups.length} date${groups.length !== 1 ? 's' : ''}`;
+
+  if(agingSlot) agingSlot.innerHTML = mlBuildAgingCard();
 
   if(groups.length === 0) {
     container.innerHTML = `<div class="cl-empty">📭 No misc/ongoing charge records yet.<br><span style="font-size:0.75rem;">Save a shift with misc entries to see them here.</span></div>`;
@@ -652,6 +656,45 @@ export function renderMiscLedgerInternal() {
   } else {
     moreBtn.classList.add('hidden');
   }
+}
+
+/* "Latest full snapshot + aging" summary card — sits above the
+   date-grouped history in Misc/Ongoing mode. Pure render: reads
+   mlComputeAging()/mlLatestSnapshot()'s output (ledger-engine.js,
+   Floor 3 ext) and builds DOM, same division of labour as the rest
+   of this file. Age thresholds are a simple 3-tier visual cue, not
+   a business rule — adjust freely without touching the engine. */
+export function mlBuildAgingCard() {
+  const aging = mlComputeAging();
+  if(!aging.length) return '';
+
+  const latest = mlAllSnapshots().length ? clGroupByDate(mlAllSnapshots())[0]?.snaps[0] : null;
+  const headSub = latest ? `${clFmtDate(latest.date)} · ${latest.shift}` : '';
+
+  const rows = aging.map(a => {
+    const tier = a.ageDays >= 14 ? 'old' : (a.ageDays >= 7 ? 'mid' : 'new');
+    const ageLbl = a.ageDays === 0 ? 'new today' : `${a.ageDays} day${a.ageDays !== 1 ? 's' : ''} old`;
+    return `
+      <div class="cl-line ml-aging-line">
+        <span class="cl-lbl">${escHtml(a.lbl)}<br><span class="ml-aging-since">since ${clFmtDate(a.since)}</span></span>
+        <span class="ml-aging-badge ml-aging-${tier}">${ageLbl}</span>
+        <span class="cl-val">${clFmt(a.val)}</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="cl-date-card ml-aging-card open">
+      <div class="cl-date-head" style="cursor:default;">
+        <span class="cl-date-icon">🧮</span>
+        <div style="flex:1;">
+          <div class="cl-date-label">Latest Snapshot + Aging</div>
+          <div class="cl-date-sub">${headSub}</div>
+        </div>
+      </div>
+      <div class="cl-date-body" style="display:block;">
+        ${rows}
+      </div>
+    </div>`;
 }
 
 export function mlBuildDateCard(group) {
