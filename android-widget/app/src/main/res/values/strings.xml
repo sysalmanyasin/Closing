@@ -97,4 +97,8 @@
     <string name="ls_label_prev">Less: Previous Shift\'s Cash</string>
     <string name="ls_label_net_committed">Net Committed Cash</string>
     <string name="ls_label_target">Target Net Sales</string>
+
+    <string name="ml_aging_widget_title">🧮 MISC / ONGOING — LATEST + AGING</string>
+    <string name="ml_aging_widget_title_label">Misc/Ongoing — Latest + Aging</string>
+    <string name="ml_aging_widget_subtitle">Loading…</string>
 </resources>

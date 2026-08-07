@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="7dp"
+    android:paddingBottom="7dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/ml_aging_row_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="—"
+            android:textColor="@color/ink_900"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:ellipsize="end"
+            android:maxLines="1" />
+        <TextView
+            android:id="@+id/ml_aging_row_since"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="—"
+            android:textColor="@color/ink_500"
+            android:textSize="9sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/ml_aging_row_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:background="@drawable/chip_positive"
+        android:paddingLeft="7dp" android:paddingRight="7dp"
+        android:paddingTop="3dp" android:paddingBottom="3dp"
+        android:text="—"
+        android:textColor="@color/status_positive"
+        android:textStyle="bold"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/ml_aging_row_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="—"
+        android:textColor="@color/ink_700"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+</LinearLayout>
