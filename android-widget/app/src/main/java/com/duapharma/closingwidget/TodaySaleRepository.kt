@@ -82,12 +82,13 @@ object TodaySaleRepository {
             if (array.length() == 0) return null
 
             val todayIso = todayIso()
-            var rec: JSONObject? = null
-            for (i in 0 until array.length()) {
-                val row = array.getJSONObject(i)
-                if (row.optString("sale_day", "") == todayIso) { rec = row; break }
+            val rec: JSONObject = run {
+                for (i in 0 until array.length()) {
+                    val row = array.getJSONObject(i)
+                    if (row.optString("sale_day", "") == todayIso) return@run row
+                }
+                array.getJSONObject(0) // already sorted sale_day DESC — most recent day
             }
-            if (rec == null) rec = array.getJSONObject(0) // already sorted sale_day DESC — most recent day
 
             val saleDay = rec.optString("sale_day", "")
             val isToday = saleDay == todayIso
