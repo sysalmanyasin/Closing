@@ -16,6 +16,7 @@ class MainActivity : AppCompatActivity() {
             SalesWidgetProvider.updateAllWidgets(applicationContext)
             AggregatedWidgetProvider.updateAllWidgets(applicationContext)
             MonthSaleWidgetProvider.updateAllWidgets(applicationContext)
+            TodaySaleWidgetProvider.updateAllWidgets(applicationContext)
             TotalCreditWidgetProvider.updateAllWidgets(applicationContext)
             SectionSummaryWidgetProvider.updateAllWidgets(applicationContext)
             StaffCreditWidgetProvider.updateAllWidgets(applicationContext)

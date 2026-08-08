@@ -30,6 +30,16 @@ project:
 7. **Staff Credit** — every active staff member from `bt_staff`,
    ordered by their Sr# (the same field that orders Salary/Generic/
    Credit sheets in BT Sale Data), with that month's credit amount.
+8. **Today's Sale** — Candela POS's live Cash / Card / Credit split for
+   today, read straight from `sales_payment_summary` in the separate
+   Pharmacy Audit Hub Supabase project (same one the Inventory widgets
+   use) — synced by the `sync-inventory-from-dropbox` Edge Function
+   alongside `inventory_products`, mirroring the "Today's Sale — POS
+   Live" hero card on the web app's Cover dashboard. Deliberately
+   separate from **Latest Month Total Sale** above: that one reads the
+   manually-typed Sale Data ledger, this one is what Candela itself
+   recorded automatically — the two can legitimately disagree until
+   the day's manual entry is filled in.
 
 ## How it works
 

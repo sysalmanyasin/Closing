@@ -73,6 +73,19 @@
         </receiver>
 
         <receiver
+            android:name=".TodaySaleWidgetProvider"
+            android:label="@string/today_sale_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.TODAYSALE_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_sale_widget_info" />
+        </receiver>
+
+        <receiver
             android:name=".TotalCreditWidgetProvider"
             android:label="@string/total_credit_widget_title_label"
             android:exported="false">

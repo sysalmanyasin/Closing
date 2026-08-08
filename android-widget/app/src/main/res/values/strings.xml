@@ -32,6 +32,13 @@
     <string name="month_sale_label_credit">CREDIT CLIENTS</string>
     <string name="month_sale_label_customers">CUSTOMERS</string>
     <string name="month_sale_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
+    <string name="today_sale_widget_title">💳 TODAY\'S SALE</string>
+    <string name="today_sale_widget_title_label">Today\'s Sale</string>
+    <string name="today_sale_widget_loading">Loading…</string>
+    <string name="today_sale_label_cash">CASH</string>
+    <string name="today_sale_label_card">CARD</string>
+    <string name="today_sale_label_credit">CREDIT</string>
+    <string name="today_sale_widget_footer">Auto-refreshes every 30 min · Tap to refresh now</string>
 
     <string name="total_credit_widget_title">💳 TOTAL OUTSTANDING CREDIT</string>
     <string name="total_credit_widget_title_label">Total Outstanding Credit</string>
