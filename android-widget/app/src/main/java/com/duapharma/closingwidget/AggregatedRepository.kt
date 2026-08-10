@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -39,8 +40,8 @@ object AggregatedRepository {
     fun formatAmount(value: Double): String = "Rs. " + numberFormat.format(kotlin.math.abs(value))
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchLatestAggregated(): AggregatedSummary? {
-        val rows = fetchSheets(limit = 10) ?: return null
+    fun fetchLatestAggregated(context: Context): AggregatedSummary? {
+        val rows = fetchSheets(context, limit = 10) ?: return null
         if (rows.isEmpty()) return null
 
         // Reconstruct true shift order the same way ClosingRepository does —
@@ -95,7 +96,9 @@ object AggregatedRepository {
         )
     }
 
-    private fun fetchSheets(limit: Int): List<RawSheet>? {
+    private fun fetchSheets(context: Context, limit: Int): List<RawSheet>? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/sheets" +
             "?draft=eq.false" +
             "&order=date.desc" +
@@ -106,7 +109,7 @@ object AggregatedRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
 

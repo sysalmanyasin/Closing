@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -96,8 +97,8 @@ object CreditRepository {
     private data class LedgerEntry(val ledgerType: String, val categoryId: String, val amount: Double)
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchCreditSummary(): CreditSummary? {
-        val payload = fetchPayload() ?: return null
+    fun fetchCreditSummary(context: Context): CreditSummary? {
+        val payload = fetchPayload(context) ?: return null
 
         val managerObj = payload.optJSONObject("manager")
         val creditObj = managerObj?.optJSONObject("credit")
@@ -296,13 +297,15 @@ object CreditRepository {
     }
 
     /** Fetches the single `bt_salesdata` row (id="main") and returns its `payload` JSON object. */
-    private fun fetchPayload(): JSONObject? {
+    private fun fetchPayload(context: Context): JSONObject? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_salesdata?select=payload&id=eq.main"
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             if (connection.responseCode !in 200..299) return null
@@ -319,7 +322,11 @@ object CreditRepository {
     }
 
     /** Active bt_staff, deduped by name (first row wins), sorted by srNum.
-        Mirrors Closing's own js/bt-bridge.js fetchActiveStaff() rules. */
+        Mirrors Closing's own js/bt-bridge.js fetchActiveStaff() rules.
+        Deliberately still uses the anon key: bt_staff has an anon-readable
+        "for login lookup" policy (Closing's phone/PIN sign-in needs it
+        before a session exists), so unlike every other table here it never
+        needed the widget-service identity. */
     private fun fetchActiveStaffSorted(): List<Pair<Int, String>> {
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_staff?select=id,data"
         val connection = URL(endpoint).openConnection() as HttpURLConnection

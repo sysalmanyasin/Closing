@@ -37,7 +37,7 @@ class MiscAgingWidgetProvider : AppWidgetProvider() {
             }
             thread {
                 try {
-                    val result = MiscAgingRepository.fetchAging()
+                    val result = MiscAgingRepository.fetchAging(context)
                     if (result != null) {
                         MiscAgingCache.rows = result.rows
                         MiscAgingCache.date = result.date

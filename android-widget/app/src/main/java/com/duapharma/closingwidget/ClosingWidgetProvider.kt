@@ -34,7 +34,7 @@ class ClosingWidgetProvider : AppWidgetProvider() {
             }
 
             thread {
-                val summary = ClosingRepository.fetchLatestClosing()
+                val summary = ClosingRepository.fetchLatestClosing(context)
                 for (id in ids) {
                     val views = buildRemoteViews(context, summary)
                     manager.updateAppWidget(id, views)

@@ -38,9 +38,13 @@ jobs:
 
       - name: Build debug APK
         id: build
+        env:
+          WIDGET_SERVICE_PASSWORD: ${{ secrets.WIDGET_SERVICE_PASSWORD }}
         run: |
           set -o pipefail
-          gradle assembleDebug --no-daemon -PappVersionCode=${{ github.run_number }} 2>&1 | tee gradle-output.log
+          gradle assembleDebug --no-daemon \
+            -PappVersionCode=${{ github.run_number }} \
+            -PwidgetServicePassword="$WIDGET_SERVICE_PASSWORD" 2>&1 | tee gradle-output.log
         continue-on-error: true
 
       - name: Post failure log as a commit comment

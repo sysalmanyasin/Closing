@@ -34,7 +34,7 @@ class SalesWidgetProvider : AppWidgetProvider() {
             }
 
             thread {
-                val summary = SalesRepository.fetchSalesSummary()
+                val summary = SalesRepository.fetchSalesSummary(context)
                 for (id in ids) {
                     val views = buildRemoteViews(context, summary)
                     manager.updateAppWidget(id, views)

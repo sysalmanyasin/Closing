@@ -33,7 +33,7 @@ class AggregatedWidgetProvider : AppWidgetProvider() {
             }
 
             thread {
-                val summary = AggregatedRepository.fetchLatestAggregated()
+                val summary = AggregatedRepository.fetchLatestAggregated(context)
                 for (id in ids) {
                     val views = buildRemoteViews(context, summary)
                     manager.updateAppWidget(id, views)

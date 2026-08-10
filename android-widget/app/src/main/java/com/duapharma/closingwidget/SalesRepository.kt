@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
@@ -35,7 +36,7 @@ object SalesRepository {
     fun formatPct(value: Double): String = numberFormat.format(value) + "%"
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchSalesSummary(): SalesSummary? {
+    fun fetchSalesSummary(context: Context): SalesSummary? {
         val now = Calendar.getInstance()
         val currentMonthAbbrev = SimpleDateFormat("MMM", Locale.ENGLISH).format(now.time)
         val currentYear = now.get(Calendar.YEAR)
@@ -51,8 +52,8 @@ object SalesRepository {
         // ilike on the "DD/Mon/YYYY" text date column) — enough to find the
         // single latest day (for the day-over-day change) and this month's
         // running total, without pulling the whole multi-year table.
-        val currentRows = fetchDailyRows("*/$currentMonthAbbrev/$currentYear") ?: return null
-        val prevRows = fetchDailyRows("*/$prevMonthAbbrev/$prevYear") ?: return null
+        val currentRows = fetchDailyRows(context, "*/$currentMonthAbbrev/$currentYear") ?: return null
+        val prevRows = fetchDailyRows(context, "*/$prevMonthAbbrev/$prevYear") ?: return null
 
         val allRows = (currentRows + prevRows)
             .mapNotNull { (dateStr, total) ->
@@ -72,7 +73,7 @@ object SalesRepository {
         val monthTotal = currentRows.sumOf { it.second }
         val daysEntered = currentRows.size
 
-        val target = fetchTarget(currentMonthFull) ?: 0.0
+        val target = fetchTarget(context, currentMonthFull) ?: 0.0
         val perDayPace = if (daysInMonth > 0) target / daysInMonth else 0.0
         val pctOfTarget = if (target > 0) monthTotal / target * 100.0 else 0.0
         val aheadOfPace = monthTotal - (perDayPace * daysEntered)
@@ -93,7 +94,9 @@ object SalesRepository {
     }
 
     /** Returns list of (dateString, total) for rows whose date matches the ilike pattern. */
-    private fun fetchDailyRows(datePattern: String): List<Pair<String, Double>>? {
+    private fun fetchDailyRows(context: Context, datePattern: String): List<Pair<String, Double>>? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val encodedPattern = URLEncoder.encode(datePattern, "UTF-8")
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_daily" +
             "?date=ilike.$encodedPattern" +
@@ -103,7 +106,7 @@ object SalesRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             if (connection.responseCode !in 200..299) return null
@@ -125,7 +128,9 @@ object SalesRepository {
         }
     }
 
-    private fun fetchTarget(monthFull: String): Double? {
+    private fun fetchTarget(context: Context, monthFull: String): Double? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val encodedMonth = URLEncoder.encode(monthFull, "UTF-8")
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_targets" +
             "?month=eq.$encodedMonth" +
@@ -136,7 +141,7 @@ object SalesRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             if (connection.responseCode !in 200..299) return null

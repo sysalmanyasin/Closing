@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -72,17 +73,17 @@ object MonthSaleRepository {
     private fun negR(v: Double): Double = if (v > 0) -v else v
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchMonthSaleBreakdown(): MonthSaleBreakdown? {
+    fun fetchMonthSaleBreakdown(context: Context): MonthSaleBreakdown? {
         val now = Calendar.getInstance()
         val currentMonthFull = MONTH_NAMES[now.get(Calendar.MONTH)] + " " + now.get(Calendar.YEAR)
 
-        val monthlyRows = fetchAllMonthly() ?: return null
+        val monthlyRows = fetchAllMonthly(context) ?: return null
         if (monthlyRows.isEmpty()) return null
 
         val rec = monthlyRows.find { it.first == currentMonthFull } ?: latestMonthlyRecord(monthlyRows)
         val (monthYear, data) = rec
 
-        val customFields = fetchCustomFields()
+        val customFields = fetchCustomFields(context)
 
         val cash = n(data, "Cash Sale") + negR(n(data, "Cash Returns"))
 
@@ -102,7 +103,7 @@ object MonthSaleRepository {
         val customers = n(data, "Customers")
         val total = n(data, "TOTAL")
 
-        val lastDay = lastFilledDay(monthYear)
+        val lastDay = lastFilledDay(context, monthYear)
         val monthAbbrev = monthYear.split(" ").firstOrNull()?.take(3) ?: ""
         val label = "Latest Month Total Sale — $monthYear" +
             if (lastDay > 0) " (till $lastDay $monthAbbrev)" else ""
@@ -128,13 +129,15 @@ object MonthSaleRepository {
         } ?: rows.first()
     }
 
-    private fun fetchAllMonthly(): List<Pair<String, JSONObject>>? {
+    private fun fetchAllMonthly(context: Context): List<Pair<String, JSONObject>>? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_monthly?select=month_year,data"
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             if (connection.responseCode !in 200..299) return null
@@ -159,13 +162,15 @@ object MonthSaleRepository {
     private data class CustomField(val id: String, val section: String, val calcType: String)
 
     /** Reads Manage Fields' custom Bank/Credit Clients columns — mirrors config.js's _customBankSum()/_customCreditSum(). */
-    private fun fetchCustomFields(): List<CustomField> {
+    private fun fetchCustomFields(context: Context): List<CustomField> {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return emptyList()
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_col_config?id=eq.main&select=custom"
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             if (connection.responseCode !in 200..299) return emptyList()
@@ -192,7 +197,9 @@ object MonthSaleRepository {
     }
 
     /** Highest day-of-month with a filled (TOTAL > 0) daily row — mirrors cover-dashboard.js's _lastFilledDay(). */
-    private fun lastFilledDay(monthYear: String): Int {
+    private fun lastFilledDay(context: Context, monthYear: String): Int {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return 0
+
         val encodedMonth = URLEncoder.encode(monthYear, "UTF-8")
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_daily" +
             "?month_year=eq.$encodedMonth" +
@@ -202,7 +209,7 @@ object MonthSaleRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             if (connection.responseCode !in 200..299) return 0

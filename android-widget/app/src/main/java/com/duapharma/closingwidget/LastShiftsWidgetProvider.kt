@@ -43,7 +43,7 @@ class LastShiftsWidgetProvider : AppWidgetProvider() {
 
             thread {
                 val snapshots = try {
-                    LastShiftsRepository.fetchLastShiftClosings(COUNT)
+                    LastShiftsRepository.fetchLastShiftClosings(context, COUNT)
                 } catch (e: Exception) {
                     null
                 }

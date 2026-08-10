@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -30,11 +31,11 @@ object ClosingRepository {
     fun formatAmount(value: Double): String = "Rs. " + numberFormat.format(kotlin.math.abs(value))
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchLatestClosing(): ClosingSummary? {
+    fun fetchLatestClosing(context: Context): ClosingSummary? {
         // Pull a window of recent, saved (non-draft) sheets — enough to walk
         // back to the last "final" closing for the Book Bills / Manual
         // Returns aggregation, same as the web app's aggregateSinceLastFinal().
-        val rows = fetchSheets(limit = 90) ?: return null
+        val rows = fetchSheets(context, limit = 90) ?: return null
         if (rows.isEmpty()) return null
 
         // Reconstruct true shift order: date desc, then Night < Morning < Evening.
@@ -77,7 +78,9 @@ object ClosingRepository {
         )
     }
 
-    private fun fetchSheets(limit: Int): List<RawSheet>? {
+    private fun fetchSheets(context: Context, limit: Int): List<RawSheet>? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/sheets" +
             "?draft=eq.false" +
             "&order=date.desc" +
@@ -88,7 +91,7 @@ object ClosingRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
 

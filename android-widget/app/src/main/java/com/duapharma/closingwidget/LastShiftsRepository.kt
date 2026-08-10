@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
@@ -41,8 +42,8 @@ object LastShiftsRepository {
     fun formatAmount(value: Double): String = "Rs. " + numberFormat.format(kotlin.math.abs(value))
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchLastShiftClosings(limit: Int = 3): List<ShiftClosingSnapshot>? {
-        val rows = fetchSheets(limit = 30) ?: return null
+    fun fetchLastShiftClosings(context: Context, limit: Int = 3): List<ShiftClosingSnapshot>? {
+        val rows = fetchSheets(context, limit = 30) ?: return null
         if (rows.isEmpty()) return emptyList()
 
         // Reconstruct true shift order the same way Closing/Aggregated
@@ -74,7 +75,9 @@ object LastShiftsRepository {
         }
     }
 
-    private fun fetchSheets(limit: Int): List<RawSheet>? {
+    private fun fetchSheets(context: Context, limit: Int): List<RawSheet>? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/sheets" +
             "?draft=eq.false" +
             "&order=date.desc" +
@@ -85,7 +88,7 @@ object LastShiftsRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
 

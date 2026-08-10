@@ -1,7 +1,24 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Local, git-ignored file for the widget-service account's password so it
+// never gets committed to this public repo. Create android-widget/local.properties
+// with a line: widgetServicePassword=<the password you set in Supabase Auth>
+// CI instead supplies it via -PwidgetServicePassword from a GitHub Actions secret.
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.inputStream().use { load(it) }
+    }
+}
+val widgetServicePassword: String =
+    (project.findProperty("widgetServicePassword") as String?)
+        ?: localProperties.getProperty("widgetServicePassword")
+        ?: ""
 
 android {
     namespace = "com.duapharma.closingwidget"
@@ -18,9 +35,18 @@ android {
         versionName = "1.0.$versionCode"
 
         // Public anon/publishable key — safe to ship in a client app.
-        // Read access to `sheets` is controlled by Supabase RLS policy, not by keeping this secret.
+        // Table reads are gated by Supabase RLS policy (is_widget_service()),
+        // not by keeping this key secret.
         buildConfigField("String", "SUPABASE_URL", "\"https://wetbugzzchkghpzmowod.supabase.co\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM\"")
+
+        // Credential for the dedicated, read-only "widget service" Supabase
+        // Auth account (see bt_widget_service_accounts / is_widget_service()).
+        // Used only once per device to sign in and obtain a refresh token —
+        // see WidgetAuthManager.kt. Never hardcode the real password here;
+        // it's injected via local.properties (dev) or a CI secret (build).
+        buildConfigField("String", "WIDGET_SERVICE_EMAIL", "\"widget-service@internal.duapharma\"")
+        buildConfigField("String", "WIDGET_SERVICE_PASSWORD", "\"$widgetServicePassword\"")
     }
 
     buildFeatures {
@@ -71,4 +97,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // Keystore-backed EncryptedSharedPreferences — used by WidgetAuthManager
+    // to store the widget-service account's refresh token on-device.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }

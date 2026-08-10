@@ -33,7 +33,7 @@ class MonthSaleWidgetProvider : AppWidgetProvider() {
             }
 
             thread {
-                val breakdown = MonthSaleRepository.fetchMonthSaleBreakdown()
+                val breakdown = MonthSaleRepository.fetchMonthSaleBreakdown(context)
                 for (id in ids) {
                     val views = buildRemoteViews(context, breakdown)
                     manager.updateAppWidget(id, views)

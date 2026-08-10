@@ -1,5 +1,6 @@
 package com.duapharma.closingwidget
 
+import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -50,11 +51,11 @@ object MiscAgingRepository {
     private data class MiscSnapshot(val date: String, val shift: String, val lines: List<Pair<String, Double>>)
 
     /** Runs network I/O — must be called off the main thread. */
-    fun fetchAging(): AgingResult? {
+    fun fetchAging(context: Context): AgingResult? {
         // Generous cap: at default 6-month retention and up to a handful
         // of closings/day this comfortably covers full history without
         // an unbounded query. Bump if a shop's retention window grows.
-        val rows = fetchSheets(limit = 1000) ?: return null
+        val rows = fetchSheets(context, limit = 1000) ?: return null
         if (rows.isEmpty()) return AgingResult("", "", emptyList())
 
         val sorted = rows.sortedWith(
@@ -125,7 +126,9 @@ object MiscAgingRepository {
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }
 
-    private fun fetchSheets(limit: Int): List<RawSheet>? {
+    private fun fetchSheets(context: Context, limit: Int): List<RawSheet>? {
+        val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
+
         val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/sheets" +
             "?draft=eq.false" +
             "&order=date.desc" +
@@ -136,7 +139,7 @@ object MiscAgingRepository {
         return try {
             connection.requestMethod = "GET"
             connection.setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SUPABASE_ANON_KEY}")
+            connection.setRequestProperty("Authorization", "Bearer $accessToken")
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
 
