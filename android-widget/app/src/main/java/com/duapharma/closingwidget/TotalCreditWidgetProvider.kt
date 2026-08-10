@@ -33,7 +33,7 @@ class TotalCreditWidgetProvider : AppWidgetProvider() {
             }
 
             thread {
-                val summary = CreditRepository.fetchCreditSummary()
+                val summary = CreditRepository.fetchCreditSummary(context)
                 for (id in ids) {
                     val views = buildRemoteViews(context, summary)
                     manager.updateAppWidget(id, views)
