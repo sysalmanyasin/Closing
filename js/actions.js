@@ -204,13 +204,26 @@ export function initLedger(ds, shift, mode, opts = {}) {
     pullPreviousShift(ds, shift, mode);
     if(mode === 'shift' || mode === 'final') zeroCreditEntries();
   }
-  calc();
-  /* enable real-time auto-draft after ledger has fully settled */
+  /* Gate auto-draft BEFORE the initial calc() paints this sheet.
+     calc() schedules an autosave via scheduleAutoSave(), which bails
+     out based on `_draftReady` and `session.isSheetLocked` — but both
+     of those still described the PREVIOUS sheet until this point. If
+     they happened to allow it (e.g. the previous sheet was unlocked,
+     or _draftReady hadn't been reset yet), this first, purely-cosmetic
+     calc() — fired just from opening/viewing a record, not from any
+     real keystroke — could arm a 3s timer that force-writes
+     `draft: true` plus a brand-new `_updatedAt` onto whatever was just
+     opened, even an already-saved FINAL closing, and immediately push
+     that corruption to the cloud. Locking + disabling readiness first
+     means the record's *actual* saved state gates that first calc(),
+     so simply opening/reopening a sheet can never demote it. Only
+     genuine input after this point (once _draftReady flips back on)
+     can ever schedule an autosave. */
   _draftReady = false;
-  setTimeout(() => { _draftReady = true; }, 600);
-
-  /* apply view-only / editable state based on the saved record */
   setLockedState(!!db.sheets[session.activeKey]?.locked);
+  calc();
+  /* enable real-time auto-draft only after the ledger has fully settled */
+  setTimeout(() => { _draftReady = true; }, 600);
 
   /* sticky jump-nav + progress bar + focus mode reset for this sheet */
   if (typeof initLedgerNav === 'function') initLedgerNav();
