@@ -16,9 +16,10 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
-import { db } from './state.js';
+import { db, session } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
 import { showAlert, showConfirm } from './notify.js';
+import { refreshOpenLedgerFromSync } from './actions.js';
 
 /* ── CONFIGURATION ─────────────────────────────────────── */
 const SUPA_URL_KEY   = 'supabase_url';
@@ -463,18 +464,24 @@ export async function syncPushToCloud(manual = false) {
 function _mergeByKey(localMap, cloudMap, tsOf) {
   const merged = {};
   let localWonSomething = false;
+  /* Keys where the CLOUD side won and actually differed from what
+     was already stored locally — i.e. a real incoming change, not
+     just this device re-confirming its own data. Callers use this to
+     know which records need their on-screen view refreshed right now
+     rather than silently updated in memory. */
+  const cloudWonKeys = [];
   const allKeys = new Set([...Object.keys(localMap), ...Object.keys(cloudMap)]);
   allKeys.forEach(key => {
     const l = localMap[key], c = cloudMap[key];
     if(l && !c)      { merged[key] = l; localWonSomething = true; }
-    else if(!l && c) { merged[key] = c; }
+    else if(!l && c) { merged[key] = c; cloudWonKeys.push(key); }
     else {
       const lt = tsOf(l) || 0, ct = tsOf(c) || 0;
       if(lt > ct) { merged[key] = l; localWonSomething = true; }
-      else        { merged[key] = c; }
+      else        { merged[key] = c; if(ct > lt) cloudWonKeys.push(key); }
     }
   });
-  return { merged, localWonSomething };
+  return { merged, localWonSomething, cloudWonKeys };
 }
 
 export async function syncPullFromCloud(_manual = false) {
@@ -555,6 +562,21 @@ export async function syncPullFromCloud(_manual = false) {
     const ts = new Date().toLocaleTimeString('en-PK');
     const recordCount = Object.keys(cloudDb.sheets).length;
     supaSetStatus(`Synced at ${ts} (${recordCount} records)`, 'ok');
+
+    /* If the shift the user has open right now was just overwritten by
+       a NEWER cloud version that's actually saved (draft: false —
+       either a plain Shift Closing or a Final Closing), reflect that
+       immediately on screen instead of leaving the open ledger showing
+       stale data until the person navigates away and back. A draft
+       arriving from elsewhere is left alone here — only a genuine save
+       forces the open view to update, so an in-progress edit is never
+       silently interrupted by someone else's unfinished draft. */
+    if(session.activeKey && sheetMerge.cloudWonKeys.includes(session.activeKey)) {
+      const nowSaved = cloudDb.sheets[session.activeKey];
+      if(nowSaved && nowSaved.draft === false) {
+        refreshOpenLedgerFromSync(session.activeKey);
+      }
+    }
 
     /* If local had anything the merge kept (an unpushed edit, a
        record cloud didn't have yet, a pending tombstone, unpushed

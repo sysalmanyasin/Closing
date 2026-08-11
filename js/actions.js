@@ -1151,6 +1151,42 @@ export function saveSheet(silent=false) {
   }
 }
 
+/* Called by sync.js right after a pull merges in a NEWER, already-
+   SAVED (draft: false) version of whichever sheet this device
+   currently has open — i.e. someone else finished/closed it (or
+   converted it Shift → Final) while it was open here too. Reloads
+   the on-screen ledger straight from the freshly-merged db.sheets
+   record so the open device flips to "saved"/locked immediately,
+   instead of silently updating in memory and leaving the visible
+   page stale until the person navigates away and back.
+   Deliberately reuses initLedger() rather than hand-patching the DOM
+   — it's the single source of truth for "load this key's data onto
+   the ledger page correctly locked", including the auto-draft gating
+   fix that keeps this refresh itself from being mistaken for a live
+   edit. Any not-yet-saved typing in progress is superseded on
+   purpose: the record it was based on no longer exists — a newer,
+   already-saved version just won. */
+export function refreshOpenLedgerFromSync(key) {
+  if(session.activeKey !== key) return;
+  const ledgerPage = document.getElementById('page-ledger');
+  if(!ledgerPage || ledgerPage.classList.contains('hidden')) return;
+  const rec = db.sheets[key];
+  if(!rec) return;
+  const mode = rec.profileMode || session.activeMode || 'shift';
+  const parts = key.split('_');
+  session.activeMode = mode;
+  session.overrides  = rec.overrides || {};
+  initLedger(parts[0], parts.slice(1).join('_'), mode);
+  const status = document.getElementById('pdf-status');
+  if(status) {
+    status.style.display = 'block';
+    status.textContent = mode === 'final'
+      ? '🔴 Updated — Final Closing saved on another device'
+      : '✅ Updated — saved on another device';
+    setTimeout(() => { status.style.display = 'none'; }, 2500);
+  }
+}
+
 export function hydrate(s) {
   const sv = (id, v) => { const el=g(id); if(el && v!==undefined) el.value=v; };
 
