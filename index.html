@@ -447,7 +447,7 @@
                 </div>
                 <span id="drive-account-name" style="font-size:0.72rem;color:var(--on-dark-secondary);font-family:'JetBrains Mono',monospace;"></span>
               </div>
-              <div class="sync-status-line status-ok" id="drive-status-line">
+              <div class="sync-status-line status-ok">
                 <span id="drive-status-icon">✓</span>
                 <span id="drive-status-text">Checking…</span>
               </div>
@@ -595,7 +595,7 @@
       </div>
     </div>
 
-    <div id="responsible-staff-row" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--teal-pale);border-bottom:1px solid var(--border);flex-wrap:wrap;">
       <label for="sel-responsible-staff" style="font-size:0.78rem;font-weight:600;color:var(--teal-dark);white-space:nowrap;">👤 Responsible Closing Person:</label>
       <select id="sel-responsible-staff" onchange="onResponsibleStaffChange()" style="font-size:0.82rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);flex:1;min-width:140px;max-width:260px;">
         <option value="">— Select staff —</option>
@@ -653,10 +653,10 @@
           <div class="row"><label for="in-alfalah">Bank Alfalah Card Machine:</label><input type="number" id="in-alfalah" oninput="calc()"></div>
           <div class="row"><label for="in-keenu">Keenu Card Machine:</label><input type="number" id="in-keenu" oninput="calc()"></div>
           <div style="background:var(--surface);padding:6px 16px 2px;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Returns / Refunds</div>
-          <div class="row highlight-red" id="pos-ret-row-1"><label for="pos-ret-1">Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-2"><label for="pos-ret-2">Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-3"><label for="pos-ret-3">Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
-          <div class="row highlight-red" id="pos-ret-row-sys"><label for="pos-ret-sys">System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
+          <div class="row highlight-red"><label for="pos-ret-1">Return 1:</label><input type="number" id="pos-ret-1" value="0" oninput="calc()"></div>
+          <div class="row highlight-red"><label for="pos-ret-2">Return 2:</label><input type="number" id="pos-ret-2" value="0" oninput="calc()"></div>
+          <div class="row highlight-red"><label for="pos-ret-3">Return 3:</label><input type="number" id="pos-ret-3" value="0" oninput="calc()"></div>
+          <div class="row highlight-red"><label for="pos-ret-sys">System Return:</label><input type="number" id="pos-ret-sys" value="0" oninput="calc()"></div>
           <div class="row computed"><label for="out-total-returns">Total Returns:</label><input type="number" id="out-total-returns" readonly value="0"></div>
         </div>
       </div>
@@ -822,7 +822,7 @@
           <div class="row highlight-green"><label for="out-net-cash">Net Committed Cash (this shift):</label><input type="number" id="out-net-cash" readonly value="0"></div>
           <div class="row"><label for="in-extra-cash">Extra Cash Added to Pharmacy (− from Net Cash, applied at next Final):</label><input type="number" id="in-extra-cash" value="0" oninput="calc()"></div>
         </div>
-        <div class="summary-banner" id="audit-summary-banner">
+        <div class="summary-banner">
           <div class="summary-banner-title">📋 Reconciliation</div>
           <div class="summary-banner-subtitle" id="audit-ban-subtitle">This shift only</div>
           <div class="banner-row"><span>Target Net Sales</span><span class="val" id="audit-ban-target">Rs. 0</span></div>
@@ -877,7 +877,7 @@
         <!-- AGGREGATED FINAL CLOSING — single authoritative variance strip,
              styled like the Audit tab's dark summary banner, so this is the
              one number users read as "the answer" for the whole period. -->
-        <div class="summary-banner summary-banner-amber" id="final-summary-banner">
+        <div class="summary-banner summary-banner-amber">
           <div class="summary-banner-title">🧮 Aggregated Final Closing</div>
           <div class="summary-banner-subtitle">Always the full period since the last Final Closing — same numbers in Shift or Final mode</div>
           <div class="banner-row"><span>Target Net Sales</span><span class="val" id="final-ban-target">Rs. 0</span></div>
@@ -926,9 +926,9 @@
           <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;" id="cl-toolbar-sub">Snapshot history of every shift's credit</div>
         </div>
         <div class="cl-toolbar-btns">
-          <button class="btn btn-ghost btn-sm" id="cl-btn-expand-all" onclick="clToggleAll(true)">Expand All</button>
+          <button class="btn btn-ghost btn-sm" onclick="clToggleAll(true)">Expand All</button>
           <button class="btn btn-ghost btn-sm" onclick="clToggleAll(false)">Collapse All</button>
-          <button class="btn btn-teal btn-sm" id="cl-btn-export" onclick="clToggleExport()">⬇ Export</button>
+          <button class="btn btn-teal btn-sm" onclick="clToggleExport()">⬇ Export</button>
         </div>
       </div>
       <div class="cl-mode-tabs" id="cl-mode-tabs">
@@ -989,7 +989,7 @@
       </div>
 
       <!-- ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── -->
-      <div class="card" id="card-final-summary">
+      <div class="card">
         <div class="fcs-empty hidden" id="fcs-empty">📭 No closings saved yet.</div>
         <div id="fcs-body">
           <div class="fcs-head">
@@ -1020,7 +1020,7 @@
       </div>
 
       <!-- ── RANGE PICKER ── -->
-      <div class="card" id="cb-range-card">
+      <div class="card">
         <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
         <div style="padding:14px 16px;">
           <div class="cb-range-row">
@@ -1104,7 +1104,7 @@
           <div style="font-size:0.7rem;color:var(--muted);margin-top:1px;">Who created, saved, edited, or deleted each closing — and what changed</div>
         </div>
       </div>
-      <div id="al-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
         <select id="al-filter-actor" onchange="renderActivityLog()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--slate);min-width:110px;">
           <option value="">Everyone</option>
         </select>
@@ -1141,12 +1141,12 @@
         </div>
       </div>
 
-      <div class="cl-mode-tabs" id="sl-mode-tabs">
+      <div class="cl-mode-tabs">
         <button class="cl-mode-tab active" id="sl-mode-tab-date" onclick="slSwitchGrouping('date')">📅 By Date</button>
         <button class="cl-mode-tab" id="sl-mode-tab-staff" onclick="slSwitchGrouping('staff')">👤 By Staff</button>
       </div>
 
-      <div id="sl-filter-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">From</label>
         <input type="date" id="sl-filter-from" onchange="renderStaffLedger()" style="font-size:0.78rem;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
         <label style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">To</label>
@@ -1159,7 +1159,7 @@
 
       <div id="sl-count-badge" style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;"></div>
 
-      <div id="sl-total-card" class="card" style="padding:12px 14px;margin-bottom:10px;border-radius:var(--radius-md);background:var(--surface);">
+      <div class="card" style="padding:12px 14px;margin-bottom:10px;border-radius:var(--radius-md);background:var(--surface);">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:0.78rem;color:var(--muted);font-weight:600;">Total Variance (since last Final Closing)</div>
@@ -1263,22 +1263,22 @@
     </div>
     <div id="summary-incomplete-note" class="summary-incomplete-note hidden">
       <span>⚠️</span>
-      <span id="summary-incomplete-text">Some sections haven't been opened yet. You can still save, but double-check them first.</span>
+      <span>Some sections haven't been opened yet. You can still save, but double-check them first.</span>
     </div>
     <div id="summary-responsible-note" class="summary-incomplete-note hidden">
       <span>⚠️</span>
       <span>Please select the Responsible Closing Person before saving.</span>
     </div>
     <div class="summary-body">
-      <div class="summary-stat" id="summary-stat-responsible">
+      <div class="summary-stat">
         <div class="summary-stat-label">Responsible Closing Person</div>
         <div class="summary-stat-value" id="summary-value-responsible" style="font-size:1rem;">—</div>
       </div>
-      <div class="summary-stat" id="summary-stat-target">
+      <div class="summary-stat">
         <div class="summary-stat-label" id="summary-label-target">Target Net Sales</div>
         <div class="summary-stat-value" id="summary-value-target">Rs. 0</div>
       </div>
-      <div class="summary-stat" id="summary-stat-cash">
+      <div class="summary-stat">
         <div class="summary-stat-label" id="summary-label-cash">Net Cash Available</div>
         <div class="summary-stat-value" id="summary-value-cash">Rs. 0</div>
       </div>
@@ -1291,7 +1291,7 @@
       </div>
     </div>
     <div class="summary-footer">
-      <button class="btn btn-green btn-full" onclick="confirmSummaryAndSave()" id="summary-confirm-btn">✅ Confirm &amp; Save Shift</button>
+      <button class="btn btn-green btn-full" onclick="confirmSummaryAndSave()">✅ Confirm &amp; Save Shift</button>
       <button class="summary-back-btn" onclick="closeSummaryModal()">← Go back and recheck</button>
     </div>
   </div>

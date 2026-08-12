@@ -168,7 +168,7 @@
     position: relative;
     z-index: 1;
   }
-  .row label, .row .row-lbl {
+  .row label {
     font-weight: 500; color: var(--slate); flex: 1; padding-right: 10px;
     font-size: 0.85rem;
   }
@@ -199,7 +199,7 @@
   .row.computed { background: var(--surface); }
   .row.computed input[readonly] { background: var(--paper-dim, #EBEEEA) !important; font-weight: 700; color: var(--navy); }
   .row.highlight-blue { background: var(--blue-pale); }
-  .row.highlight-blue label, .row.highlight-blue .row-lbl { color: var(--blue); font-weight: 700; }
+  .row.highlight-blue label { color: var(--blue); font-weight: 700; }
   .row.highlight-blue input { background: var(--blue-pale) !important; color: var(--blue); border-color: var(--blue); }
   .row.highlight-green { background: var(--green-pale); }
   .row.highlight-green label { color: var(--green); font-weight: 700; }
@@ -355,8 +355,6 @@
   .btn:active { transform: translateY(1px); }
   .btn-teal  { background: var(--teal); color: var(--white); }
   .btn-teal:hover { background: var(--teal-dark); box-shadow: var(--shadow-md); }
-  .btn-navy  { background: var(--navy); color: var(--white); }
-  .btn-navy:hover { background: var(--navy-light); box-shadow: var(--shadow-md); }
   .btn-ghost { background: var(--surface); color: var(--slate); border: 1px solid var(--border); }
   .btn-ghost:hover { background: var(--paper-dim); } /* was identical to its base color — no tap feedback */
   .btn-green { background: var(--green); color: var(--white); }
@@ -365,8 +363,6 @@
   .btn-red:hover { background: var(--red-dark); }
   .btn-full  { width: 100%; }
   .btn-sm    { padding: 5px 12px; font-size: 0.78rem; border-radius: var(--radius-sm); }
-  .btn-nav   { background: var(--border); color: var(--slate); padding: 7px 14px; border-radius: var(--radius-sm); font-size:0.8rem; }
-  .btn-nav:hover { background: var(--paper-dim); }
 
   /* ── BUTTON ROWS ── */
   .btn-row { display: flex; gap: 10px; margin-bottom: 16px; }
@@ -383,8 +379,6 @@
   .form-field input:focus, .form-field select:focus {
     outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(13,148,136,.15); background: var(--white);
   }
-  .form-row { display: flex; gap: 12px; }
-  .form-row .form-field { flex: 1; margin-bottom: 0; }
 
   /* ── CALENDAR ── */
   .cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
@@ -445,15 +439,6 @@
     background: var(--teal); color: var(--white); border-color: var(--teal);
   }
 
-  /* ── LEDGER HEADER ── */
-  .ledger-header {
-    padding: 16px 20px 14px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-  }
-  .ledger-header h2 { font-size: 1.1rem; font-weight: 800; color: var(--navy); }
-  .ledger-header p  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
-
   /* ── SUMMARY BANNER ── */
   .summary-banner {
     background: linear-gradient(135deg, var(--navy) 0%, var(--teal-dark) 100%);
@@ -508,18 +493,6 @@
     border-top: 1px dashed var(--border); margin-top: 2px;
   }
 
-  /* ── SUMMARY CARDS ── */
-  .shift-summary-card { padding: 16px; }
-  .shift-summary-card .card-title {
-    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
-    padding-bottom: 10px; border-bottom: 1px solid var(--border);
-  }
-  .shift-summary-card .card-title h4 { font-size: 0.9rem; font-weight: 700; color: var(--teal-dark); }
-  .mini-stats { display: flex; gap: 8px; }
-  .mini-stat { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 8px; text-align: center; }
-  .mini-stat h5 { font-size: 0.7rem; color: var(--muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
-  .mini-stat p  { font-size: 0.9rem; font-weight: 700; color: var(--navy); font-family: 'JetBrains Mono', monospace; }
-
   /* ── SETTINGS LIST ── */
   .settings-item { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border); }
   .settings-item input, .settings-item select { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
@@ -557,13 +530,9 @@
   .misc-row select { width: 110px; text-align: left; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 500; }
   .misc-row input[type="number"] { width: 90px; }
 
-  /* ── SUMMARY TOTAL BOX ── */
-  .total-grid { padding: 4px 0; }
-
   /* ── UTILITY ── */
   .text-muted { color: var(--muted); }
   .text-sm    { font-size: 0.78rem; }
-  .mt-8       { margin-top: 8px; }
   .flex-between { display: flex; justify-content: space-between; align-items: center; }
 
   /* ═══════════════════════════════════════
@@ -890,7 +859,7 @@
     #print-sheet { display: block !important; position: static !important; z-index: auto !important; width: 100% !important; }
     #print-sheet .ps-page { page-break-after: always; }
     .view-pane:not(#print-sheet) { display: none !important; }
-    .app-bar, .pager, .ledger-header, .btn-row, #pdf-status { display: none !important; }
+    .app-bar, .pager, .btn-row, #pdf-status { display: none !important; }
   }
 
   /* ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── */
@@ -926,17 +895,11 @@
     border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden;
     box-shadow: var(--shadow-md);
   }
-  .sync-card-head {
-    padding: 14px 18px; display: flex; align-items: center; gap: 10px;
-    border-bottom: 1px solid rgba(255,255,255,.08);
-  }
   .sync-card-icon {
     width: 36px; height: 36px; border-radius: var(--radius-md);
     background: rgba(13,148,136,.25); display: flex; align-items: center; justify-content: center;
     font-size: 1.1rem; flex-shrink: 0;
   }
-  .sync-card-head h3 { font-size: 0.85rem; font-weight: 700; color: var(--white); letter-spacing: .3px; }
-  .sync-card-head p  { font-size: 0.7rem; color: var(--on-dark-secondary); margin-top: 1px; }
   .sync-card-body { padding: 16px 18px; }
 
   /* State A — unlinked */
@@ -1191,8 +1154,6 @@
     letter-spacing: .5px; color: var(--muted); padding: 6px 0 2px;
   }
 
-  /* Filter active state */
-  .cl-filter-active .cl-date-label { color: var(--teal-dark); }
 
   /* Show more button */
   .cl-show-more {
@@ -1735,9 +1696,6 @@
   .sidebar-link:hover { background: rgba(255,255,255,.07); color: var(--white); }
   .sidebar-link.active { background: var(--teal); color: var(--white); box-shadow: var(--shadow-sm); }
   .sidebar-link.active:hover { background: var(--teal); }
-  .sidebar-link-context { cursor: default; opacity: .55; }
-  .sidebar-link-context:hover { background: none; color: var(--on-dark-secondary); }
-  .sidebar-link-context.active { opacity: 1; background: rgba(13,148,136,.25); color: var(--status-ok); box-shadow: none; }
   .sidebar-divider { height: 1px; background: rgba(255,255,255,.1); margin: 8px 6px; }
 
   /* ── DASHBOARD: cloud sync full-width, calendar + saved records
