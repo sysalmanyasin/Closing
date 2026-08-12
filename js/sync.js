@@ -461,7 +461,7 @@ export async function syncPushToCloud(manual = false) {
    existing single-timestamp rule (it's one object, not a keyed
    collection). Activity log is append-only, so it's a straight
    union instead of a pick-one-side comparison. */
-function _mergeByKey(localMap, cloudMap, tsOf) {
+export function _mergeByKey(localMap, cloudMap, tsOf, isDraft) {
   const merged = {};
   let localWonSomething = false;
   /* Keys where the CLOUD side won and actually differed from what
@@ -476,6 +476,27 @@ function _mergeByKey(localMap, cloudMap, tsOf) {
     if(l && !c)      { merged[key] = l; localWonSomething = true; }
     else if(!l && c) { merged[key] = c; cloudWonKeys.push(key); }
     else {
+      /* A finalized record (draft: false — an actual Shift/Final
+         Closing save) must ALWAYS beat a draft, regardless of which
+         one has the later raw timestamp. Without this, a device that
+         still has the sheet open keeps autosaving a draft every 3s
+         (actions.js scheduleAutoSave), and that draft's _updatedAt
+         can easily land AFTER another device's genuine save landed —
+         timestamp comparison alone would then let the draft win the
+         merge and get pushed straight back to the cloud, silently
+         reverting someone else's just-finished closing back to a
+         draft. isDraft is only passed for sheets; credit_ledger rows
+         are never drafts (see savedAt comment above), so for that
+         merge lIsDraft/cIsDraft are always false/false and this
+         branch falls straight through to the normal timestamp rule
+         below — no behavior change there. */
+      const lIsDraft = isDraft ? !!isDraft(l) : false;
+      const cIsDraft = isDraft ? !!isDraft(c) : false;
+      if(lIsDraft !== cIsDraft) {
+        if(!lIsDraft) { merged[key] = l; localWonSomething = true; }
+        else          { merged[key] = c; cloudWonKeys.push(key); }
+        return;
+      }
       const lt = tsOf(l) || 0, ct = tsOf(c) || 0;
       if(lt > ct) { merged[key] = l; localWonSomething = true; }
       else        { merged[key] = c; if(ct > lt) cloudWonKeys.push(key); }
@@ -521,7 +542,7 @@ export async function syncPullFromCloud(_manual = false) {
     const localCL         = Object.fromEntries((db.creditLedger || []).map(r => [r.key, r]));
     tombstones.forEach((_v, key) => { delete localSheets[key]; delete localCL[key]; });
 
-    const sheetMerge = _mergeByKey(localSheets, cloudSheetsRaw, r => r._updatedAt || r.savedAt || 0);
+    const sheetMerge = _mergeByKey(localSheets, cloudSheetsRaw, r => r._updatedAt || r.savedAt || 0, r => !!r.draft);
     const clMerge     = _mergeByKey(localCL, cloudCLRaw, r => r.savedAt || 0);
 
     /* Activity log: append-only, so union by identity (ts+actor+key+action)
