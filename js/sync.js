@@ -15,7 +15,7 @@
    within ~1s instead of only on tab-focus/reconnect.
 ═══════════════════════════════════════════════════════════════ */
 
-import { repoGetLocal, repoPersist, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
+import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
 import { db, session } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
 import { showAlert, showConfirm } from './notify.js';
@@ -346,47 +346,12 @@ export async function syncPushToCloud(manual = false) {
   supaSetStatus('Syncing to cloud…', 'busy', true);
 
   try {
-    /* ── Anti-downgrade guard ─────────────────────────────────────
-       syncPullFromCloud()'s _mergeByKey() already guarantees "a
-       finalized save always beats a draft" on the PULL side. This
-       wholesale upsert had no equivalent guarantee on the PUSH side:
-       if this device still holds an idle draft for a key that
-       ANOTHER device has since actually saved & locked (draft:false)
-       — e.g. it had the shift open earlier and its 3s autosave timer
-       (scheduleAutoSave) fires and calls persist() → scheduleSyncPush(0)
-       — this upsert would silently overwrite that finished closing
-       back into a draft with no error, exactly like the case above
-       for pull. Before pushing, check the cloud's current state for
-       any key this device only holds as a draft; if the cloud
-       already has a genuine save there, drop it from the outgoing
-       push and adopt the cloud's saved version locally instead, so
-       this device's own view also converges on the truth instead of
-       repeatedly trying (and failing) to push its stale draft. */
-    const localSheetsObj = db.sheets || {};
-    const localDraftKeys = Object.keys(localSheetsObj).filter(k => !!localSheetsObj[k].draft);
-    const protectedKeys  = [];
-    if(localDraftKeys.length) {
-      try {
-        const { data: existingSaved } = await supaState.client
-          .from('sheets').select('key, data').in('key', localDraftKeys);
-        (existingSaved || []).forEach(row => {
-          if(row.data && row.data.draft === false) {
-            db.sheets[row.key] = row.data;
-            protectedKeys.push(row.key);
-          }
-        });
-        if(protectedKeys.length) repoPersist(); // best-effort — adopt the saved rows locally
-      } catch(e) { /* best-effort — if this check itself fails, fall through and push as before rather than blocking sync entirely */ }
-    }
-
-    const sheetRows = Object.entries(db.sheets || {})
-      .filter(([key]) => !protectedKeys.includes(key))
-      .map(([key, rec]) => ({
-        key,
-        date: key.split('_')[0],
-        shift: key.split('_').slice(1).join('_'),
-        draft: !!rec.draft, data: rec, updated_at: new Date().toISOString()
-      }));
+    const sheetRows = Object.entries(db.sheets || {}).map(([key, rec]) => ({
+      key,
+      date: key.split('_')[0],
+      shift: key.split('_').slice(1).join('_'),
+      draft: !!rec.draft, data: rec, updated_at: new Date().toISOString()
+    }));
     if(sheetRows.length) {
       const { error } = await supaState.client.from('sheets').upsert(sheetRows, { onConflict: 'key' });
       if(error) throw error;
