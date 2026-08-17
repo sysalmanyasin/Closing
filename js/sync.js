@@ -357,11 +357,21 @@ export async function syncPushToCloud(manual = false) {
        — this upsert would silently overwrite that finished closing
        back into a draft with no error, exactly like the case above
        for pull. Before pushing, check the cloud's current state for
-       any key this device only holds as a draft; if the cloud
-       already has a genuine save there, drop it from the outgoing
-       push and adopt the cloud's saved version locally instead, so
-       this device's own view also converges on the truth instead of
-       repeatedly trying (and failing) to push its stale draft. */
+       any key this device only holds as a draft.
+
+       IMPORTANT: a flag-only check ("cloud says draft:false, mine says
+       draft:true → protect cloud") is not enough — it can't tell a
+       genuinely stale foreign draft apart from THIS device's own
+       legitimate edit-in-progress after someone reopens an
+       already-saved sheet via edit-open (confirmEditModal), which also
+       autosaves as draft:true while WIP. That flag-only version wrongly
+       reverted live edits back to the old final value every autosave
+       cycle. Compare _updatedAt instead: only protect the cloud's save
+       (and adopt it locally) when this device's draft PREDATES it —
+       i.e. this device hasn't actually seen that save yet. If this
+       device's draft is newer, it's a real edit building on top of
+       (or unaware of, but superseding) the save, so let it push
+       through normally — that's exactly what saving again should do. */
     const localSheetsObj = db.sheets || {};
     const localDraftKeys = Object.keys(localSheetsObj).filter(k => !!localSheetsObj[k].draft);
     const protectedKeys  = [];
@@ -370,10 +380,13 @@ export async function syncPushToCloud(manual = false) {
         const { data: existingSaved } = await supaState.client
           .from('sheets').select('key, data').in('key', localDraftKeys);
         (existingSaved || []).forEach(row => {
-          if(row.data && row.data.draft === false) {
-            db.sheets[row.key] = row.data;
-            protectedKeys.push(row.key);
-          }
+          const cloudRec = row.data;
+          if(!cloudRec || cloudRec.draft !== false) return; // cloud isn't a genuine save — nothing to protect
+          const cloudTs = cloudRec._updatedAt || 0;
+          const localTs = (localSheetsObj[row.key] && localSheetsObj[row.key]._updatedAt) || 0;
+          if(localTs > cloudTs) return; // this device's draft is newer — a real edit-in-progress, let it through
+          db.sheets[row.key] = cloudRec;
+          protectedKeys.push(row.key);
         });
         if(protectedKeys.length) repoPersist(); // best-effort — adopt the saved rows locally
       } catch(e) { /* best-effort — if this check itself fails, fall through and push as before rather than blocking sync entirely */ }
