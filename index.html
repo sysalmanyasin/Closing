@@ -1333,8 +1333,29 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('[SW] Registered, scope:', reg.scope))
+        .then(reg => {
+          console.log('[SW] Registered, scope:', reg.scope);
+          // Long-lived sessions (a device left open for hours mid-shift)
+          // would otherwise never notice a new version was deployed —
+          // check periodically, not just on next full page load.
+          setInterval(() => reg.update().catch(() => {}), 15 * 60 * 1000);
+        })
         .catch(err => console.warn('[SW] Registration failed:', err));
+
+      // Without this, sw.js's skipWaiting()/clients.claim() activate a
+      // new service worker in the background, but an already-open tab
+      // keeps running whatever JS it already loaded into memory — the
+      // exact gap that let a pre-fix syncPushToCloud() keep running on
+      // a device that had the app open across a deploy. Reload once,
+      // the first time a new SW actually takes control, so every open
+      // tab converges on the same code within the update-check window
+      // above instead of indefinitely running stale logic.
+      let _reloadedForNewSW = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_reloadedForNewSW) return;
+        _reloadedForNewSW = true;
+        location.reload();
+      });
     });
   }
 </script>
