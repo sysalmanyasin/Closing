@@ -29,6 +29,9 @@ class MainActivity : AppCompatActivity() {
             InventoryDeadStockWidgetProvider.updateAllWidgets(applicationContext)
             InventoryNeverStockWidgetProvider.updateAllWidgets(applicationContext)
             LastShiftsWidgetProvider.updateAllWidgets(applicationContext)
+            StrAwaitedWidgetProvider.updateAllWidgets(applicationContext)
+            StrDispatchedWidgetProvider.updateAllWidgets(applicationContext)
+            StrInboundWidgetProvider.updateAllWidgets(applicationContext)
             Toast.makeText(this, "Refreshing widgets…", Toast.LENGTH_SHORT).show()
         }
 

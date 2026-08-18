@@ -40,6 +40,22 @@ project:
    manually-typed Sale Data ledger, this one is what Candela itself
    recorded automatically — the two can legitimately disagree until
    the day's manual entry is filled in.
+9. **Awaited STR — Dispatch from Bahria Town** — every STR with
+   Bahria Town as the dispatch branch that hasn't been dispatched,
+   closed, or received yet. Up to 6 stacked cards (STR Number, Date,
+   Comment), oldest/most-overdue first.
+10. **Dispatched STR — from Bahria Town** — the same Bahria-Town-as-
+    dispatch-branch STRs, but already dispatched and still not closed
+    or received (i.e. currently in transit out). Same stacked-card
+    layout as #9.
+11. **Dispatched STR — Inbound to Bahria Town** — every STR dispatched
+    *from* another branch (Warehouse, Warehouse 2, or any other
+    source — `direction == "in"`, Bahria Town is the receive branch)
+    that's been dispatched but not yet closed or received at Bahria
+    Town. Unbounded number of source branches, so this one renders as
+    a scrolling `ListView` via `StrInboundWidgetService`/
+    `StrInboundCache.kt` instead of stacked cards. Each row shows STR
+    Number, source branch, Date, and Comment.
 
 ## How it works
 
@@ -76,6 +92,18 @@ project:
   `AppWidgetProvider`s that render their result into the widget via
   `RemoteViews`. Each auto-refreshes every 30 minutes (the
   Android-enforced minimum) and refreshes on tap.
+- `StrRepository.kt` reads `str_headers` directly with the same anon
+  key the inventory-side widgets use (no auth session needed — RLS on
+  this table resolves for the anon role only), and mirrors the web
+  app's `js/str-bridge.js`/`js/str-shared.js` stage logic
+  (`strStage()`/`isDispatchedFromBT()`/`isReceivedAtBT()`) in Kotlin.
+  `StrAwaitedWidgetProvider.kt` and `StrDispatchedWidgetProvider.kt`
+  render up to 6 stacked cards each (same bounded pattern as the
+  widgets above); `StrInboundWidgetProvider.kt` +
+  `StrInboundWidgetService.kt` + `StrInboundCache.kt` back a scrolling
+  `ListView` instead, since the number of branches shipping into
+  Bahria Town at once isn't bounded the way a single branch's own
+  outgoing STRs are.
 - `MainActivity.kt` — a placeholder launcher screen with a manual
   "refresh all widgets" button; not required for the widgets to work,
   just gives the app something to open from the launcher.

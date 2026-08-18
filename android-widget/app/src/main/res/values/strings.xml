@@ -108,4 +108,18 @@
     <string name="ml_aging_widget_title">🧮 MISC / ONGOING — LATEST + AGING</string>
     <string name="ml_aging_widget_title_label">Misc/Ongoing — Latest + Aging</string>
     <string name="ml_aging_widget_subtitle">Loading…</string>
+
+    <string name="str_awaited_widget_title">📦 AWAITED STR — DISPATCH FROM BAHRIA TOWN</string>
+    <string name="str_awaited_widget_title_label">Awaited STR — Dispatch from Bahria Town</string>
+    <string name="str_awaited_widget_loading">Loading…</string>
+    <string name="str_awaited_widget_subtitle">Not dispatched · not closed · not received yet</string>
+
+    <string name="str_dispatched_widget_title">📦 DISPATCHED STR — FROM BAHRIA TOWN</string>
+    <string name="str_dispatched_widget_title_label">Dispatched STR — from Bahria Town</string>
+    <string name="str_dispatched_widget_loading">Loading…</string>
+    <string name="str_dispatched_widget_subtitle">Dispatched · not closed · not received yet</string>
+
+    <string name="str_inbound_widget_title">📦 DISPATCHED STR — INBOUND TO BAHRIA TOWN</string>
+    <string name="str_inbound_widget_title_label">Dispatched STR — Inbound to Bahria Town</string>
+    <string name="str_inbound_widget_subtitle">Warehouse / Warehouse 2 / other branches · dispatched, not closed/received</string>
 </resources>

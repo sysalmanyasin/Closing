@@ -297,6 +297,50 @@
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
 
+        <receiver
+            android:name=".StrAwaitedWidgetProvider"
+            android:label="@string/str_awaited_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.STRAWAITED_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/str_awaited_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".StrDispatchedWidgetProvider"
+            android:label="@string/str_dispatched_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.STRDISPATCHED_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/str_dispatched_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".StrInboundWidgetProvider"
+            android:label="@string/str_inbound_widget_title_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.duapharma.closingwidget.STRINBOUND_ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/str_inbound_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".StrInboundWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
     </application>
 
 </manifest>
