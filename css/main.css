@@ -500,6 +500,20 @@
   .settings-item select { flex: 1.2; min-width: 90px; }
   .settings-item input[type="number"] { width: 90px; text-align: right; font-family: 'JetBrains Mono', monospace; }
 
+  /* Default Inventory Items row (name + group + price + delete) is 4
+     items wide and doesn't fit a phone screen at once — it was
+     overflowing sideways with no visible scrollbar, so the Unit
+     Price field (and delete button) were effectively invisible/
+     unreachable without knowing to scroll right. Wrap onto two lines
+     instead: name gets its own full-width row, group/price/delete
+     share the row below. */
+  @media (max-width: 480px) {
+    .settings-item { flex-wrap: wrap; }
+    .settings-item input:first-child { flex: 1 1 100%; }
+    .settings-item select { flex: 1 1 auto; min-width: 0; }
+    .settings-item input[type="number"] { flex: 1 1 auto; width: auto; min-width: 0; }
+  }
+
   /* ── MANIFEST LIST ── */
   .manifest-item {
     display: flex; align-items: center; justify-content: space-between;

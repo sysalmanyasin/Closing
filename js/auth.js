@@ -26,19 +26,9 @@
    exists.
 ═══════════════════════════════════════════════════════════════ */
 
-import { repoGetLocal } from './repository.js';
 import { session } from './state.js';
 import { showAlert, showConfirm } from './notify.js';
-
-const SUPA_URL_KEY  = 'supabase_url';
-const SUPA_ANON_KEY = 'supabase_anon_key';
-
-/* Same baked-in default as sync.js — see its DEFAULT_SUPA_URL/
-   DEFAULT_SUPA_ANON_KEY comment for why this is safe to commit. Kept
-   duplicated here rather than imported, matching how this file already
-   duplicates the storage keys instead of importing sync.js's getters. */
-const DEFAULT_SUPA_URL      = 'https://wetbugzzchkghpzmowod.supabase.co';
-const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM';
+import { getSupabaseClient } from './supabase-client.js';
 
 /* Presence heartbeat — see supabase/staff_presence.sql. Same 30s
    cadence BT's own bt_sessions device heartbeat already uses
@@ -47,15 +37,16 @@ const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJz
 const PRESENCE_HEARTBEAT_MS = 30_000;
 let _presenceTimer = null;
 
-let _client = null;
-
+/* Shared with sync.js — one client, one session, so signing in here
+   is immediately visible to every settings/sheets push+pull and the
+   realtime channel with no page reload required. This file used to
+   build its own separate createClient() instance; see
+   supabase-client.js's header comment for the bug that caused
+   (settings/inventory edits silently failing to reach the cloud,
+   and "Live sync unavailable — channel error" — both because the
+   client doing the actual syncing never saw a logged-in session). */
 function getClient() {
-  if (_client) return _client;
-  const url = (repoGetLocal(SUPA_URL_KEY) || '').trim() || DEFAULT_SUPA_URL;
-  const key = (repoGetLocal(SUPA_ANON_KEY) || '').trim() || DEFAULT_SUPA_ANON_KEY;
-  if (!url || !key || typeof window.supabase?.createClient !== 'function') return null;
-  _client = window.supabase.createClient(url, key);
-  return _client;
+  return getSupabaseClient();
 }
 
 function normalizePhone(p) {

@@ -20,20 +20,14 @@ import { db, session } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
 import { showAlert, showConfirm } from './notify.js';
 import { refreshOpenLedgerFromSync } from './actions.js';
+import { SUPA_URL_KEY, SUPA_ANON_KEY, getSupaUrl, getSupaAnonKey, getSupabaseClient, resetSupabaseClient } from './supabase-client.js';
 
 /* ── CONFIGURATION ─────────────────────────────────────── */
-const SUPA_URL_KEY   = 'supabase_url';
-const SUPA_ANON_KEY  = 'supabase_anon_key';
+/* URL/anon-key storage + the shared client itself now live in
+   supabase-client.js so auth.js and this file use the exact same
+   Supabase client/session instead of two independent ones — see
+   that file's header comment for why that duplication was a bug. */
 
-/* Baked-in default connection — every device/install auto-connects to
-   this project without needing to open Settings and paste the Project
-   URL + anon key first (that manual step is still there, and still
-   wins if the user ever saves a different key — see supaGetAppKey()/
-   getAnonKey() below). Safe to commit: it's the anon/publishable key,
-   not a service-role key — Row Level Security is the real boundary,
-   same trust model documented in BT's audit-bridge.js. */
-const DEFAULT_SUPA_URL      = 'https://wetbugzzchkghpzmowod.supabase.co';
-const DEFAULT_SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldGJ1Z3p6Y2hrZ2hwem1vd29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDg4OTIsImV4cCI6MjA5Nzg4NDg5Mn0.LXFrvQTOfI3ph4aA8xWYIUo-z1yxdX0znnN5f-KsOPM';
 /* How many of this device's local db.activityLog entries have
    already been INSERTed into the activity_log table. Persisted so a
    page reload doesn't re-push (harmless, just noisy) duplicates. */
@@ -44,12 +38,8 @@ const QUICK_RETRIES  = 3;
 const QUICK_DELAY_MS = 5000;
 const BACKOFF_DELAYS = [30000, 120000, 300000];
 
-export function supaGetAppKey() {
-  return (repoGetLocal(SUPA_URL_KEY) || '').trim() || DEFAULT_SUPA_URL;
-}
-export function getAnonKey() {
-  return (repoGetLocal(SUPA_ANON_KEY) || '').trim() || DEFAULT_SUPA_ANON_KEY;
-}
+export function supaGetAppKey() { return getSupaUrl(); }
+export function getAnonKey()    { return getSupaAnonKey(); }
 
 /* ── STATE ──────────────────────────────────────────────── */
 const supaState = {
@@ -175,6 +165,7 @@ function _teardownClient() {
   }
   supaState.client  = null;
   supaState.channel = null;
+  resetSupabaseClient(); /* force a fresh client (and session) next getSupabaseClient() call */
 }
 
 /* ── CLIENT INIT ──────────────────────────────────────────
@@ -196,9 +187,16 @@ export async function supaInit() {
       supaSetStatus('Supabase library failed to load — check your connection.', 'error');
       return;
     }
-    supaState.client = window.supabase.createClient(url, anonKey, {
+    /* Shared with auth.js — one client, one session. See
+       supabase-client.js header for why this used to be two
+       independent clients and what that broke. */
+    supaState.client = getSupabaseClient({
       realtime: { params: { eventsPerSecond: 5 } }
     });
+    if(!supaState.client) {
+      supaSetStatus('Supabase library failed to load — check your connection.', 'error');
+      return;
+    }
 
     supaShowLinked('Connected');
     supaSetStatus('Checking for updates…', 'busy', true);
