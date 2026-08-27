@@ -49,7 +49,21 @@ const supaState = {
   retryTimer:      null,
   backoffIndex:    0,
   quickRetryCount: 0,
-  pullDebounce:    null
+  pullDebounce:    null,
+  /* True only once a syncPullFromCloud() has completed WITHOUT
+     throwing at least once this session, so we've actually seen what
+     the cloud has for settings (or confirmed there's genuinely
+     nothing there yet). db.settings starts life as a hardcoded
+     default object (state.js) on any fresh/empty local storage —
+     incognito, cleared storage, a brand-new device. persist() stamps
+     db.settings._updatedAt on EVERY save (not just a Settings edit),
+     so if something gets saved before the first pull has confirmed
+     reality, syncPushToCloud() would previously blind-upsert those
+     still-default values over real cloud settings — which is exactly
+     what corrupted the settings row on 2026-08-27. Gating the push
+     on this flag closes that hole without changing any other sync
+     behavior (sheets/ledger/etc. still push immediately as before). */
+  settingsHydrated: false
 };
 
 /* Accessor for Actions (Floor 3) — see scheduleSyncPush() in
@@ -165,6 +179,7 @@ function _teardownClient() {
   }
   supaState.client  = null;
   supaState.channel = null;
+  supaState.settingsHydrated = false; /* require a fresh confirmed pull before trusting local settings again */
   resetSupabaseClient(); /* force a fresh client (and session) next getSupabaseClient() call */
 }
 
@@ -365,11 +380,21 @@ export async function syncPushToCloud(manual = false) {
       if(error) throw error;
     }
 
-    const { error: setErr } = await supaState.client.from('settings').upsert(
-      { id: 1, data: db.settings || {}, updated_at: db.settings?._updatedAt || 0 },
-      { onConflict: 'id' }
-    );
-    if(setErr) throw setErr;
+    /* Only push settings once we've actually confirmed (via a
+       successful pull) what the cloud currently has — see
+       settingsHydrated's definition above for why. Everything else
+       in this function (sheets, credit_ledger, tombstones, activity
+       log) is unaffected and still pushes immediately as before;
+       this guard is deliberately scoped to settings only, since that
+       was the only table a stale local default could silently
+       clobber wholesale. */
+    if(supaState.settingsHydrated) {
+      const { error: setErr } = await supaState.client.from('settings').upsert(
+        { id: 1, data: db.settings || {}, updated_at: db.settings?._updatedAt || 0 },
+        { onConflict: 'id' }
+      );
+      if(setErr) throw setErr;
+    }
 
     /* Tombstones: keys deleted locally. Upserted (never appended blindly,
        so re-pushing after a reload doesn't duplicate rows) to a small
@@ -568,6 +593,11 @@ export async function syncPullFromCloud(_manual = false) {
       keptLocalSettings = true;
     }
     if(!cloudDb.settings) cloudDb.settings = db.settings; /* nothing in cloud yet — keep local */
+
+    /* We've now genuinely seen what the cloud has (or confirmed it's
+       empty) — from here on db.settings can be trusted enough to
+       push. See settingsHydrated's definition for the full story. */
+    supaState.settingsHydrated = true;
 
     repoReplaceDB(cloudDb);
     /* Only entries that actually came back FROM the cloud are "known
