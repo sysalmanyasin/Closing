@@ -1,7 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.7
+   Pharma Plus Closing App — Service Worker  v5.9
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.9 — js/sync.js: settings pushes are now gated on a confirmed
+   cloud pull (supaState.settingsHydrated), so a device that starts
+   with empty/default local settings (fresh install, cleared storage,
+   incognito) can no longer overwrite real cloud settings with those
+   defaults before it's actually loaded them. Fixes the settings row
+   being reset to defaults during the 2026-08-27 DNS migration.
+   Version bump below so cached devices actually pick this up.
 
    v5.7 — js/components.js: openEditModal() no longer skips the PIN
    prompt for staff with edit permission granted; permission now only
@@ -18,7 +26,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.8';
+const CACHE_NAME = 'pharmpos-closing-v5.9';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
