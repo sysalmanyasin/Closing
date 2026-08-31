@@ -1,7 +1,20 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.11
+   Pharma Plus Closing App — Service Worker  v5.12
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.12 — css/main.css: fixed the Closing Book page's desktop
+   (≥861px) 2-column grid layout. It used to apply to #page-closing-book
+   .page-body directly, but once the Register Book / CC History /
+   Returns-Book-Deposit sub-tabs were added, that grid's direct
+   children became #cb-mode-tabs and each *-panel wrapper instead of
+   the individual cards — so the tab bar and whichever report was
+   active got split into their own half-width columns side by side,
+   leaving the other column blank and making the 3rd tab's report
+   look like it wasn't rendering. The tab bar is now a proper
+   full-width header, with the active report's panel full width and
+   centered below it. Version bump below so cached devices actually
+   pick this up.
 
    v5.11 — Added js/rbd-history.js: new "Returns / Book / Deposit"
    sub-report tab on the Closing Book page (third tab alongside
@@ -40,7 +53,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.11';
+const CACHE_NAME = 'pharmpos-closing-v5.12';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only

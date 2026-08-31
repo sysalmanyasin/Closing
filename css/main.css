@@ -1523,6 +1523,18 @@
    labels fit comfortably without excessive wrapping. */
 #cb-mode-tabs.cl-mode-tabs .cl-mode-tab { font-size: 0.72rem; padding: 8px 6px; line-height: 1.25; }
 
+/* Give the Closing Book sub-report tabs a proper "section header"
+   presence — full width (see the desktop .page-body rule above),
+   set apart from the report content below with its own divider,
+   rather than reading as just another inline control. */
+#cb-mode-tabs.cl-mode-tabs {
+  margin-bottom: 16px; padding: 5px;
+  border: 1px solid var(--border);
+}
+#cb-mode-tabs.cl-mode-tabs .cl-mode-tab {
+  padding-top: 10px; padding-bottom: 10px; letter-spacing: .2px;
+}
+
 /* ── RETURNS / BOOK BILL / DEPOSIT (Closing Book sub-report) ──
    12-column report — one row per closing (Night/Morning/Evening/
    Handover), newest first. Wider than a single screen by design
@@ -1913,13 +1925,27 @@
     margin-bottom: 16px;
   }
 
-  /* ── CLOSING BOOK: summary + range picker side by side; reader
-     (once generated) still takes the full width below ── */
+  /* ── CLOSING BOOK: the 3 sub-report tabs act as a proper full-width
+     header; whichever report panel is active renders full width,
+     centered, below that header. (Previously .page-body was a 2-col
+     grid meant for "summary card beside range-picker card" — but once
+     the sub-tabs were added, #cb-mode-tabs and each *-panel wrapper
+     became the grid's direct children instead of the cards themselves,
+     so the tab bar and the active panel were being split into their
+     own half-width columns side by side — silently pushing the 3rd
+     tab's content into a column with nothing rendered next to it and
+     making all three panels look cramped/partially blank.) */
   #page-closing-book .page-body {
+    display: block; max-width: 860px; margin: 0 auto;
+  }
+
+  /* Inside the panel that's actually showing, let card PAIRS sit
+     side by side (this is the "summary + range picker side by side"
+     layout the single-column rule above intentionally gives up at
+     the .page-body level, restored one level down instead). */
+  #page-closing-book #cb-book-panel {
     display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;
   }
-  #page-closing-book .btn-row.back-row,
-  #page-closing-book .cl-toolbar { grid-column: 1 / -1; }
   #page-closing-book #cb-reader:not(.hidden) { grid-column: 1 / -1; }
 }
 
