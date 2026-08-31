@@ -1519,6 +1519,78 @@
   .cch-head-row { font-size: 0.58rem; }
 }
 
+/* Closing Book now has 3 sub-report tabs — tighten so all three
+   labels fit comfortably without excessive wrapping. */
+#cb-mode-tabs.cl-mode-tabs .cl-mode-tab { font-size: 0.72rem; padding: 8px 6px; line-height: 1.25; }
+
+/* ── RETURNS / BOOK BILL / DEPOSIT (Closing Book sub-report) ──
+   12-column report — one row per closing (Night/Morning/Evening/
+   Handover), newest first. Wider than a single screen by design
+   (mirrors the source spreadsheet's column count), so the table
+   scrolls horizontally rather than squeezing 12 columns illegibly;
+   .rbd-row carries its own min-width so that scroll has something
+   real to work with, same idea as .cch-table's vertical scroll. */
+.rbd-table {
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 520px;
+}
+.rbd-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 0.8fr 0.85fr 0.85fr 0.85fr 0.95fr 0.85fr 0.85fr 0.95fr 0.95fr 0.95fr;
+  gap: 6px;
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.76rem;
+  min-width: 980px;
+}
+.rbd-row:last-child { border-bottom: none; }
+
+.rbd-group-row {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--teal-pale); border-bottom: 1px solid var(--border);
+  padding-top: 6px; padding-bottom: 6px;
+}
+.rbd-group-label {
+  text-align: center; font-weight: 700; font-size: 0.66rem; color: var(--teal-dark);
+  text-transform: uppercase; letter-spacing: .3px;
+  border-left: 1px dashed var(--border-strong);
+}
+.rbd-group-blank { grid-column: span 3; }
+.rbd-group-returns { grid-column: span 4; }
+.rbd-group-book    { grid-column: span 2; }
+.rbd-group-deposit { grid-column: span 3; }
+
+.rbd-head-row {
+  position: sticky; top: 29px; z-index: 1;
+  font-weight: 700; font-size: 0.64rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .3px;
+  background: var(--surface); border-bottom: 1.5px solid var(--border-strong);
+}
+
+.rbd-cell.rbd-date    { color: var(--navy); font-weight: 600; }
+.rbd-cell.rbd-closing { color: var(--slate); font-weight: 600; }
+.rbd-cell.rbd-status  { color: var(--muted); font-size: 0.7rem; }
+.rbd-cell.rbd-num {
+  text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.rbd-row-missing { color: var(--muted); font-style: italic; }
+.rbd-row-missing .rbd-missing-note { grid-column: span 10; text-align: right; font-size: 0.72rem; }
+.rbd-row-draft .rbd-date { color: var(--amber-dark); }
+.rbd-draft-tag {
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  background: var(--amber-pale); color: var(--amber-dark); border-radius: 8px; padding: 1px 6px; margin-left: 4px;
+}
+.rbd-total-row {
+  font-weight: 800; background: var(--teal-pale);
+  border-top: 3px double var(--slate); position: sticky; bottom: 0;
+}
+.rbd-total-label { grid-column: span 3; color: var(--navy); }
+.rbd-empty { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 0.85rem; }
+.rbd-empty.hidden { display: none; }
+
 /* ── ACTIVITY LOG ── */
 .al-entry {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);

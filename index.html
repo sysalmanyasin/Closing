@@ -992,6 +992,7 @@
       <div class="cl-mode-tabs" id="cb-mode-tabs">
         <button class="cl-mode-tab active" id="cb-mode-tab-book" onclick="switchClosingBookPanel('book')">📖 Register Book</button>
         <button class="cl-mode-tab" id="cb-mode-tab-cchistory" onclick="switchClosingBookPanel('cchistory')">💳 CC History</button>
+        <button class="cl-mode-tab" id="cb-mode-tab-rbd" onclick="switchClosingBookPanel('rbd')">🧾 Returns / Book / Deposit</button>
       </div>
 
       <!-- ══ SUB-REPORT: REGISTER BOOK (unchanged) ══ -->
@@ -1152,6 +1153,57 @@
 
       </div>
       <!-- /cb-cchistory-panel -->
+
+      <!-- ══ SUB-REPORT: RETURNS / BOOK BILL / DEPOSIT (new) ══
+           Every closing in range, newest date & shift first ══ -->
+      <div id="cb-rbd-panel" class="hidden">
+
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>🧾 Returns / Book Bill / Deposit History</h3></div>
+          <div style="padding:12px 16px;font-size:0.76rem;color:var(--muted);line-height:1.5;">
+            Every closing in range — Night, Morning, Evening, and any Handovers — with that shift's Returns,
+            Book Bill, and Safe Deposit entries. Newest date and shift shown first.
+          </div>
+        </div>
+
+        <!-- ── RANGE PICKER ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
+          <div style="padding:14px 16px;">
+            <div class="cb-range-row">
+              <div class="cb-range-field">
+                <label for="rbd-from-date">From date</label>
+                <input type="date" id="rbd-from-date">
+              </div>
+              <div class="cb-range-field">
+                <label for="rbd-to-date">To date</label>
+                <input type="date" id="rbd-to-date">
+              </div>
+            </div>
+            <div class="cb-shortcut-row">
+              <button class="btn btn-ghost btn-sm" onclick="setRbdShortcut(7)">Last 7 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setRbdShortcut(30)">Last 30 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setRbdShortcut(90)">Last 3 Months</button>
+            </div>
+            <button class="btn btn-green btn-full" id="rbd-generate-btn" style="margin-top:14px;" onclick="generateRbdReport()">🧾 Generate Report</button>
+          </div>
+        </div>
+
+        <!-- ── RESULTS ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Results</h3>
+            <div class="card-head-right">
+              <span id="rbd-summary-badge" style="font-size:0.7rem;color:var(--muted);white-space:nowrap;"></span>
+              <button class="cl-print-btn" id="rbd-export-btn" onclick="exportRbdCsv()" disabled>⬇ Export CSV</button>
+            </div>
+          </div>
+          <div class="rbd-empty" id="rbd-empty">📭 No range generated yet — pick dates above and tap Generate.</div>
+          <div class="rbd-table" id="rbd-table"></div>
+        </div>
+
+      </div>
+      <!-- /cb-rbd-panel -->
 
     </div>
   </div>

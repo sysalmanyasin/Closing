@@ -23,6 +23,7 @@
 import { db } from './state.js';
 import { showAlert } from './notify.js';
 import { _cbLocalDateStr } from './closing-book.js';
+import { initRbdDefaults, generateRbdReport } from './rbd-history.js';
 
 /* This file's own transient state — file-local, never read by
    another floor directly. */
@@ -208,24 +209,33 @@ export function exportCcHistoryCsv() {
   URL.revokeObjectURL(url);
 }
 
-/* ── Tab switcher between the two Closing Book sub-reports ──────
-   "book" = the original flip-through register (unchanged);
-   "cchistory" = this report. Lazily initializes + auto-generates
-   CC History the first time it's opened, so switching to it always
-   shows something immediately; after that it only re-generates on
-   an explicit shortcut/Generate click, never overwriting a range
-   the person is mid-edit on. */
+/* ── Tab switcher between the Closing Book sub-reports ───────────
+   "book"      = the original flip-through register (unchanged)
+   "cchistory" = CC History (this file)
+   "rbd"       = Returns / Book Bill / Deposit history (rbd-history.js)
+   Each report is lazily initialized + auto-generated the first time
+   its tab is opened, so switching in always shows something
+   immediately; after that it only re-generates on an explicit
+   shortcut/Generate click, never overwriting a range the person is
+   mid-edit on. */
 export function switchClosingBookPanel(panel) {
   const bookPanel = document.getElementById('cb-book-panel');
   const cchPanel  = document.getElementById('cb-cchistory-panel');
+  const rbdPanel  = document.getElementById('cb-rbd-panel');
   if(bookPanel) bookPanel.classList.toggle('hidden', panel !== 'book');
   if(cchPanel)  cchPanel.classList.toggle('hidden', panel !== 'cchistory');
+  if(rbdPanel)  rbdPanel.classList.toggle('hidden', panel !== 'rbd');
 
   document.getElementById('cb-mode-tab-book')?.classList.toggle('active', panel === 'book');
   document.getElementById('cb-mode-tab-cchistory')?.classList.toggle('active', panel === 'cchistory');
+  document.getElementById('cb-mode-tab-rbd')?.classList.toggle('active', panel === 'rbd');
 
   if(panel === 'cchistory') {
     initCcHistoryDefaults();
     if(!cchState.rows.length) generateCcHistory();
+  }
+  if(panel === 'rbd') {
+    initRbdDefaults();
+    generateRbdReport(); /* rbdState lives in rbd-history.js — always safe/cheap to (re)run here */
   }
 }

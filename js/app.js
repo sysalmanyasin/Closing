@@ -27,6 +27,7 @@ import * as Pages       from './pages.js';
 import * as LedgerNav   from './ledger-nav.js';
 import * as ClosingBook from './closing-book.js';
 import * as CcHistory   from './cc-history.js';
+import * as RbdHistory  from './rbd-history.js';
 import * as Sync        from './sync.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
@@ -163,6 +164,11 @@ Object.assign(window, {
   setCcHistoryShortcut:   CcHistory.setCcHistoryShortcut,
   generateCcHistory:      CcHistory.generateCcHistory,
   exportCcHistoryCsv:     CcHistory.exportCcHistoryCsv,
+
+  // rbd-history.js — Returns / Book Bill / Deposit sub-report (Closing Book tab)
+  setRbdShortcut:    RbdHistory.setRbdShortcut,
+  generateRbdReport: RbdHistory.generateRbdReport,
+  exportRbdCsv:      RbdHistory.exportRbdCsv,
 
   // sync.js
   supaAuthStart:         Sync.supaAuthStart,
