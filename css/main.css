@@ -1656,6 +1656,36 @@
   border-right: 2px solid var(--border-strong);
 }
 
+/* On a phone, 3 frozen columns (256px) eat well over half a ~380px
+   viewport before you've even scrolled — that's what was making the
+   report feel unusable rather than helpful, and column-freezing via
+   position:sticky on some Android WebViews also shows a faint
+   hairline-doubling seam where the sticky layer meets the row border.
+   So on small screens: keep the gridlines and zebra striping, drop
+   the freeze, tighten padding/font so more of the report fits, and
+   let the whole row scroll together like a normal wide table. */
+@media (max-width: 480px) {
+  .rbd-row {
+    grid-template-columns: 82px 66px 50px 0.8fr 0.8fr 0.8fr 0.85fr 0.8fr 0.8fr 0.85fr 0.85fr 0.85fr;
+    min-width: 760px;
+    font-size: 0.68rem;
+  }
+  .rbd-cell { padding: 7px 6px; }
+  .rbd-head-row, .rbd-group-label { font-size: 0.58rem; }
+  .rbd-cell.rbd-date,
+  .rbd-cell.rbd-closing,
+  .rbd-cell.rbd-status,
+  .rbd-row .rbd-group-blank,
+  .rbd-total-label {
+    position: static;
+  }
+  .rbd-cell.rbd-status,
+  .rbd-row .rbd-group-blank,
+  .rbd-total-label {
+    border-right: 1px solid var(--border);
+  }
+}
+
 /* ── ACTIVITY LOG ── */
 .al-entry {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);

@@ -1,7 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.13
+   Pharma Plus Closing App — Service Worker  v5.14
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.14 — css/main.css: the Date/Closing/Status column freeze added
+   in v5.13 was eating over half of a phone-width screen and showing
+   a hairline rendering seam on some Android WebViews. On screens
+   ≤480px the freeze is now off — gridlines and zebra striping stay,
+   the whole row just scrolls together, with tighter padding/font so
+   more of the report is visible per screen. Desktop keeps the freeze
+   from v5.13 unchanged. Version bump below so cached devices actually
+   pick this up.
 
    v5.13 — css/main.css: Returns/Book/Deposit report table (Closing
    Book → Returns/Book/Deposit tab) now has real gridlines between
@@ -62,7 +71,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.13';
+const CACHE_NAME = 'pharmpos-closing-v5.14';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
