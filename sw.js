@@ -1,7 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.12
+   Pharma Plus Closing App — Service Worker  v5.13
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.13 — css/main.css: Returns/Book/Deposit report table (Closing
+   Book → Returns/Book/Deposit tab) now has real gridlines between
+   every cell, alternating row shading, and the Date/Closing/Status
+   columns frozen (position:sticky) so they stay put while the other
+   9 columns scroll horizontally underneath. Those 3 columns switched
+   from fr to fixed px widths so the sticky offsets always line up
+   with the real column edges. Version bump below so cached devices
+   actually pick this up.
 
    v5.12 — css/main.css: fixed the Closing Book page's desktop
    (≥861px) 2-column grid layout. It used to apply to #page-closing-book
@@ -53,7 +62,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.12';
+const CACHE_NAME = 'pharmpos-closing-v5.13';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only

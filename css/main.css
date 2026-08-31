@@ -1541,7 +1541,13 @@
    (mirrors the source spreadsheet's column count), so the table
    scrolls horizontally rather than squeezing 12 columns illegibly;
    .rbd-row carries its own min-width so that scroll has something
-   real to work with, same idea as .cch-table's vertical scroll. */
+   real to work with, same idea as .cch-table's vertical scroll.
+
+   Date / Closing / Status stay frozen in place while the rest of
+   the row scrolls horizontally underneath — those first 3 columns
+   are fixed px widths (not fr) specifically so the sticky "left"
+   offsets below always line up with the real column edges, no
+   matter how wide the remaining fr columns end up rendering. */
 .rbd-table {
   border: 1.5px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -1550,19 +1556,38 @@
 }
 .rbd-row {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 0.8fr 0.85fr 0.85fr 0.85fr 0.95fr 0.85fr 0.85fr 0.95fr 0.95fr 0.95fr;
-  gap: 6px;
+  grid-template-columns: 108px 84px 64px 0.85fr 0.85fr 0.85fr 0.95fr 0.85fr 0.85fr 0.95fr 0.95fr 0.95fr;
   align-items: center;
-  padding: 9px 12px;
   border-bottom: 1px solid var(--border);
   font-size: 0.76rem;
-  min-width: 980px;
+  min-width: 1000px;
+  box-sizing: border-box;
 }
 .rbd-row:last-child { border-bottom: none; }
 
+/* Gridlines: every cell gets a right-hand rule (the row's own
+   bottom border already handles the horizontal lines); the table's
+   own border closes off the outer edge so the very last cell in
+   each row doesn't need one. Cells keep their original block/inline
+   layout (not flex) so the existing text-align:right/center rules
+   below still control alignment exactly as before. */
+.rbd-cell {
+  padding: 9px 8px;
+  border-right: 1px solid var(--border);
+  box-sizing: border-box;
+}
+.rbd-cell:last-child { border-right: none; }
+
+/* Alternate row shading — every other DATA row only; the group
+   header, column header, and total rows keep their own distinct
+   backgrounds below and are excluded here. */
+.rbd-table .rbd-row:nth-child(even):not(.rbd-group-row):not(.rbd-head-row):not(.rbd-total-row) {
+  background-color: var(--surface);
+}
+
 .rbd-group-row {
   position: sticky; top: 0; z-index: 2;
-  background: var(--teal-pale); border-bottom: 1px solid var(--border);
+  background-color: var(--teal-pale); border-bottom: 1px solid var(--border);
   padding-top: 6px; padding-bottom: 6px;
 }
 .rbd-group-label {
@@ -1579,7 +1604,7 @@
   position: sticky; top: 29px; z-index: 1;
   font-weight: 700; font-size: 0.64rem; color: var(--muted);
   text-transform: uppercase; letter-spacing: .3px;
-  background: var(--surface); border-bottom: 1.5px solid var(--border-strong);
+  background-color: var(--surface); border-bottom: 1.5px solid var(--border-strong);
 }
 
 .rbd-cell.rbd-date    { color: var(--navy); font-weight: 600; }
@@ -1596,12 +1621,40 @@
   background: var(--amber-pale); color: var(--amber-dark); border-radius: 8px; padding: 1px 6px; margin-left: 4px;
 }
 .rbd-total-row {
-  font-weight: 800; background: var(--teal-pale);
+  font-weight: 800; background-color: var(--teal-pale);
   border-top: 3px double var(--slate); position: sticky; bottom: 0;
 }
 .rbd-total-label { grid-column: span 3; color: var(--navy); }
 .rbd-empty { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 0.85rem; }
 .rbd-empty.hidden { display: none; }
+
+/* ── Frozen columns ── Date / Closing / Status (and whatever spans
+   across them — the group-row's blank cell, the total row's label)
+   stay pinned to the left edge of .rbd-table as it scrolls
+   horizontally. background-color:inherit pulls in whichever row
+   background applies (plain white, the zebra stripe, group/head/
+   total) so the frozen cells never look "cut out" mid-scroll. A
+   slightly stronger rule on the Status/blank/label cell marks where
+   the frozen zone ends. */
+.rbd-cell.rbd-date,
+.rbd-cell.rbd-closing,
+.rbd-cell.rbd-status,
+.rbd-row .rbd-group-blank,
+.rbd-total-label {
+  position: sticky;
+  background-color: inherit;
+  z-index: 1;
+}
+.rbd-cell.rbd-date,
+.rbd-row .rbd-group-blank,
+.rbd-total-label { left: 0; }
+.rbd-cell.rbd-closing { left: 108px; }
+.rbd-cell.rbd-status  { left: 192px; }
+.rbd-cell.rbd-status,
+.rbd-row .rbd-group-blank,
+.rbd-total-label {
+  border-right: 2px solid var(--border-strong);
+}
 
 /* ── ACTIVITY LOG ── */
 .al-entry {
