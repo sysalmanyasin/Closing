@@ -988,106 +988,171 @@
         </div>
       </div>
 
-      <!-- ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── -->
-      <div class="card">
-        <div class="fcs-empty hidden" id="fcs-empty">📭 No closings saved yet.</div>
-        <div id="fcs-body">
-          <div class="fcs-head">
-            <span>📊 Latest Closing Summary</span>
-          </div>
-          <div class="fcs-date" id="fcs-date" onclick="openFinalSummaryRecord()"></div>
-          <div class="fcs-viewport" id="fcs-viewport">
-            <div class="fcs-grid" onclick="openFinalSummaryRecord()">
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Carried CC</span>
-                <span class="fcs-stat-val" id="fcs-val-cc"></span>
-              </div>
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Total Deposits</span>
-                <span class="fcs-stat-val" id="fcs-val-dep"></span>
-              </div>
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Book Bills</span>
-                <span class="fcs-stat-val" id="fcs-val-books"></span>
-              </div>
-              <div class="fcs-stat">
-                <span class="fcs-stat-lbl">Manual Returns</span>
-                <span class="fcs-stat-val" id="fcs-val-manret"></span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- ── SUB-REPORT TABS ── -->
+      <div class="cl-mode-tabs" id="cb-mode-tabs">
+        <button class="cl-mode-tab active" id="cb-mode-tab-book" onclick="switchClosingBookPanel('book')">📖 Register Book</button>
+        <button class="cl-mode-tab" id="cb-mode-tab-cchistory" onclick="switchClosingBookPanel('cchistory')">💳 CC History</button>
       </div>
 
-      <!-- ── RANGE PICKER ── -->
-      <div class="card">
-        <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
-        <div style="padding:14px 16px;">
-          <div class="cb-range-row">
-            <div class="cb-range-field">
-              <label for="cb-from-date">From date</label>
-              <input type="date" id="cb-from-date">
-            </div>
-            <div class="cb-range-field">
-              <label for="cb-from-shift">Shift</label>
-              <select id="cb-from-shift">
-                <option value="Night">Night</option>
-                <option value="Morning">Morning</option>
-                <option value="Evening">Evening</option>
-              </select>
-            </div>
-          </div>
-          <div class="cb-range-row">
-            <div class="cb-range-field">
-              <label for="cb-to-date">To date</label>
-              <input type="date" id="cb-to-date">
-            </div>
-            <div class="cb-range-field">
-              <label for="cb-to-shift">Shift</label>
-              <select id="cb-to-shift">
-                <option value="Night">Night</option>
-                <option value="Morning">Morning</option>
-                <option value="Evening" selected>Evening</option>
-              </select>
-            </div>
-          </div>
-          <div class="cb-shortcut-row">
-            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcutClosings(10)">Last 10 Closings</button>
-            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(3)">Last 3 Days</button>
-            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(7)">Last 7 Days</button>
-            <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(30)">Last 1 Month</button>
-          </div>
-          <button class="btn btn-green btn-full" id="cb-generate-btn" style="margin-top:14px;" onclick="generateClosingBook()">📖 Generate Book</button>
-          <div id="cb-generate-status" class="cb-generate-status hidden"></div>
-        </div>
-      </div>
+      <!-- ══ SUB-REPORT: REGISTER BOOK (unchanged) ══ -->
+      <div id="cb-book-panel">
 
-      <!-- ── READER ── -->
-      <div id="cb-reader" class="cb-reader hidden">
-        <div class="cb-reader-toolbar">
-          <button class="btn btn-ghost btn-sm" onclick="closeClosingBookReader()">← Back</button>
-          <div class="cb-page-counter" id="cb-page-counter">1 / 1</div>
-        </div>
-        <div class="cb-reader-toolbar cb-reader-toolbar2">
-          <button class="btn btn-ghost btn-sm" onclick="closingBookPrev()" id="cb-btn-prev">‹ Prev</button>
-          <select id="cb-jump-select" onchange="closingBookJump(this.value)" style="flex:1;min-width:0;"></select>
-          <button class="btn btn-ghost btn-sm" onclick="closingBookNext()" id="cb-btn-next">Next ›</button>
-        </div>
-        <div class="cb-reader-toolbar cb-reader-toolbar2" style="justify-content:center;">
-          <div class="cb-zoom-group">
-            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(1)">1x</button>
-            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(2)">2x</button>
-            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(4)">4x</button>
-            <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(8)">8x</button>
+        <!-- ── FINAL CLOSING SUMMARY CARD (swipeable carousel) ── -->
+        <div class="card">
+          <div class="fcs-empty hidden" id="fcs-empty">📭 No closings saved yet.</div>
+          <div id="fcs-body">
+            <div class="fcs-head">
+              <span>📊 Latest Closing Summary</span>
+            </div>
+            <div class="fcs-date" id="fcs-date" onclick="openFinalSummaryRecord()"></div>
+            <div class="fcs-viewport" id="fcs-viewport">
+              <div class="fcs-grid" onclick="openFinalSummaryRecord()">
+                <div class="fcs-stat">
+                  <span class="fcs-stat-lbl">Carried CC</span>
+                  <span class="fcs-stat-val" id="fcs-val-cc"></span>
+                </div>
+                <div class="fcs-stat">
+                  <span class="fcs-stat-lbl">Total Deposits</span>
+                  <span class="fcs-stat-val" id="fcs-val-dep"></span>
+                </div>
+                <div class="fcs-stat">
+                  <span class="fcs-stat-lbl">Book Bills</span>
+                  <span class="fcs-stat-val" id="fcs-val-books"></span>
+                </div>
+                <div class="fcs-stat">
+                  <span class="fcs-stat-lbl">Manual Returns</span>
+                  <span class="fcs-stat-val" id="fcs-val-manret"></span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="cb-viewport" id="cb-viewport">
-          <div class="cb-page-sizer" id="cb-page-sizer">
-            <div class="cb-page-stage ps-sheet-scope" id="cb-page-stage"></div>
+
+        <!-- ── RANGE PICKER ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
+          <div style="padding:14px 16px;">
+            <div class="cb-range-row">
+              <div class="cb-range-field">
+                <label for="cb-from-date">From date</label>
+                <input type="date" id="cb-from-date">
+              </div>
+              <div class="cb-range-field">
+                <label for="cb-from-shift">Shift</label>
+                <select id="cb-from-shift">
+                  <option value="Night">Night</option>
+                  <option value="Morning">Morning</option>
+                  <option value="Evening">Evening</option>
+                </select>
+              </div>
+            </div>
+            <div class="cb-range-row">
+              <div class="cb-range-field">
+                <label for="cb-to-date">To date</label>
+                <input type="date" id="cb-to-date">
+              </div>
+              <div class="cb-range-field">
+                <label for="cb-to-shift">Shift</label>
+                <select id="cb-to-shift">
+                  <option value="Night">Night</option>
+                  <option value="Morning">Morning</option>
+                  <option value="Evening" selected>Evening</option>
+                </select>
+              </div>
+            </div>
+            <div class="cb-shortcut-row">
+              <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcutClosings(10)">Last 10 Closings</button>
+              <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(3)">Last 3 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(7)">Last 7 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setClosingBookShortcut(30)">Last 1 Month</button>
+            </div>
+            <button class="btn btn-green btn-full" id="cb-generate-btn" style="margin-top:14px;" onclick="generateClosingBook()">📖 Generate Book</button>
+            <div id="cb-generate-status" class="cb-generate-status hidden"></div>
           </div>
         </div>
-        <button class="btn btn-teal btn-full" style="margin-top:12px;" onclick="exportClosingBookPdf()" id="cb-btn-export">⬇ Export Book as PDF</button>
+
+        <!-- ── READER ── -->
+        <div id="cb-reader" class="cb-reader hidden">
+          <div class="cb-reader-toolbar">
+            <button class="btn btn-ghost btn-sm" onclick="closeClosingBookReader()">← Back</button>
+            <div class="cb-page-counter" id="cb-page-counter">1 / 1</div>
+          </div>
+          <div class="cb-reader-toolbar cb-reader-toolbar2">
+            <button class="btn btn-ghost btn-sm" onclick="closingBookPrev()" id="cb-btn-prev">‹ Prev</button>
+            <select id="cb-jump-select" onchange="closingBookJump(this.value)" style="flex:1;min-width:0;"></select>
+            <button class="btn btn-ghost btn-sm" onclick="closingBookNext()" id="cb-btn-next">Next ›</button>
+          </div>
+          <div class="cb-reader-toolbar cb-reader-toolbar2" style="justify-content:center;">
+            <div class="cb-zoom-group">
+              <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(1)">1x</button>
+              <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(2)">2x</button>
+              <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(4)">4x</button>
+              <button class="btn btn-ghost btn-sm" onclick="closingBookZoom(8)">8x</button>
+            </div>
+          </div>
+          <div class="cb-viewport" id="cb-viewport">
+            <div class="cb-page-sizer" id="cb-page-sizer">
+              <div class="cb-page-stage ps-sheet-scope" id="cb-page-stage"></div>
+            </div>
+          </div>
+          <button class="btn btn-teal btn-full" style="margin-top:12px;" onclick="exportClosingBookPdf()" id="cb-btn-export">⬇ Export Book as PDF</button>
+        </div>
+
       </div>
+      <!-- /cb-book-panel -->
+
+      <!-- ══ SUB-REPORT: CC HISTORY (new) ══
+           Evening (Closing 3) only, every day in range:
+           CC = (Bank Alfalah + Keenu) − Computer Card Sale ══ -->
+      <div id="cb-cchistory-panel" class="hidden">
+
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>💳 CC History — Evening (Closing 3) Only</h3></div>
+          <div style="padding:12px 16px;font-size:0.76rem;color:var(--muted);line-height:1.5;">
+            One row per day, read from that day's Evening closing only.
+            <strong>CC = (Bank Alfalah Card Machine + Keenu Card Machine) − Computer Card Sale.</strong>
+          </div>
+        </div>
+
+        <!-- ── RANGE PICKER ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
+          <div style="padding:14px 16px;">
+            <div class="cb-range-row">
+              <div class="cb-range-field">
+                <label for="cch-from-date">From date</label>
+                <input type="date" id="cch-from-date">
+              </div>
+              <div class="cb-range-field">
+                <label for="cch-to-date">To date</label>
+                <input type="date" id="cch-to-date">
+              </div>
+            </div>
+            <div class="cb-shortcut-row">
+              <button class="btn btn-ghost btn-sm" onclick="setCcHistoryShortcut(7)">Last 7 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setCcHistoryShortcut(30)">Last 30 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setCcHistoryShortcut(90)">Last 3 Months</button>
+            </div>
+            <button class="btn btn-green btn-full" id="cch-generate-btn" style="margin-top:14px;" onclick="generateCcHistory()">💳 Generate CC History</button>
+          </div>
+        </div>
+
+        <!-- ── RESULTS ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Results</h3>
+            <div class="card-head-right">
+              <span id="cch-summary-badge" style="font-size:0.7rem;color:var(--muted);white-space:nowrap;"></span>
+              <button class="cl-print-btn" id="cch-export-btn" onclick="exportCcHistoryCsv()" disabled>⬇ Export CSV</button>
+            </div>
+          </div>
+          <div class="cch-empty" id="cch-empty">📭 No range generated yet — pick dates above and tap Generate.</div>
+          <div class="cch-table" id="cch-table"></div>
+        </div>
+
+      </div>
+      <!-- /cb-cchistory-panel -->
+
     </div>
   </div>
   <!-- /PAGE 5 -->

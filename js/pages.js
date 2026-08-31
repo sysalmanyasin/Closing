@@ -22,6 +22,7 @@ import {
 } from './ledger-engine.js';
 import { isRealSheet, timelineStep } from './components.js';
 import { initClosingBookDefaults } from './closing-book.js';
+import { switchClosingBookPanel } from './cc-history.js';
 import { fetchActiveStaff } from './bt-bridge.js';
 import { showAlert } from './notify.js';
 
@@ -170,6 +171,7 @@ export function goToClosingBook() {
   showPage('page-closing-book');
   renderFinalSummaryCard();
   if(typeof initClosingBookDefaults === 'function') initClosingBookDefaults();
+  switchClosingBookPanel('book'); /* always land on Register Book, same as before this tab existed */
 }
 export function goToSettings()  {
   if(!gatePermission('settings', 'Enter Admin PIN:', true)) return;

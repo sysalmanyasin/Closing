@@ -26,6 +26,7 @@ import * as Components  from './components.js';
 import * as Pages       from './pages.js';
 import * as LedgerNav   from './ledger-nav.js';
 import * as ClosingBook from './closing-book.js';
+import * as CcHistory   from './cc-history.js';
 import * as Sync        from './sync.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
@@ -156,6 +157,12 @@ Object.assign(window, {
   generateClosingBook:  ClosingBook.generateClosingBook,
   setClosingBookShortcut: ClosingBook.setClosingBookShortcut,
   setClosingBookShortcutClosings: ClosingBook.setClosingBookShortcutClosings,
+
+  // cc-history.js — CC History sub-report (Closing Book tab)
+  switchClosingBookPanel: CcHistory.switchClosingBookPanel,
+  setCcHistoryShortcut:   CcHistory.setCcHistoryShortcut,
+  generateCcHistory:      CcHistory.generateCcHistory,
+  exportCcHistoryCsv:     CcHistory.exportCcHistoryCsv,
 
   // sync.js
   supaAuthStart:         Sync.supaAuthStart,

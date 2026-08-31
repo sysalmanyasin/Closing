@@ -1466,6 +1466,59 @@
   .cb-shortcut-row .btn { min-width: 0; }
 }
 
+/* ── CC HISTORY (Closing Book sub-report) ──
+   Evening-only, per-day report table. Built as a CSS-grid list of
+   rows (the app never uses raw <table> elsewhere), same visual
+   language as the ledger .row grid: bordered cells, a sticky bold
+   header row, and a bold total row at the bottom. */
+.cch-table {
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 520px;
+}
+.cch-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+.cch-row:last-child { border-bottom: none; }
+.cch-head-row {
+  position: sticky; top: 0; z-index: 1;
+  font-weight: 700; font-size: 0.66rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .3px;
+  background: var(--surface); border-bottom: 1.5px solid var(--border-strong);
+}
+.cch-cell.cch-date { color: var(--navy); font-weight: 600; }
+.cch-cell.cch-num {
+  text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.cch-cell.cch-cc { font-weight: 800; color: var(--teal-dark); }
+.cch-cell.cch-cc.cch-neg { color: var(--red-dark); }
+.cch-row-missing { color: var(--muted); font-style: italic; }
+.cch-row-missing .cch-missing-note { grid-column: 2 / -1; text-align: right; font-size: 0.74rem; }
+.cch-row-draft .cch-date { color: var(--amber-dark); }
+.cch-draft-tag {
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  background: var(--amber-pale); color: var(--amber-dark); border-radius: 8px; padding: 1px 6px; margin-left: 4px;
+}
+.cch-total-row {
+  font-weight: 800; background: var(--teal-pale);
+  border-top: 3px double var(--slate); position: sticky; bottom: 0;
+}
+.cch-total-row .cch-cc { font-size: 0.84rem; }
+.cch-empty { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 0.85rem; }
+.cch-empty.hidden { display: none; }
+
+@media (max-width: 480px) {
+  .cch-row { grid-template-columns: 1.2fr 0.9fr 0.9fr 0.9fr 1fr; gap: 4px; padding: 8px; font-size: 0.68rem; }
+  .cch-head-row { font-size: 0.58rem; }
+}
+
 /* ── ACTIVITY LOG ── */
 .al-entry {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);

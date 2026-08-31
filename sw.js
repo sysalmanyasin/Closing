@@ -1,7 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.9
+   Pharma Plus Closing App — Service Worker  v5.10
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.10 — Added js/cc-history.js: new "CC History" sub-report tab
+   on the Closing Book page (Evening/Closing-3-only, per day,
+   CC = (Bank Alfalah + Keenu) − Computer Card Sale). New ES module
+   import, so it needs to be in APP_SHELL for offline support.
+   Version bump below so cached devices actually pick this up.
 
    v5.9 — js/sync.js: settings pushes are now gated on a confirmed
    cloud pull (supaState.settingsHydrated), so a device that starts
@@ -26,7 +32,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.9';
+const CACHE_NAME = 'pharmpos-closing-v5.10';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -51,6 +57,7 @@ const APP_SHELL = [
   './js/pages.js',
   './js/ledger-nav.js',
   './js/closing-book.js',
+  './js/cc-history.js',
   './js/sync.js',
   './js/activity-log.js',
   './js/auth.js',
