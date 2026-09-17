@@ -28,6 +28,7 @@ const LEDGER_SECTIONS = [
   { key: 'vault',     cardId: 'card-vault',     label: 'Vault',    icon: '🏦', badgeId: 'badge-vault' },
   { key: 'credit',    cardId: 'card-credit',    label: 'Credit',   icon: '📒', badgeId: 'badge-credit' },
   { key: 'deposits',  cardId: 'card-deposits',  label: 'Deposit',  icon: '💰', badgeId: 'badge-deposits' },
+  { key: 'mediq',     cardId: 'card-mediq',     label: 'MEDIQ',    icon: '🛵', badgeId: 'badge-mediq' },
   { key: 'audit',     cardId: 'card-audit',     label: 'Audit',    icon: '📊', badgeId: null },
   { key: 'final-agg', cardId: 'card-final-agg', label: 'Final',    icon: '🧮', badgeId: null },
 ];
@@ -338,6 +339,16 @@ export function snapshotRowsForSection(key, rec) {
         rows.push([o.lbl?.trim() || 'Deposit', money(o.val), !!o.deleted]);
       });
       rows.push(['Total Cash Deposits (H)', money(rec.outTotalF)]);
+      return rows;
+    }
+    case 'mediq': {
+      const rows = [];
+      (rec.mediqRows||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
+        rows.push([o.lbl?.trim() || 'Order', money(o.val), !!o.deleted]);
+      });
+      if (!rows.length) rows.push(['No COD orders that shift', '']);
+      rows.push([`Delivery Rs. ${rec.mediqDelivery ?? 250}/order + ${rec.mediqRate ?? 5}% commission`, '']);
+      rows.push(['Total MEDIQ Collected (I)', money(rec.outTotalI)]);
       return rows;
     }
     case 'audit':

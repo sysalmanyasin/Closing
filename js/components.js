@@ -311,6 +311,22 @@ export function addDepositRow(lbl='', val='', rid=null) {
   calc();
 }
 
+export function addMediqRow(lbl='', val='', rid=null) {
+  session.mediqCount++;
+  const id = `mediq-row-${session.mediqCount}`;
+  const stableId = rid || genRowId();
+  const row = document.createElement('div');
+  row.className = "row"; row.id = id;
+  row.dataset.rid = stableId;
+  row.innerHTML = `
+    <input type="text"   class="lbl-input mediq-lbl" placeholder="Order / bill ref" value="${escHtml(lbl)}">
+    <input type="number" class="mediq-val" value="${val||0}" oninput="calc()">
+    <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
+  document.getElementById('ledger-mediq').appendChild(row);
+  attachNumpad(row.querySelector('.mediq-val'));
+  calc();
+}
+
 export function addMiscRow(lbl='', val='', rid=null) {
   session.miscCount++;
   const id = `misc-row-${session.miscCount}`;
@@ -580,6 +596,16 @@ export function buildPrintSheet() {
   });
   depRows += psRow('TOTAL DEPOSITS', num('out-total-f'), 'ps-total');
 
+  /* MEDIQ COD Orders box */
+  let mediqRows = '';
+  document.querySelectorAll('#ledger-mediq .row').forEach(row => {
+    const lbl = row.querySelector('.mediq-lbl')?.value;
+    const v   = row.querySelector('.mediq-val')?.value;
+    if((parseFloat(v)||0) !== 0) mediqRows += psRow(lbl || 'Order', (parseFloat(v)||0).toLocaleString('en-PK'));
+  });
+  if(!mediqRows) mediqRows = psRow('— no orders —', '', 'ps-empty');
+  mediqRows += psRow('TOTAL MEDIQ', num('out-total-i'), 'ps-total');
+
   /* Misc Charges box */
   let miscRows = '';
   document.querySelectorAll('#ledger-misc .misc-row').forEach(row => {
@@ -599,6 +625,7 @@ export function buildPrintSheet() {
   sumRows += psRow('Draw Cash', num('out-subtotal-d'));
   sumRows += psRow('Credit', num('out-total-e'));
   sumRows += psRow('Deposits', num('out-total-f'));
+  sumRows += psRow('MEDIQ', num('out-total-i'));
   sumRows += psRow('GRAND TOTAL', num('out-grand'), 'ps-total');
   sumRows += psRow('Less: Cash Reserve (float)', '45,000', 'ps-minus');
   sumRows += psRow('Liquid Cash', num('out-liquid'));
@@ -645,6 +672,7 @@ export function buildPrintSheet() {
             <div class="ps-box"><h4>Till Cash</h4>${tillRows}</div>
             <div class="ps-box"><h4>Draw / Vault Cash</h4>${drawRows}</div>
             <div class="ps-box"><h4>Deposit Details</h4>${depRows}</div>
+            <div class="ps-box"><h4>MEDIQ COD Orders</h4>${mediqRows}</div>
             <div class="ps-box ps-box-accent"><h4>Grand Summary</h4>${sumRows}</div>
           </div>
 

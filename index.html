@@ -808,6 +808,24 @@
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addDepositRow()">＋ Add Row</button></div>
       </div>
 
+      <!-- BLOCK 9: MEDIQ COD Orders (I) -->
+      <div class="card ledger-section" id="card-mediq" data-section="mediq">
+        <div class="card-head" onclick="toggleCard('card-mediq')">
+          <h3><span class="step">9</span> MEDIQ COD Orders (I)</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-mediq">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row"><label for="in-mediq-delivery">Delivery Charge per Order:</label><input type="number" id="in-mediq-delivery" value="250" oninput="calc()"></div>
+          <div class="row"><label for="in-mediq-rate">Commission Rate (%):</label><input type="number" id="in-mediq-rate" value="5" step="0.01" oninput="calc()"></div>
+          <div id="ledger-mediq"></div>
+          <div class="row computed"><label for="out-total-i">Total MEDIQ Collected (I):</label><input type="number" id="out-total-i" readonly value="0"></div>
+        </div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMediqRow()">＋ Add Order</button></div>
+      </div>
+
       <!-- BLOCK: Final Audit -->
       <div class="card ledger-section" id="card-audit" data-section="audit">
         <div class="card-head" onclick="toggleCard('card-audit')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
@@ -815,7 +833,7 @@
           <div class="card-head-right"><span class="collapse-icon" style="color:var(--on-dark-secondary);">▼</span></div>
         </div>
         <div class="card-body">
-          <div class="row computed"><label for="out-grand">Grand Total (A+B+C+D+E+F+G+H):</label><input type="number" id="out-grand" readonly value="0"></div>
+          <div class="row computed"><label for="out-grand">Grand Total (A+B+C+D+E+F+G+H+I):</label><input type="number" id="out-grand" readonly value="0"></div>
           <div class="row"><label for="out-cash-reserve-display">Less: Cash Reserve (held in till):</label><input type="text" id="out-cash-reserve-display" readonly value="– Rs. 45,000" style="border:none;font-weight:700;color:var(--red);background:transparent;width:auto;text-align:right;"></div>
           <div class="row computed"><label for="out-liquid">Net Cash Available:</label><input type="number" id="out-liquid" readonly value="0"></div>
           <div class="row computed" id="box-out-prev-cash"><label for="out-prev-cash">Less: Previous Shift's Cash Position:</label><input type="number" id="out-prev-cash" oninput="setOverride('out-prev-cash')"></div>

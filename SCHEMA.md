@@ -80,9 +80,13 @@ locked: true` — written by `saveSheet()`).
 | `tierCredits` | `{tIdx, name, val}[]` (length 3) | One per sub-tier dropdown — fixed 3 slots, no `id` needed (nothing to add/remove/reorder) |
 | `auxCredits` | `{id, lbl, val, deleted}[]` | Free-label credit entries |
 | `deposits` | `{id, lbl, val, deleted}[]` | Deposit line items |
+| `mediqRows` | `{id, lbl, val, deleted}[]` | MEDIQ COD order line items (each row's `val` is that order's bill value) |
+| `mediqDelivery` | number | MEDIQ delivery charge per COD order (default 250), editable per shift |
+| `mediqRate` | number | MEDIQ commission rate %, applied to each order's bill value (default 5), editable per shift |
+| `outTotalI` | number | Total MEDIQ collected this shift — `(count of orders × mediqDelivery) + (sum of order values × mediqRate/100)`. Folded into Grand Total as the `I` term (`A+B+C+D+E+F+G+H+I`). Not carried forward to the next shift. |
 | `miscRows` | `{id, label, val, deleted}[]` | **Misc/Ongoing Ledger source** — this is what the Misc Ledger tab reads live, no separate storage |
 
-**`deleted` (soft-delete)** — on `hsRows`/`auxStrips`/`auxCredits`/`deposits`/`miscRows` only. Tapping ✕ (`delRow()` in components.js) asks for confirmation, then marks the row `.row-deleted` (struck through, read-only, button flips to ↺ Undo) rather than removing it from the DOM. Deleted rows: are excluded from that section's total in `calc()`; are excluded from `pullPreviousShift()`'s carry-forward into the next shift's Misc rows; DO still get saved (`deleted: true`) and restored (`hydrate()`) on this shift's own record; and DO still appear (struck through, `🚫 … (removed)`) in the read-only Previous Shift snapshot (`snapshotRowsForSection()` in ledger-nav.js) for the HS/Strips/Credit/Deposits/Misc sections — auditable, just never active going forward.
+**`deleted` (soft-delete)** — on `hsRows`/`auxStrips`/`auxCredits`/`deposits`/`mediqRows`/`miscRows` only. Tapping ✕ (`delRow()` in components.js) asks for confirmation, then marks the row `.row-deleted` (struck through, read-only, button flips to ↺ Undo) rather than removing it from the DOM. Deleted rows: are excluded from that section's total in `calc()`; are excluded from `pullPreviousShift()`'s carry-forward into the next shift's Misc rows; DO still get saved (`deleted: true`) and restored (`hydrate()`) on this shift's own record; and DO still appear (struck through, `🚫 … (removed)`) in the read-only Previous Shift snapshot (`snapshotRowsForSection()` in ledger-nav.js) for the HS/Strips/Credit/Deposits/MEDIQ/Misc sections — auditable, just never active going forward.
 
 **On `id`:** every free-form row array above carries a stable `id` (from
 `genRowId()` in state.js), assigned once when the row is first created

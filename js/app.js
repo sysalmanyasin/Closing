@@ -59,6 +59,7 @@ Object.assign(window, {
   addAuxCreditRow:      Components.addAuxCreditRow,
   addAuxStripRow:       Components.addAuxStripRow,
   addDepositRow:        Components.addDepositRow,
+  addMediqRow:          Components.addMediqRow,
   addHsRow:             Components.addHsRow,
   addMiscRow:           Components.addMiscRow,
   addNamedCreditEntryRow: Components.addNamedCreditEntryRow,

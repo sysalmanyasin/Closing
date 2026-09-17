@@ -388,5 +388,6 @@ export const session = {
   depositCount:   0,
   miscCount:      0,
   hsRowCount:     0,
-  auxStripCount:  0
+  auxStripCount:  0,
+  mediqCount:     0
 };
