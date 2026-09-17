@@ -1019,6 +1019,7 @@
         <button class="cl-mode-tab active" id="cb-mode-tab-book" onclick="switchClosingBookPanel('book')">📖 Register Book</button>
         <button class="cl-mode-tab" id="cb-mode-tab-cchistory" onclick="switchClosingBookPanel('cchistory')">💳 CC History</button>
         <button class="cl-mode-tab" id="cb-mode-tab-rbd" onclick="switchClosingBookPanel('rbd')">🧾 Returns / Book / Deposit</button>
+        <button class="cl-mode-tab" id="cb-mode-tab-mediq" onclick="switchClosingBookPanel('mediq')">🛵 MEDIQ</button>
       </div>
 
       <!-- ══ SUB-REPORT: REGISTER BOOK (unchanged) ══ -->
@@ -1234,6 +1235,66 @@
 
       </div>
       <!-- /cb-rbd-panel -->
+
+      <!-- ══ SUB-REPORT: MEDIQ (new) ══
+           Two views over the same range — Date-wise (every closing,
+           newest first) and Month-wise (rolled up by calendar month) —
+           both showing the EXTRA collected (collected − pharmacy bill),
+           the same figure the live card, the Closing Book summary tile,
+           and Final Closing aggregation all use. ══ -->
+      <div id="cb-mediq-panel" class="hidden">
+
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>🛵 MEDIQ History</h3></div>
+          <div style="padding:12px 16px;font-size:0.76rem;color:var(--muted);line-height:1.5;">
+            Every closing in range, plus a month-by-month rollup. Shows the <strong>extra collected over the
+            pharmacy bill</strong> on MEDIQ COD orders — not the gross COD amount — the same figure folded into
+            the Grand Total as the <strong>I</strong> term.
+          </div>
+        </div>
+
+        <!-- ── RANGE PICKER ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Select Range</h3></div>
+          <div style="padding:14px 16px;">
+            <div class="cb-range-row">
+              <div class="cb-range-field">
+                <label for="mh-from-date">From date</label>
+                <input type="date" id="mh-from-date">
+              </div>
+              <div class="cb-range-field">
+                <label for="mh-to-date">To date</label>
+                <input type="date" id="mh-to-date">
+              </div>
+            </div>
+            <div class="cb-shortcut-row">
+              <button class="btn btn-ghost btn-sm" onclick="setMediqHistoryShortcut(7)">Last 7 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setMediqHistoryShortcut(30)">Last 30 Days</button>
+              <button class="btn btn-ghost btn-sm" onclick="setMediqHistoryShortcut(90)">Last 3 Months</button>
+            </div>
+            <button class="btn btn-green btn-full" id="mh-generate-btn" style="margin-top:14px;" onclick="generateMediqHistory()">🛵 Generate MEDIQ History</button>
+          </div>
+        </div>
+
+        <!-- ── RESULTS ── -->
+        <div class="card">
+          <div class="card-head" style="cursor:default;">
+            <h3>Results</h3>
+            <div class="card-head-right">
+              <span id="mh-summary-badge" style="font-size:0.7rem;color:var(--muted);white-space:nowrap;"></span>
+              <button class="cl-print-btn" id="mh-export-btn" onclick="exportMediqHistoryCsv()" disabled>⬇ Export CSV</button>
+            </div>
+          </div>
+          <div class="mh-view-tabs">
+            <button class="mh-view-tab active" id="mh-view-tab-date" onclick="switchMediqView('date')">📅 Date-wise</button>
+            <button class="mh-view-tab" id="mh-view-tab-month" onclick="switchMediqView('month')">🗓️ Month-wise</button>
+          </div>
+          <div class="mh-empty" id="mh-empty">📭 No range generated yet — pick dates above and tap Generate.</div>
+          <div class="mh-table" id="mh-table"></div>
+        </div>
+
+      </div>
+      <!-- /cb-mediq-panel -->
 
     </div>
   </div>

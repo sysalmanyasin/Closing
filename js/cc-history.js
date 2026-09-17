@@ -24,6 +24,7 @@ import { db } from './state.js';
 import { showAlert } from './notify.js';
 import { _cbLocalDateStr } from './closing-book.js';
 import { initRbdDefaults, generateRbdReport } from './rbd-history.js';
+import { initMediqHistoryDefaults, generateMediqHistory } from './mediq-history.js';
 
 /* This file's own transient state — file-local, never read by
    another floor directly. */
@@ -219,16 +220,19 @@ export function exportCcHistoryCsv() {
    shortcut/Generate click, never overwriting a range the person is
    mid-edit on. */
 export function switchClosingBookPanel(panel) {
-  const bookPanel = document.getElementById('cb-book-panel');
-  const cchPanel  = document.getElementById('cb-cchistory-panel');
-  const rbdPanel  = document.getElementById('cb-rbd-panel');
-  if(bookPanel) bookPanel.classList.toggle('hidden', panel !== 'book');
-  if(cchPanel)  cchPanel.classList.toggle('hidden', panel !== 'cchistory');
-  if(rbdPanel)  rbdPanel.classList.toggle('hidden', panel !== 'rbd');
+  const bookPanel  = document.getElementById('cb-book-panel');
+  const cchPanel   = document.getElementById('cb-cchistory-panel');
+  const rbdPanel   = document.getElementById('cb-rbd-panel');
+  const mediqPanel = document.getElementById('cb-mediq-panel');
+  if(bookPanel)  bookPanel.classList.toggle('hidden', panel !== 'book');
+  if(cchPanel)   cchPanel.classList.toggle('hidden', panel !== 'cchistory');
+  if(rbdPanel)   rbdPanel.classList.toggle('hidden', panel !== 'rbd');
+  if(mediqPanel) mediqPanel.classList.toggle('hidden', panel !== 'mediq');
 
   document.getElementById('cb-mode-tab-book')?.classList.toggle('active', panel === 'book');
   document.getElementById('cb-mode-tab-cchistory')?.classList.toggle('active', panel === 'cchistory');
   document.getElementById('cb-mode-tab-rbd')?.classList.toggle('active', panel === 'rbd');
+  document.getElementById('cb-mode-tab-mediq')?.classList.toggle('active', panel === 'mediq');
 
   if(panel === 'cchistory') {
     initCcHistoryDefaults();
@@ -237,5 +241,9 @@ export function switchClosingBookPanel(panel) {
   if(panel === 'rbd') {
     initRbdDefaults();
     generateRbdReport(); /* rbdState lives in rbd-history.js — always safe/cheap to (re)run here */
+  }
+  if(panel === 'mediq') {
+    initMediqHistoryDefaults();
+    generateMediqHistory(); /* mhState lives in mediq-history.js — always safe/cheap to (re)run here */
   }
 }

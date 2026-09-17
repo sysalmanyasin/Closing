@@ -1561,9 +1561,18 @@
   .cch-head-row { font-size: 0.58rem; }
 }
 
-/* Closing Book now has 3 sub-report tabs — tighten so all three
+/* Closing Book now has 4 sub-report tabs — tighten so all four
    labels fit comfortably without excessive wrapping. */
 #cb-mode-tabs.cl-mode-tabs .cl-mode-tab { font-size: 0.72rem; padding: 8px 6px; line-height: 1.25; }
+
+/* On narrow phones even the tightened labels above don't fit four
+   across in one row without truncating illegibly — let them wrap
+   into a 2×2 grid instead of one cramped row. Desktop/tablet keep
+   the default single-row flex:1 from .cl-mode-tab. */
+@media (max-width: 420px) {
+  #cb-mode-tabs.cl-mode-tabs { flex-wrap: wrap; }
+  #cb-mode-tabs.cl-mode-tabs .cl-mode-tab { flex: 1 1 44%; min-width: 0; }
+}
 
 /* Give the Closing Book sub-report tabs a proper "section header"
    presence — full width (see the desktop .page-body rule above),
@@ -1697,6 +1706,92 @@
 .rbd-total-label {
   border-right: 2px solid var(--border-strong);
 }
+
+/* ── MEDIQ HISTORY (Closing Book sub-report) ──────────────────
+   Same family as .rbd-* above (mh- prefix), but with its own
+   column count: Date-wise is 6 columns (Date/Closing/Status/
+   Orders/Previous MEDIQ/Extra), Month-wise collapses Closing+
+   Status into a single "Closings" count column, so it gets its
+   own grid-template via .mh-row-month rather than reusing the
+   6-col default. Only Date (date-wise) stays frozen — there's no
+   horizontal scroll pressure here like the 12-column RBD report,
+   so Closing/Status don't need their own sticky offsets. */
+.mh-view-tabs {
+  display: flex; gap: 4px; padding: 10px 16px 0;
+}
+.mh-view-tab {
+  flex: 1; padding: 7px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 0.74rem; font-weight: 700; color: var(--muted); cursor: pointer;
+}
+.mh-view-tab.active { background: var(--teal-pale); color: var(--teal-dark); border-color: var(--teal); }
+
+.mh-table {
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 520px;
+  margin: 10px 16px 16px;
+}
+.mh-row {
+  display: grid;
+  grid-template-columns: 108px 84px 64px 0.7fr 1fr 1fr;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.76rem;
+  min-width: 620px;
+  box-sizing: border-box;
+}
+.mh-row.mh-row-month { grid-template-columns: 1.3fr 0.8fr 0.8fr 1fr 1fr; min-width: 520px; }
+.mh-row:last-child { border-bottom: none; }
+
+.mh-cell {
+  padding: 9px 8px;
+  border-right: 1px solid var(--border);
+  box-sizing: border-box;
+}
+.mh-cell:last-child { border-right: none; }
+
+.mh-table .mh-row:nth-child(even):not(.mh-head-row):not(.mh-total-row) {
+  background-color: var(--surface);
+}
+
+.mh-head-row {
+  position: sticky; top: 0; z-index: 1;
+  font-weight: 700; font-size: 0.64rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .3px;
+  background-color: var(--surface); border-bottom: 1.5px solid var(--border-strong);
+}
+
+.mh-cell.mh-date    { color: var(--navy); font-weight: 600; }
+.mh-cell.mh-closing { color: var(--slate); font-weight: 600; }
+.mh-cell.mh-status  { color: var(--muted); font-size: 0.7rem; }
+.mh-cell.mh-num {
+  text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.mh-cell.mh-extra { font-weight: 800; color: var(--teal-dark); }
+.mh-row-missing { color: var(--muted); font-style: italic; }
+.mh-row-missing .mh-missing-note { grid-column: 4 / -1; text-align: right; font-size: 0.72rem; }
+.mh-row-draft .mh-date { color: var(--amber-dark); }
+.mh-draft-tag {
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  background: var(--amber-pale); color: var(--amber-dark); border-radius: 8px; padding: 1px 6px; margin-left: 4px;
+}
+.mh-total-row {
+  font-weight: 800; background-color: var(--teal-pale);
+  border-top: 3px double var(--slate); position: sticky; bottom: 0;
+}
+.mh-total-label { grid-column: span 3; color: var(--navy); }
+.mh-row-month .mh-total-label { grid-column: span 1; }
+.mh-empty { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 0.85rem; }
+.mh-empty.hidden { display: none; }
+
+.mh-cell.mh-date {
+  position: sticky; left: 0; background-color: inherit; z-index: 1;
+  border-right: 2px solid var(--border-strong);
+}
+.mh-row-month .mh-total-label { border-right: 2px solid var(--border-strong); }
+
 
 /* On a phone, 3 frozen columns (256px) eat well over half a ~380px
    viewport before you've even scrolled — that's what was making the

@@ -28,6 +28,7 @@ import * as LedgerNav   from './ledger-nav.js';
 import * as ClosingBook from './closing-book.js';
 import * as CcHistory   from './cc-history.js';
 import * as RbdHistory  from './rbd-history.js';
+import * as MediqHistory from './mediq-history.js';
 import * as Sync        from './sync.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
@@ -170,6 +171,10 @@ Object.assign(window, {
   setRbdShortcut:    RbdHistory.setRbdShortcut,
   generateRbdReport: RbdHistory.generateRbdReport,
   exportRbdCsv:      RbdHistory.exportRbdCsv,
+  setMediqHistoryShortcut: MediqHistory.setMediqHistoryShortcut,
+  generateMediqHistory:    MediqHistory.generateMediqHistory,
+  switchMediqView:         MediqHistory.switchMediqView,
+  exportMediqHistoryCsv:   MediqHistory.exportMediqHistoryCsv,
 
   // sync.js
   supaAuthStart:         Sync.supaAuthStart,
