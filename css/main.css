@@ -1708,14 +1708,20 @@
 }
 
 /* ── MEDIQ HISTORY (Closing Book sub-report) ──────────────────
-   Same family as .rbd-* above (mh- prefix), but with its own
-   column count: Date-wise is 6 columns (Date/Closing/Status/
-   Orders/Previous MEDIQ/Extra), Month-wise collapses Closing+
-   Status into a single "Closings" count column, so it gets its
-   own grid-template via .mh-row-month rather than reusing the
-   6-col default. Only Date (date-wise) stays frozen — there's no
-   horizontal scroll pressure here like the 12-column RBD report,
-   so Closing/Status don't need their own sticky offsets. */
+   Two different visual languages for the two views, because
+   they're answering different questions:
+
+     • Month-wise stays the same dense grid-of-numbers table as
+       the other Closing Book reports (mh-row/mh-cell, mh- prefix,
+       same family as .rbd-*/.cch-*) — it's a small number of rows
+       and reads fine as a plain ledger table.
+
+     • Date-wise is now an order-level LEDGER, one accordion card
+       per calendar date (see .mh-ledger below) rather than a wide
+       grid — a flat 8-column table (Date/Closing/Status/Order ID/
+       Bill Number/COD/Pharmacy Bill/Extra) would repeat the same
+       date and shift on every single order line, which is exactly
+       the kind of redundant-column noise an accordion is for. */
 .mh-view-tabs {
   display: flex; gap: 4px; padding: 10px 16px 0;
 }
@@ -1726,24 +1732,23 @@
 }
 .mh-view-tab.active { background: var(--teal-pale); color: var(--teal-dark); border-color: var(--teal); }
 
-.mh-table {
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  overflow: auto;
-  max-height: 520px;
-  margin: 10px 16px 16px;
-}
-.mh-row {
+.mh-empty { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 0.85rem; }
+.mh-empty.hidden { display: none; }
+
+/* ═══ MONTH-WISE — plain grid table, same family as .rbd-*/.cch-* ═══ */
+.mh-table { margin: 10px 16px 16px; }
+.mh-table:has(.mh-ledger) { margin: 0; } /* date-wise ledger supplies its own spacing */
+
+.mh-row.mh-row-month {
   display: grid;
-  grid-template-columns: 108px 84px 64px 0.7fr 1fr 1fr;
+  grid-template-columns: 1.3fr 0.8fr 0.8fr 1fr 1fr;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  border: 1.5px solid var(--border-strong); border-top: none;
   font-size: 0.76rem;
-  min-width: 620px;
   box-sizing: border-box;
 }
-.mh-row.mh-row-month { grid-template-columns: 1.3fr 0.8fr 0.8fr 1fr 1fr; min-width: 520px; }
-.mh-row:last-child { border-bottom: none; }
+.mh-row.mh-row-month:first-child { border-top: 1.5px solid var(--border-strong); border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.mh-row.mh-row-month:last-child  { border-radius: 0 0 var(--radius-md) var(--radius-md); }
 
 .mh-cell {
   padding: 9px 8px;
@@ -1752,45 +1757,152 @@
 }
 .mh-cell:last-child { border-right: none; }
 
-.mh-table .mh-row:nth-child(even):not(.mh-head-row):not(.mh-total-row) {
+.mh-row-month:nth-child(even):not(.mh-head-row):not(.mh-total-row) {
   background-color: var(--surface);
 }
-
 .mh-head-row {
-  position: sticky; top: 0; z-index: 1;
   font-weight: 700; font-size: 0.64rem; color: var(--muted);
   text-transform: uppercase; letter-spacing: .3px;
   background-color: var(--surface); border-bottom: 1.5px solid var(--border-strong);
 }
-
-.mh-cell.mh-date    { color: var(--navy); font-weight: 600; }
-.mh-cell.mh-closing { color: var(--slate); font-weight: 600; }
-.mh-cell.mh-status  { color: var(--muted); font-size: 0.7rem; }
-.mh-cell.mh-num {
-  text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
-}
+.mh-cell.mh-date  { color: var(--navy); font-weight: 600; }
+.mh-cell.mh-num   { text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
 .mh-cell.mh-extra { font-weight: 800; color: var(--teal-dark); }
-.mh-row-missing { color: var(--muted); font-style: italic; }
-.mh-row-missing .mh-missing-note { grid-column: 4 / -1; text-align: right; font-size: 0.72rem; }
-.mh-row-draft .mh-date { color: var(--amber-dark); }
+.mh-total-row {
+  font-weight: 800; background-color: var(--teal-pale);
+  border-top: 3px double var(--slate) !important;
+}
+.mh-total-label { color: var(--navy); }
+.mh-row-month .mh-total-label { grid-column: span 1; }
+
+/* ═══ DATE-WISE — accordion ledger ═══ */
+.mh-toolbar {
+  display: flex; gap: 8px; padding: 12px 16px 0;
+}
+.mh-toolbar-btn {
+  border: 1px solid var(--border); background: var(--white); color: var(--slate);
+  font-size: 0.72rem; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+  cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+}
+.mh-toolbar-btn:hover { background: var(--teal-pale); color: var(--teal-dark); border-color: var(--teal); }
+
+.mh-ledger { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; }
+
+/* One card per calendar date. A thin teal accent bar down the left
+   edge appears once the card is open, so an open card reads as
+   "in focus" even after you've scrolled past its header. */
+.mh-date-card {
+  border: 1.5px solid var(--border-strong); border-radius: var(--radius-md);
+  background: var(--white); overflow: hidden;
+  border-left: 3px solid transparent;
+  transition: border-left-color .15s;
+}
+.mh-date-card.open { border-left-color: var(--teal); }
+
+.mh-date-head {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; background: none; border: none; cursor: pointer;
+  font-family: 'Inter', sans-serif; text-align: left;
+}
+.mh-date-head:hover { background: var(--surface); }
+
+.mh-chevron {
+  display: inline-block; font-size: 0.78rem; color: var(--muted);
+  transition: transform .15s; flex-shrink: 0;
+}
+.mh-date-card.open .mh-chevron { transform: rotate(90deg); color: var(--teal-dark); }
+
+.mh-date-title { font-weight: 700; color: var(--navy); font-size: 0.86rem; flex-shrink: 0; }
+.mh-date-badge {
+  font-size: 0.68rem; font-weight: 600; color: var(--muted);
+  background: var(--surface); border-radius: 999px; padding: 2px 9px;
+  white-space: nowrap;
+}
+.mh-date-total {
+  margin-left: auto; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+  font-weight: 700; color: var(--muted); font-size: 0.84rem; white-space: nowrap;
+}
+.mh-date-total-pos { color: var(--teal-dark); font-weight: 800; }
+
+.mh-date-body { display: none; border-top: 1px solid var(--border); }
+.mh-date-card.open .mh-date-body { display: block; animation: mhFadeIn .15s ease-out; }
+@keyframes mhFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* One block per shift slot inside an open date card. */
+.mh-shift-block { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.mh-shift-block:last-child { border-bottom: none; }
+
+.mh-shift-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mh-shift-name { font-weight: 700; color: var(--slate); font-size: 0.8rem; }
+
+.mh-status-pill {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  border-radius: 999px; padding: 2px 8px;
+}
+.mh-status-shift { background: var(--teal-pale); color: var(--teal-dark); }
+.mh-status-final { background: var(--amber-pale); color: var(--amber-dark); }
 .mh-draft-tag {
   font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
   background: var(--amber-pale); color: var(--amber-dark); border-radius: 8px; padding: 1px 6px; margin-left: 4px;
 }
-.mh-total-row {
-  font-weight: 800; background-color: var(--teal-pale);
-  border-top: 3px double var(--slate); position: sticky; bottom: 0;
-}
-.mh-total-label { grid-column: span 3; color: var(--navy); }
-.mh-row-month .mh-total-label { grid-column: span 1; }
-.mh-empty { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 0.85rem; }
-.mh-empty.hidden { display: none; }
 
-.mh-cell.mh-date {
-  position: sticky; left: 0; background-color: inherit; z-index: 1;
-  border-right: 2px solid var(--border-strong);
+.mh-shift-missing { display: flex; align-items: center; }
+.mh-shift-missing .mh-shift-head { margin-bottom: 0; flex: 1; }
+.mh-shift-missing-note { color: var(--muted); font-style: italic; font-size: 0.74rem; margin-left: auto; }
+
+.mh-shift-empty {
+  color: var(--muted); font-style: italic; font-size: 0.74rem;
+  padding: 6px 2px;
 }
-.mh-row-month .mh-total-label { border-right: 2px solid var(--border-strong); }
+
+/* The order mini-ledger — Order ID / Bill Number / COD Collected /
+   Pharmacy Bill / Extra. Its own small rounded box nested inside the
+   shift block, so it visually reads as "the detail" rather than
+   just more rows of the same table. */
+.mh-order-table {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; font-size: 0.74rem;
+}
+.mh-order-row {
+  display: grid; grid-template-columns: 50px 1.3fr 1fr 1fr 1fr;
+  align-items: center;
+}
+.mh-order-row + .mh-order-row { border-top: 1px solid var(--border); }
+.mh-order-cell { padding: 6px 8px; box-sizing: border-box; }
+.mh-order-id  { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+.mh-order-bill { color: var(--slate); font-weight: 500; }
+.mh-order-num {
+  text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.mh-order-extra { font-weight: 700; color: var(--teal-dark); }
+
+.mh-order-head {
+  background: var(--surface); font-weight: 700; font-size: 0.62rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.mh-order-head .mh-order-cell { padding: 6px 8px; }
+
+.mh-carry-row { background: var(--amber-pale); }
+.mh-carry-row .mh-order-bill { color: var(--amber-dark); font-style: italic; font-weight: 600; }
+.mh-carry-row .mh-order-extra { color: var(--amber-dark); }
+
+.mh-shift-total-row {
+  background: var(--teal-pale); font-weight: 800;
+  grid-template-columns: 50px 1.3fr 1fr 1fr 1fr;
+}
+.mh-order-total-label { grid-column: 1 / 4; color: var(--navy); }
+
+/* Narrow phones: order rows lose the fixed Order-ID column width and
+   tighten padding, same reasoning as the RBD mobile override below —
+   there's no room to spare, and Order ID/Bill Number matter less
+   than the three money columns. */
+@media (max-width: 480px) {
+  .mh-date-title { font-size: 0.78rem; }
+  .mh-date-badge { display: none; } /* the found/total count is a nice-to-have, not essential, on the tightest screens */
+  .mh-order-row, .mh-shift-total-row { grid-template-columns: 34px 1.1fr 0.9fr 0.9fr 0.9fr; font-size: 0.7rem; }
+  .mh-order-cell { padding: 6px 5px; }
+  .mh-order-total-label { grid-column: 1 / 4; }
+}
 
 
 /* On a phone, 3 frozen columns (256px) eat well over half a ~380px

@@ -9,21 +9,25 @@
    Two views over the same underlying rows, switched in place
    without leaving the tab:
 
-     • Date-wise  — one row per real shift slot (Night/Morning/
-       Evening/Handover) in the range, newest date & shift first.
-       Same walk as rbd-history.js's buildRbdRows(), so a day with
-       no saved record still gets a row marked hasData:false.
+     • Date-wise — a proper ORDER-LEVEL LEDGER: one collapsible
+       card per calendar date (chevron toggles it), and inside each,
+       one block per real shift slot (Night/Morning/Evening/
+       Handover) with its own mini ledger table — Order ID, Bill
+       Number, COD Collected, Pharmacy Bill, Extra — one row per
+       order actually entered that shift. Same walk as
+       rbd-history.js's buildRbdRows(): a day with no saved record
+       still gets a row, marked hasData:false, so gaps stay visible.
 
-     • Month-wise — the same rows rolled up by calendar month
-       (newest month first), because a MEDIQ COD business runs on
-       month-end reconciliation as much as day-to-day closings.
+     • Month-wise — the same shift-level totals rolled up by
+       calendar month (newest month first), because a MEDIQ COD
+       business reconciles month-end as much as day-to-day.
 
-   Pure builders (buildMediqHistoryRows / buildMediqMonthRows) are
-   DOM-free, same split as rbd-history.js, so they're unit testable
-   directly (see tests/mediq-history.test.mjs).
+   Pure builders (buildMediqHistoryRows / groupMediqRowsByDate /
+   buildMediqMonthRows) are DOM-free, same split as rbd-history.js,
+   so they're unit testable directly (see tests/mediq-history.test.mjs).
 ═══════════════════════════════════════════════════════════════ */
 
-import { db, daySlots, mediqExtraOf } from './state.js';
+import { db, daySlots, mediqExtraOf, escHtml } from './state.js';
 import { showAlert } from './notify.js';
 import { _cbLocalDateStr } from './closing-book.js';
 
@@ -32,9 +36,11 @@ import { _cbLocalDateStr } from './closing-book.js';
 const mhState = {
   fromDate:  null,
   toDate:    null,
-  view:      'date',  /* 'date' | 'month' */
-  rows:      [],       /* date-wise rows — last generated report */
-  monthRows: []         /* month-wise rollup of the same rows */
+  view:      'date',       /* 'date' | 'month' */
+  rows:      [],            /* date-wise rows — last generated report */
+  groups:    [],            /* rows grouped by calendar date, for the ledger */
+  monthRows: [],            /* month-wise rollup of the same rows */
+  openDates: new Set()      /* which date-group cards are expanded */
 };
 
 /* ── Defaults when the tab is first opened ─────────────────── */
@@ -56,10 +62,14 @@ export function setMediqHistoryShortcut(days) {
 /* ── Pure date-wise builder — no DOM ─────────────────────────
    Walks every calendar date in [fromDs, toDs] (inclusive), NEWEST
    date first; within each date, every real slot from daySlots(),
-   newest-shift-first (mirrors buildRbdRows() exactly). Each order
-   line's extra is collected − pharmacy bill; a row's own total is
-   mediqExtraOf(rec), the single source of truth also used by the
-   live card, the Closing Book summary tile, and Final aggregation. */
+   newest-shift-first (mirrors buildRbdRows() exactly). Each row
+   that has a saved record also carries its own order-level detail
+   (`orders`) so the ledger can render Order ID / Bill Number / COD
+   Collected / Pharmacy Bill / Extra per line, not just a shift
+   total. `orderId` is a per-shift sequence number ("#1", "#2", …)
+   in entry order — MEDIQ order rows have no persisted business ID
+   of their own (only the free-text Bill Number the cashier types),
+   so this is a stable, readable stand-in scoped to that one shift. */
 export function buildMediqHistoryRows(fromDs, toDs) {
   const rows = [];
   if(!fromDs || !toDs) return rows;
@@ -81,12 +91,22 @@ export function buildMediqHistoryRows(fromDs, toDs) {
       if(!rec) {
         rows.push({
           date: ds, shift: slot.shift, hasData: false, draft: false, status: '',
-          orderCount: 0, prevMediq: 0, extra: 0
+          orders: [], orderCount: 0, prevMediq: 0, extra: 0
         });
         return;
       }
 
       const liveOrders = Array.isArray(rec.mediqRows) ? rec.mediqRows.filter(o => !o.deleted) : [];
+      const orders = liveOrders.map((o, idx) => {
+        const val       = parseFloat(o.val) || 0;
+        const pharmBill = parseFloat(o.pharmBill) || 0;
+        return {
+          orderId:  `#${idx + 1}`,
+          billNum:  (o.billNum ?? o.lbl ?? '').trim(),
+          val, pharmBill,
+          extra:    val - pharmBill
+        };
+      });
 
       rows.push({
         date:       ds,
@@ -94,7 +114,8 @@ export function buildMediqHistoryRows(fromDs, toDs) {
         hasData:    true,
         draft:      rec.draft === true,
         status:     rec.profileMode === 'final' ? 'Final' : 'Shift',
-        orderCount: liveOrders.length,
+        orders,
+        orderCount: orders.length,
         prevMediq:  parseFloat(rec.outPrevMediq) || 0,
         extra:      mediqExtraOf(rec)
       });
@@ -104,12 +125,34 @@ export function buildMediqHistoryRows(fromDs, toDs) {
   return rows;
 }
 
+/* ── Group the flat date-wise rows into one entry per calendar
+   date, for the ledger's date-level accordion. Rows already arrive
+   newest-date-first with same-date rows adjacent (see above), so
+   this is a straight run-length grouping — no re-sorting needed. */
+export function groupMediqRowsByDate(rows) {
+  const groups = [];
+  let current = null;
+  rows.forEach(r => {
+    if(!current || current.date !== r.date) {
+      current = { date: r.date, shifts: [], dayExtra: 0, dayOrders: 0, dayPrev: 0, foundCount: 0 };
+      groups.push(current);
+    }
+    current.shifts.push(r);
+    if(r.hasData) {
+      current.dayExtra += r.extra;
+      current.dayOrders += r.orderCount;
+      current.dayPrev += r.prevMediq;
+      current.foundCount++;
+    }
+  });
+  return groups;
+}
+
 /* ── Pure month-wise rollup — no DOM ──────────────────────────
    Groups the same date-wise rows by "YYYY-MM", newest month first.
    Only rows with hasData contribute to a month's figures, but a
-   month with nothing saved at all still doesn't appear (unlike the
-   date-wise view, which deliberately shows every empty slot) —
-   there is no meaningful "empty month" row to show here. */
+   month with nothing saved at all still doesn't appear — there is
+   no meaningful "empty month" row to show here. */
 export function buildMediqMonthRows(rows) {
   const byMonth = new Map();
 
@@ -135,7 +178,7 @@ function mhMoney(n) {
 }
 function mhFmtDate(ds) {
   try {
-    return new Date(ds + 'T00:00:00').toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(ds + 'T00:00:00').toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' });
   } catch(e) { return ds; }
 }
 function mhFmtMonth(monthKey) {
@@ -156,7 +199,14 @@ export function generateMediqHistory() {
   mhState.fromDate  = fromDs;
   mhState.toDate    = toDs;
   mhState.rows      = buildMediqHistoryRows(fromDs, toDs);
+  mhState.groups    = groupMediqRowsByDate(mhState.rows);
   mhState.monthRows = buildMediqMonthRows(mhState.rows);
+
+  /* Fresh range → start with just the most recent date open, so the
+     ledger isn't a wall of expanded cards on first generate. Expand
+     All / Collapse All (in the toolbar below) take it from there. */
+  mhState.openDates = new Set(mhState.groups.length ? [mhState.groups[0].date] : []);
+
   renderActiveMediqView();
 }
 
@@ -173,10 +223,30 @@ function renderActiveMediqView() {
   else                         renderMediqHistoryTable(mhState.rows);
 }
 
-/* ── Render: Date-wise ────────────────────────────────────────
-   Mirrors rbd-history.js's renderRbdTable structure/CSS classes
-   (mh- prefix instead of rbd-) so both reports read as the same
-   family of report inside Closing Book. */
+/* ── Accordion controls (date-wise ledger only) ───────────────── */
+export function toggleMediqDateGroup(dateKey) {
+  if(mhState.openDates.has(dateKey)) mhState.openDates.delete(dateKey);
+  else mhState.openDates.add(dateKey);
+  renderMediqHistoryTable(mhState.rows);
+}
+export function expandAllMediqDates() {
+  mhState.openDates = new Set(mhState.groups.map(g => g.date));
+  renderMediqHistoryTable(mhState.rows);
+}
+export function collapseAllMediqDates() {
+  mhState.openDates = new Set();
+  renderMediqHistoryTable(mhState.rows);
+}
+
+/* ── Render: Date-wise ledger ─────────────────────────────────
+   One card per calendar date. The card header is the only thing
+   visible when collapsed — date, a "found/total" closings badge,
+   and the day's Extra MEDIQ total — with a chevron that rotates on
+   open. Expanding it reveals one block per shift slot; a shift with
+   orders gets its own mini ledger table (Order ID / Bill Number /
+   COD Collected / Pharmacy Bill / Extra), a shift with none shows a
+   quiet placeholder line, and a slot with no saved record at all
+   shows "No closing recorded" exactly as the flat report used to. */
 export function renderMediqHistoryTable(rows) {
   const container = document.getElementById('mh-table');
   const emptyEl   = document.getElementById('mh-empty');
@@ -193,53 +263,101 @@ export function renderMediqHistoryTable(rows) {
   }
   if(emptyEl) emptyEl.classList.add('hidden');
 
-  const found = rows.filter(r => r.hasData);
-  let tOrders = 0, tPrev = 0, tExtra = 0;
-  found.forEach(r => { tOrders += r.orderCount; tPrev += r.prevMediq; tExtra += r.extra; });
+  const groups = mhState.groups.length ? mhState.groups : groupMediqRowsByDate(rows);
+  const found  = rows.filter(r => r.hasData);
 
-  let html = `
-    <div class="mh-row mh-head-row">
-      <span class="mh-cell mh-date">Date</span>
-      <span class="mh-cell mh-closing">Closing</span>
-      <span class="mh-cell mh-status">Status</span>
-      <span class="mh-cell mh-num">Orders</span>
-      <span class="mh-cell mh-num">Previous MEDIQ</span>
-      <span class="mh-cell mh-num mh-extra">Extra MEDIQ (I)</span>
+  const toolbar = `
+    <div class="mh-toolbar">
+      <button class="mh-toolbar-btn" onclick="expandAllMediqDates()">⤢ Expand all</button>
+      <button class="mh-toolbar-btn" onclick="collapseAllMediqDates()">⤡ Collapse all</button>
     </div>`;
 
-  rows.forEach(r => {
-    if(!r.hasData) {
-      html += `
-        <div class="mh-row mh-row-missing">
-          <span class="mh-cell mh-date">${mhFmtDate(r.date)}</span>
-          <span class="mh-cell mh-closing">${r.shift}</span>
-          <span class="mh-cell mh-missing-note">No closing recorded</span>
-        </div>`;
-      return;
-    }
-    html += `
-      <div class="mh-row${r.draft ? ' mh-row-draft' : ''}">
-        <span class="mh-cell mh-date">${mhFmtDate(r.date)}${r.draft ? ' <span class="mh-draft-tag">Draft</span>' : ''}</span>
-        <span class="mh-cell mh-closing">${r.shift}</span>
-        <span class="mh-cell mh-status">${r.status}</span>
-        <span class="mh-cell mh-num">${r.orderCount}</span>
-        <span class="mh-cell mh-num">${mhMoney(r.prevMediq)}</span>
-        <span class="mh-cell mh-num mh-extra">${mhMoney(r.extra)}</span>
-      </div>`;
-  });
+  const cardsHtml = groups.map(g => renderMediqDateCard(g)).join('');
 
-  html += `
-    <div class="mh-row mh-total-row">
-      <span class="mh-cell mh-total-label">TOTAL (${found.length} of ${rows.length} slot${rows.length !== 1 ? 's' : ''})</span>
-      <span class="mh-cell mh-num">${tOrders}</span>
-      <span class="mh-cell mh-num">${mhMoney(tPrev)}</span>
-      <span class="mh-cell mh-num mh-extra">${mhMoney(tExtra)}</span>
-    </div>`;
-
-  container.innerHTML = html;
+  container.innerHTML = toolbar + `<div class="mh-ledger">${cardsHtml}</div>`;
 
   if(summaryEl) summaryEl.textContent = `${found.length} of ${rows.length} closing${rows.length !== 1 ? 's' : ''} found`;
   if(exportBtn) exportBtn.disabled = false;
+}
+
+function renderMediqDateCard(g) {
+  const isOpen = mhState.openDates.has(g.date);
+  const shiftsHtml = g.shifts.map(renderMediqShiftBlock).join('');
+
+  return `
+    <div class="mh-date-card${isOpen ? ' open' : ''}">
+      <button class="mh-date-head" onclick="toggleMediqDateGroup('${g.date}')" type="button">
+        <span class="mh-chevron">▸</span>
+        <span class="mh-date-title">${mhFmtDate(g.date)}</span>
+        <span class="mh-date-badge">${g.foundCount} of ${g.shifts.length} closing${g.shifts.length !== 1 ? 's' : ''}</span>
+        <span class="mh-date-total${g.dayExtra !== 0 ? ' mh-date-total-pos' : ''}">${mhMoney(g.dayExtra)}</span>
+      </button>
+      <div class="mh-date-body">${shiftsHtml}</div>
+    </div>`;
+}
+
+function renderMediqShiftBlock(r) {
+  if(!r.hasData) {
+    return `
+      <div class="mh-shift-block mh-shift-missing">
+        <div class="mh-shift-head">
+          <span class="mh-shift-name">${escHtml(r.shift)}</span>
+          <span class="mh-shift-missing-note">No closing recorded</span>
+        </div>
+      </div>`;
+  }
+
+  const statusClass = r.status === 'Final' ? 'mh-status-final' : 'mh-status-shift';
+  const draftTag = r.draft ? ' <span class="mh-draft-tag">Draft</span>' : '';
+
+  let body;
+  if(r.orders.length === 0 && r.prevMediq === 0) {
+    body = `<div class="mh-shift-empty">No MEDIQ activity this shift</div>`;
+  } else {
+    const orderRows = r.orders.map(o => `
+      <div class="mh-order-row">
+        <span class="mh-order-cell mh-order-id">${o.orderId}</span>
+        <span class="mh-order-cell mh-order-bill">${o.billNum ? escHtml(o.billNum) : '—'}</span>
+        <span class="mh-order-cell mh-order-num">${mhMoney(o.val)}</span>
+        <span class="mh-order-cell mh-order-num">${mhMoney(o.pharmBill)}</span>
+        <span class="mh-order-cell mh-order-num mh-order-extra">${mhMoney(o.extra)}</span>
+      </div>`).join('');
+
+    const carryRow = r.prevMediq !== 0 ? `
+      <div class="mh-order-row mh-carry-row">
+        <span class="mh-order-cell mh-order-id">—</span>
+        <span class="mh-order-cell mh-order-bill">Previous MEDIQ (carried)</span>
+        <span class="mh-order-cell mh-order-num">—</span>
+        <span class="mh-order-cell mh-order-num">—</span>
+        <span class="mh-order-cell mh-order-num mh-order-extra">${mhMoney(r.prevMediq)}</span>
+      </div>` : '';
+
+    body = `
+      <div class="mh-order-table">
+        <div class="mh-order-row mh-order-head">
+          <span class="mh-order-cell mh-order-id">Order ID</span>
+          <span class="mh-order-cell mh-order-bill">Bill Number</span>
+          <span class="mh-order-cell mh-order-num">COD Collected</span>
+          <span class="mh-order-cell mh-order-num">Pharmacy Bill</span>
+          <span class="mh-order-cell mh-order-num">Extra</span>
+        </div>
+        ${orderRows}
+        ${carryRow}
+        <div class="mh-order-row mh-shift-total-row">
+          <span class="mh-order-cell mh-order-total-label">Shift Extra MEDIQ (I)</span>
+          <span class="mh-order-cell mh-order-num mh-order-extra">${mhMoney(r.extra)}</span>
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="mh-shift-block">
+      <div class="mh-shift-head">
+        <span class="mh-shift-name">${escHtml(r.shift)}${draftTag}</span>
+        <span class="mh-status-pill ${statusClass}">${r.status}</span>
+      </div>
+      ${body}
+    </div>`;
 }
 
 /* ── Render: Month-wise ───────────────────────────────────────
@@ -300,7 +418,11 @@ export function renderMediqMonthTable(monthRows) {
 }
 
 /* ── Export currently-generated report as CSV — follows whichever
-   view is active, same as the table currently on screen ───────── */
+   view is active, same as the table currently on screen. The
+   date-wise export is now order-level, matching the ledger: one
+   line per order, plus a carried-forward line when Previous MEDIQ
+   is non-zero, plus one placeholder line for a shift with neither
+   (so every shift still contributes at least one row). ─────────── */
 export function exportMediqHistoryCsv() {
   if(mhState.view === 'month') {
     if(!mhState.monthRows.length) return;
@@ -313,10 +435,20 @@ export function exportMediqHistoryCsv() {
   }
 
   if(!mhState.rows.length) return;
-  const lines = ['Date,Closing,Status,Orders,Previous MEDIQ,Extra MEDIQ (I)'];
+  const lines = ['Date,Closing,Status,Order ID,Bill Number,COD Collected,Pharmacy Bill,Extra'];
   mhState.rows.forEach(r => {
-    if(!r.hasData) { lines.push(`${r.date},${r.shift},,,,`); return; }
-    lines.push([r.date, r.shift, r.status, r.orderCount, r.prevMediq, r.extra].join(','));
+    if(!r.hasData) { lines.push(`${r.date},${r.shift},,,,,,`); return; }
+
+    if(r.orders.length === 0 && r.prevMediq === 0) {
+      lines.push(`${r.date},${r.shift},${r.status},,,,,0`);
+      return;
+    }
+    r.orders.forEach(o => {
+      lines.push([r.date, r.shift, r.status, o.orderId, o.billNum, o.val, o.pharmBill, o.extra].join(','));
+    });
+    if(r.prevMediq !== 0) {
+      lines.push(`${r.date},${r.shift},${r.status},(carried),Previous MEDIQ,,,${r.prevMediq}`);
+    }
   });
   downloadMhCsv(lines, `mediq-history_${mhState.fromDate}_to_${mhState.toDate}.csv`);
 }

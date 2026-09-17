@@ -3,7 +3,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { db } from '../js/state.js';
-import { buildMediqHistoryRows, buildMediqMonthRows } from '../js/mediq-history.js';
+import { buildMediqHistoryRows, buildMediqMonthRows, groupMediqRowsByDate } from '../js/mediq-history.js';
 
 function resetDb() {
   db.sheets = {};
@@ -30,6 +30,17 @@ describe('buildMediqHistoryRows — date-wise, every closing', () => {
     // (1350-1035) + (1310-1211) + 500 carried = 315 + 99 + 500 = 914
     assert.equal(evening.extra, 914);
     assert.equal(evening.status, 'Shift');
+
+    // order-level ledger detail — Order ID is a per-shift sequence
+    // number, not a persisted business ID (see buildMediqHistoryRows).
+    assert.equal(evening.orders.length, 2);
+    assert.equal(evening.orders[0].orderId, '#1');
+    assert.equal(evening.orders[0].billNum, '2446568');
+    assert.equal(evening.orders[0].val, 1350);
+    assert.equal(evening.orders[0].pharmBill, 1035);
+    assert.equal(evening.orders[0].extra, 315);
+    assert.equal(evening.orders[1].orderId, '#2');
+    assert.equal(evening.orders[1].extra, 99);
   });
 
   test('soft-deleted orders are excluded from both the count and the extra', () => {
@@ -98,6 +109,43 @@ describe('buildMediqHistoryRows — date-wise, every closing', () => {
     assert.deepEqual(buildMediqHistoryRows('2026-08-10', '2026-08-01'), []);
     assert.deepEqual(buildMediqHistoryRows('', '2026-08-01'), []);
     assert.deepEqual(buildMediqHistoryRows('2026-08-01', ''), []);
+  });
+});
+
+describe('groupMediqRowsByDate — the ledger\'s date-level accordion grouping', () => {
+  test('groups adjacent same-date rows into one entry, preserving newest-first order', () => {
+    const rows = [
+      { date: '2026-09-17', hasData: true,  orderCount: 2, prevMediq: 0,   extra: 414 },
+      { date: '2026-09-17', hasData: false, orderCount: 0, prevMediq: 0,   extra: 0 },
+      { date: '2026-09-16', hasData: true,  orderCount: 1, prevMediq: 100, extra: 250 }
+    ];
+    const groups = groupMediqRowsByDate(rows);
+
+    assert.equal(groups.length, 2);
+    assert.equal(groups[0].date, '2026-09-17');
+    assert.equal(groups[0].shifts.length, 2);
+    assert.equal(groups[0].dayExtra, 414);
+    assert.equal(groups[0].dayOrders, 2);
+    assert.equal(groups[0].foundCount, 1); // only the hasData:true shift counts
+
+    assert.equal(groups[1].date, '2026-09-16');
+    assert.equal(groups[1].dayExtra, 250);
+    assert.equal(groups[1].dayPrev, 100);
+  });
+
+  test('a day where every slot is empty still forms a group, with dayExtra 0', () => {
+    const rows = [
+      { date: '2026-09-15', hasData: false, orderCount: 0, prevMediq: 0, extra: 0 },
+      { date: '2026-09-15', hasData: false, orderCount: 0, prevMediq: 0, extra: 0 }
+    ];
+    const groups = groupMediqRowsByDate(rows);
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].foundCount, 0);
+    assert.equal(groups[0].dayExtra, 0);
+  });
+
+  test('returns an empty array for an empty input', () => {
+    assert.deepEqual(groupMediqRowsByDate([]), []);
   });
 });
 

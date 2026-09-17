@@ -175,6 +175,9 @@ Object.assign(window, {
   generateMediqHistory:    MediqHistory.generateMediqHistory,
   switchMediqView:         MediqHistory.switchMediqView,
   exportMediqHistoryCsv:   MediqHistory.exportMediqHistoryCsv,
+  toggleMediqDateGroup:    MediqHistory.toggleMediqDateGroup,
+  expandAllMediqDates:     MediqHistory.expandAllMediqDates,
+  collapseAllMediqDates:   MediqHistory.collapseAllMediqDates,
 
   // sync.js
   supaAuthStart:         Sync.supaAuthStart,
