@@ -545,11 +545,10 @@
   .misc-row input[type="number"] { width: 90px; }
 
   /* ── MEDIQ COD ORDERS ──────────────────────────────────────
-     Four columns: Bill Number (flexible) then three fixed money
-     columns — COD Collected, Pharmacy Bill, and the read-only
-     Extra (collected − bill) that feeds the card's total. The
-     header's trailing spacer matches .del-row-btn's footprint so
-     the labels stay aligned over their inputs. */
+     A real table: header and body rows share ONE grid-template-
+     columns rule (below), so every vertical rule lines up exactly
+     between the header and every row — no separate width numbers
+     to keep in sync in two places. */
   .mediq-desc {
     margin: 0; padding: 10px 16px 8px;
     font-size: 0.78rem; line-height: 1.45; color: var(--muted);
@@ -567,55 +566,63 @@
     box-shadow: 0 1px 4px rgba(10, 81, 71, .06);
   }
 
+  /* Order ID / Bill Number (flexible) / COD Collected / Pharmacy
+     Bill / Extra / trailing action button — six columns, identical
+     on the header and on every order row. */
+  .mediq-head-row,
+  #ledger-mediq .row {
+    display: grid;
+    grid-template-columns: 100px minmax(0,1fr) 90px 90px 90px 40px;
+    align-items: center;
+  }
+
   /* ── Header: modern, stylized — teal gradient, white uppercase
-     labels, sticky so it stays visible while scrolling long lists
-     of orders. ── */
+     labels, vertically centered (even a two-line label like "COD
+     Collected" sits centered in the row), sticky so it stays visible
+     while scrolling long lists of orders. ── */
   .mediq-head-row {
-    display: flex; align-items: stretch; gap: 0;
     background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
     font-size: 0.68rem; font-weight: 700; color: var(--white);
     text-transform: uppercase; letter-spacing: .04em;
     position: sticky; top: 0; z-index: 1;
   }
   .mediq-head-row > span {
-    display: flex; align-items: center;
-    padding: 10px 10px;
+    display: flex; align-items: center; height: 100%;
+    padding: 10px; text-align: left;
     border-right: 1px solid rgba(255,255,255,.22);
   }
-  .mediq-head-row .mediq-col-orderid { width: 100px; flex-shrink: 0; text-align: left; }
-  .mediq-head-row .mediq-col-billnum { flex: 1; min-width: 0; text-align: left; }
   .mediq-head-row .mediq-col-val,
   .mediq-head-row .mediq-col-pharm,
-  .mediq-head-row .mediq-col-extra { width: 80px; text-align: right; flex-shrink: 0; justify-content: flex-end; }
-  .mediq-head-row .mediq-col-spacer { width: 22px; flex-shrink: 0; border-right: none; padding: 0; }
+  .mediq-head-row .mediq-col-extra { justify-content: flex-end; text-align: right; }
+  .mediq-head-row .mediq-col-spacer { border-right: none; padding: 0; }
 
   /* ── Body: each order is one gridded row, columns separated by
      real vertical rules and rows separated by horizontal rules —
      a proper spreadsheet grid rather than floating boxed inputs. ── */
   #ledger-mediq { display: flex; flex-direction: column; }
   #ledger-mediq .row {
-    gap: 0; padding: 0 0 0 0;
-    border: none; border-radius: 0;
+    padding: 0; border: none; border-radius: 0;
     border-bottom: 1px solid var(--border-strong);
     background: var(--white);
   }
   #ledger-mediq .row:last-child { border-bottom: none; }
   #ledger-mediq .row:nth-child(even) { background: var(--teal-pale); }
   #ledger-mediq .row:hover { background: var(--teal-light); }
+  /* A deleted (struck-through) row keeps its red tint regardless of
+     zebra striping or hover — specificity here must beat both. */
+  #ledger-mediq .row.row-deleted,
+  #ledger-mediq .row.row-deleted:hover { background: var(--red-pale); }
 
   #ledger-mediq .row .mediq-orderid,
   #ledger-mediq .row .mediq-billnum,
   #ledger-mediq .row .mediq-val,
   #ledger-mediq .row .mediq-pharmbill,
   #ledger-mediq .row .mediq-extra {
+    height: 100%; box-sizing: border-box;
     border: none; border-radius: 0; background: transparent;
-    padding: 9px 10px; margin: 0;
+    padding: 9px 10px; margin: 0; width: auto;
     border-right: 1px solid var(--border-strong);
   }
-  #ledger-mediq .row .mediq-orderid { width: 100px; flex-shrink: 0; }
-  #ledger-mediq .row .mediq-billnum { flex: 1; min-width: 0; }
-  #ledger-mediq .row .mediq-val,
-  #ledger-mediq .row .mediq-pharmbill { width: 80px; flex-shrink: 0; }
   #ledger-mediq .row input:focus {
     box-shadow: inset 0 0 0 2px var(--teal);
     background: var(--white);
@@ -623,14 +630,13 @@
   /* The Extra cell is a derived figure, not an entry field — styled as
      a result so nobody tries to type into it. */
   #ledger-mediq .row .mediq-extra {
-    width: 80px; flex-shrink: 0;
     background: var(--teal-pale);
     color: var(--teal-dark); font-weight: 700; cursor: default;
     border-right: none;
   }
   #ledger-mediq .row:nth-child(even) .mediq-extra,
   #ledger-mediq .row:hover .mediq-extra { background: var(--teal-light); }
-  #ledger-mediq .row .del-row-btn { margin: 0 8px; flex-shrink: 0; }
+  #ledger-mediq .row .del-row-btn { justify-self: center; width: auto; padding: 0; }
 
   /* ── UTILITY ── */
   .text-muted { color: var(--muted); }

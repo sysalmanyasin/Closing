@@ -330,7 +330,7 @@ export function addMediqRow(orderId='', billNum='', val='', pharmBill='', rid=nu
      the old gross figure rather than throwing. */
   row.innerHTML = `
     <input type="text"   class="lbl-input mediq-orderid" placeholder="Order ID" value="${escHtml(orderId)}">
-    <input type="text"   class="lbl-input mediq-billnum" placeholder="Bill Number" value="${escHtml(billNum)}" style="flex:1;">
+    <input type="text"   class="lbl-input mediq-billnum" placeholder="Bill Number" value="${escHtml(billNum)}">
     <input type="number" class="mediq-val" placeholder="COD Collected" value="${val||0}" oninput="calc()">
     <input type="number" class="mediq-pharmbill" placeholder="Pharmacy Bill" value="${parseFloat(pharmBill)||0}" oninput="calc()">
     <input type="number" class="mediq-extra" readonly tabindex="-1" aria-label="Extra collected on this order" value="0">
