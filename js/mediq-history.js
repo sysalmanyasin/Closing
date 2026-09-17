@@ -66,10 +66,11 @@ export function setMediqHistoryShortcut(days) {
    that has a saved record also carries its own order-level detail
    (`orders`) so the ledger can render Order ID / Bill Number / COD
    Collected / Pharmacy Bill / Extra per line, not just a shift
-   total. `orderId` is a per-shift sequence number ("#1", "#2", …)
-   in entry order — MEDIQ order rows have no persisted business ID
-   of their own (only the free-text Bill Number the cashier types),
-   so this is a stable, readable stand-in scoped to that one shift. */
+   total. `orderId` is the cashier's own entered Order ID field (same
+   free-text style as Bill Number) when they filled it in; rows saved
+   before that field existed, or left blank, fall back to a per-shift
+   sequence number ("#1", "#2", …) in entry order so every row still
+   has something stable and readable to show. */
 export function buildMediqHistoryRows(fromDs, toDs) {
   const rows = [];
   if(!fromDs || !toDs) return rows;
@@ -100,8 +101,9 @@ export function buildMediqHistoryRows(fromDs, toDs) {
       const orders = liveOrders.map((o, idx) => {
         const val       = parseFloat(o.val) || 0;
         const pharmBill = parseFloat(o.pharmBill) || 0;
+        const orderId   = (o.orderId ?? '').toString().trim();
         return {
-          orderId:  `#${idx + 1}`,
+          orderId:  orderId || `#${idx + 1}`,
           billNum:  (o.billNum ?? o.lbl ?? '').trim(),
           val, pharmBill,
           extra:    val - pharmBill

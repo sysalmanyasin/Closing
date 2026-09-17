@@ -43,6 +43,20 @@ describe('buildMediqHistoryRows — date-wise, every closing', () => {
     assert.equal(evening.orders[1].extra, 99);
   });
 
+  test('uses the cashier-entered Order ID field when present, falling back to a sequence number only when blank', () => {
+    resetDb();
+    db.sheets['2026-08-30_Evening'] = {
+      mediqRows: [
+        { id: 'a', orderId: 'MQ-9981', billNum: '2446568', val: 1350, pharmBill: 1035, deleted: false },
+        { id: 'b', orderId: '',        billNum: '2446570', val: 1310, pharmBill: 1211, deleted: false }
+      ]
+    };
+    const rows = buildMediqHistoryRows('2026-08-30', '2026-08-30');
+    const evening = rows.find(r => r.shift === 'Evening');
+    assert.equal(evening.orders[0].orderId, 'MQ-9981');
+    assert.equal(evening.orders[1].orderId, '#2');
+  });
+
   test('soft-deleted orders are excluded from both the count and the extra', () => {
     resetDb();
     db.sheets['2026-08-30_Evening'] = {

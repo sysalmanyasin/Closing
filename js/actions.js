@@ -1141,6 +1141,7 @@ export function buildSheetRecord() {
     })),
     mediqRows: Array.from(document.querySelectorAll('#ledger-mediq .row')).map(r=>({
       id:        r.dataset.rid || genRowId(),
+      orderId:   r.querySelector('.mediq-orderid')?.value||'',
       billNum:   r.querySelector('.mediq-billnum')?.value||'',
       val:       parseFloat(r.querySelector('.mediq-val')?.value)||0,
       pharmBill: r.querySelector('.mediq-pharmbill')?.value||'',
@@ -1383,7 +1384,7 @@ export function hydrate(s) {
   document.getElementById('ledger-mediq').innerHTML = "";
   session.mediqCount = 0;
   if(s.mediqRows) s.mediqRows.forEach(o => {
-    addMediqRow(o.billNum ?? o.lbl ?? '', o.val, o.pharmBill ?? '', o.id);
+    addMediqRow(o.orderId ?? '', o.billNum ?? o.lbl ?? '', o.val, o.pharmBill ?? '', o.id);
     if(o.deleted) markRowDeleted(document.getElementById('ledger-mediq').lastElementChild, true);
   });
 

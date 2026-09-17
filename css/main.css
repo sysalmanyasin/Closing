@@ -582,6 +582,7 @@
     padding: 10px 10px;
     border-right: 1px solid rgba(255,255,255,.22);
   }
+  .mediq-head-row .mediq-col-orderid { width: 100px; flex-shrink: 0; text-align: left; }
   .mediq-head-row .mediq-col-billnum { flex: 1; min-width: 0; text-align: left; }
   .mediq-head-row .mediq-col-val,
   .mediq-head-row .mediq-col-pharm,
@@ -602,6 +603,7 @@
   #ledger-mediq .row:nth-child(even) { background: var(--teal-pale); }
   #ledger-mediq .row:hover { background: var(--teal-light); }
 
+  #ledger-mediq .row .mediq-orderid,
   #ledger-mediq .row .mediq-billnum,
   #ledger-mediq .row .mediq-val,
   #ledger-mediq .row .mediq-pharmbill,
@@ -610,6 +612,7 @@
     padding: 9px 10px; margin: 0;
     border-right: 1px solid var(--border-strong);
   }
+  #ledger-mediq .row .mediq-orderid { width: 100px; flex-shrink: 0; }
   #ledger-mediq .row .mediq-billnum { flex: 1; min-width: 0; }
   #ledger-mediq .row .mediq-val,
   #ledger-mediq .row .mediq-pharmbill { width: 80px; flex-shrink: 0; }
@@ -1915,12 +1918,15 @@
   overflow: hidden; font-size: 0.74rem;
 }
 .mh-order-row {
-  display: grid; grid-template-columns: 50px 1.3fr 1fr 1fr 1fr;
+  display: grid; grid-template-columns: 96px 1.2fr 1fr 1fr 1fr;
   align-items: center;
 }
 .mh-order-row + .mh-order-row { border-top: 1px solid var(--border); }
 .mh-order-cell { padding: 6px 8px; box-sizing: border-box; }
-.mh-order-id  { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+/* Order ID is now a real entered field (like Bill Number), not an
+   auto sr-number — so it reads like other fields: normal weight,
+   normal size, ordinary text color, not muted/monospace/tiny. */
+.mh-order-id  { color: var(--slate); font-weight: 500; font-family: 'Inter', sans-serif; font-size: 0.74rem; }
 .mh-order-bill { color: var(--slate); font-weight: 500; }
 .mh-order-num {
   text-align: right; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
@@ -1939,18 +1945,19 @@
 
 .mh-shift-total-row {
   background: var(--teal-pale); font-weight: 800;
-  grid-template-columns: 50px 1.3fr 1fr 1fr 1fr;
+  grid-template-columns: 96px 1.2fr 1fr 1fr 1fr;
 }
 .mh-order-total-label { grid-column: 1 / 4; color: var(--navy); }
 
-/* Narrow phones: order rows lose the fixed Order-ID column width and
-   tighten padding, same reasoning as the RBD mobile override below —
-   there's no room to spare, and Order ID/Bill Number matter less
-   than the three money columns. */
+/* Narrow phones: order rows tighten the Order-ID column and padding,
+   same reasoning as the RBD mobile override below — there's no room
+   to spare — but Order ID is now a real entered field the cashier
+   reads back, so it keeps enough width to stay legible rather than
+   shrinking to a bare digit's-width column. */
 @media (max-width: 480px) {
   .mh-date-title { font-size: 0.78rem; }
   .mh-date-badge { display: none; } /* the found/total count is a nice-to-have, not essential, on the tightest screens */
-  .mh-order-row, .mh-shift-total-row { grid-template-columns: 34px 1.1fr 0.9fr 0.9fr 0.9fr; font-size: 0.7rem; }
+  .mh-order-row, .mh-shift-total-row { grid-template-columns: 62px 1fr 0.9fr 0.9fr 0.9fr; font-size: 0.7rem; }
   .mh-order-cell { padding: 6px 5px; }
   .mh-order-total-label { grid-column: 1 / 4; }
 }

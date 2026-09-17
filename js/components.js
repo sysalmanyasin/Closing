@@ -311,20 +311,25 @@ export function addDepositRow(lbl='', val='', rid=null) {
   calc();
 }
 
-export function addMediqRow(billNum='', val='', pharmBill='', rid=null) {
+export function addMediqRow(orderId='', billNum='', val='', pharmBill='', rid=null) {
   session.mediqCount++;
   const id = `mediq-row-${session.mediqCount}`;
   const stableId = rid || genRowId();
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.dataset.rid = stableId;
-  /* Pharmacy Bill is now a MONEY amount, not a reference string — the
+  /* Order ID is a free-text field the cashier fills in themselves
+     (their own MEDIQ order reference), same as Bill Number — it is
+     NOT an auto-numbered sr-number, so it's saved/loaded like any
+     other entered field rather than derived from row position.
+     Pharmacy Bill is a MONEY amount, not a reference string — the
      order's extra (the delivery/service charge actually kept) is
      COD Collected − Pharmacy Bill, shown read-only at the end of the
      row and summed into the card's Extra total. Rows saved while it
      was a free-text reference parse to 0, so their extra degrades to
      the old gross figure rather than throwing. */
   row.innerHTML = `
+    <input type="text"   class="lbl-input mediq-orderid" placeholder="Order ID" value="${escHtml(orderId)}">
     <input type="text"   class="lbl-input mediq-billnum" placeholder="Bill Number" value="${escHtml(billNum)}" style="flex:1;">
     <input type="number" class="mediq-val" placeholder="COD Collected" value="${val||0}" oninput="calc()">
     <input type="number" class="mediq-pharmbill" placeholder="Pharmacy Bill" value="${parseFloat(pharmBill)||0}" oninput="calc()">
@@ -385,7 +390,14 @@ export async function delRow(id, recalc) {
     /* Undo needs no confirmation — restoring something is always safe */
     markRowDeleted(el, false);
   } else {
-    const lblInput = el.querySelector('.lbl-input, .hs-lbl, .aux-strip-lbl, .aux-cred-lbl, .dep-lbl');
+    /* MEDIQ rows now carry two text fields (Order ID, then Bill
+       Number) both tagged .lbl-input — prefer Bill Number for the
+       confirmation label since it's the more identifying field, and
+       fall back to whichever .lbl-input (or other row-type label
+       input) actually has a value. */
+    const lblInput = el.querySelector('.mediq-billnum') ||
+      Array.from(el.querySelectorAll('.lbl-input, .hs-lbl, .aux-strip-lbl, .aux-cred-lbl, .dep-lbl'))
+        .find(inp => inp.value?.trim());
     const lbl = lblInput?.value?.trim();
     const question = lbl
       ? `Remove "${lbl}"?\n\nIt will be struck through and left out of totals and next shift's carry-forward, but stays visible here with an Undo option.`
