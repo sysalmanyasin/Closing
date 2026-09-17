@@ -924,10 +924,15 @@
     padding: 0 16px 10px; font-size: 0.82rem; font-weight: 600; color: var(--navy); cursor: pointer;
   }
   .fcs-viewport { overflow: hidden; touch-action: pan-y; }
-  /* Five stats over a 2-up phone grid: the last tile spans the full
-     width rather than leaving a ragged empty cell. */
+  /* Wrapping flex rather than a fixed column count, because this card's
+     width is set by its CONTAINER, not the viewport: on desktop the
+     Closing Book panel splits 860px into two columns, so a viewport-keyed
+     `repeat(5, 1fr)` handed each tile ~77px and the amounts overflowed
+     into the overflow:hidden below. Tiles claim ~110px and grow to fill
+     whatever row they land on, so the last row is never ragged and no
+     stat is ever clipped, at any container width. */
   .fcs-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+    display: flex; flex-wrap: wrap; gap: 2px;
     background: var(--border-strong); margin: 0 16px 16px; border-radius: var(--radius-md);
     border: 1.5px solid var(--border-strong);
     overflow: hidden; cursor: pointer;
@@ -935,8 +940,8 @@
   .fcs-stat {
     background: var(--white); padding: 12px 14px;
     display: flex; flex-direction: column; gap: 4px;
+    flex: 1 1 110px; min-width: 0;
   }
-  .fcs-stat-wide { grid-column: 1 / -1; }
   .fcs-stat-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
   .fcs-stat-val { font-size: 1rem; font-weight: 800; color: var(--navy); font-family: 'JetBrains Mono', monospace; }
 
@@ -1835,11 +1840,9 @@
   .row select { width: 140px; }
   .row.three-col select { min-width: 90px; }
 
-  /* Stat grids use the freed-up width instead of stacking 2-wide —
-     all five tiles sit on one row, so the phone-only full-width span
-     on the last one is cancelled here. */
-  .fcs-grid { grid-template-columns: repeat(5, 1fr); }
-  .fcs-stat-wide { grid-column: auto; }
+  /* .fcs-grid needs no desktop override: it wraps to fit its own
+     container, which on this page is a half-width panel column, not
+     the viewport. */
 
   /* ── Bottom sheets → centered dialogs ──
      On mobile these slide up from the bottom edge (a familiar
