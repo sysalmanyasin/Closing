@@ -311,7 +311,7 @@ export function addDepositRow(lbl='', val='', rid=null) {
   calc();
 }
 
-export function addMediqRow(lbl='', val='', rid=null) {
+export function addMediqRow(billNum='', val='', pharmBill='', rid=null) {
   session.mediqCount++;
   const id = `mediq-row-${session.mediqCount}`;
   const stableId = rid || genRowId();
@@ -319,11 +319,12 @@ export function addMediqRow(lbl='', val='', rid=null) {
   row.className = "row"; row.id = id;
   row.dataset.rid = stableId;
   row.innerHTML = `
-    <input type="text"   class="lbl-input mediq-lbl" placeholder="Order / bill ref" value="${escHtml(lbl)}">
-    <input type="number" class="mediq-val" value="${val||0}" oninput="calc()">
+    <input type="text"   class="lbl-input mediq-billnum" placeholder="Bill Number" value="${escHtml(billNum)}" style="flex:1;">
+    <input type="number" class="mediq-val" placeholder="COD Amount" value="${val||0}" oninput="calc()">
+    <input type="text"   class="lbl-input mediq-pharmbill" placeholder="Pharmacy Bill" value="${escHtml(pharmBill)}" style="flex:1;">
     <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-mediq').appendChild(row);
-  attachNumpad(row.querySelector('.mediq-val'));
+  attachNumpad(row.querySelector('.mediq-val'), 'COD Amount Collected');
   calc();
 }
 
@@ -599,9 +600,15 @@ export function buildPrintSheet() {
   /* MEDIQ COD Orders box */
   let mediqRows = '';
   document.querySelectorAll('#ledger-mediq .row').forEach(row => {
-    const lbl = row.querySelector('.mediq-lbl')?.value;
-    const v   = row.querySelector('.mediq-val')?.value;
-    if((parseFloat(v)||0) !== 0) mediqRows += psRow(lbl || 'Order', (parseFloat(v)||0).toLocaleString('en-PK'));
+    const billNum   = row.querySelector('.mediq-billnum')?.value;
+    const v         = row.querySelector('.mediq-val')?.value;
+    const pharmBill = row.querySelector('.mediq-pharmbill')?.value;
+    if((parseFloat(v)||0) !== 0) {
+      const label = (billNum || pharmBill)
+        ? `Bill ${billNum || '—'}${pharmBill ? ' / Pharm Bill ' + pharmBill : ''}`
+        : 'Order';
+      mediqRows += psRow(label, (parseFloat(v)||0).toLocaleString('en-PK'));
+    }
   });
   if(!mediqRows) mediqRows = psRow('— no orders —', '', 'ps-empty');
   mediqRows += psRow('TOTAL MEDIQ', num('out-total-i'), 'ps-total');

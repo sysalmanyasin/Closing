@@ -344,10 +344,13 @@ export function snapshotRowsForSection(key, rec) {
     case 'mediq': {
       const rows = [];
       (rec.mediqRows||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
-        rows.push([o.lbl?.trim() || 'Order', money(o.val), !!o.deleted]);
+        const billNum = (o.billNum ?? o.lbl ?? '').trim();
+        const label = (billNum || o.pharmBill)
+          ? `Bill ${billNum || '—'}${o.pharmBill ? ' / Pharm Bill ' + o.pharmBill : ''}`
+          : 'Order';
+        rows.push([label, money(o.val), !!o.deleted]);
       });
       if (!rows.length) rows.push(['No COD orders that shift', '']);
-      rows.push([`Delivery Rs. ${rec.mediqDelivery ?? 250}/order + ${rec.mediqRate ?? 5}% commission`, '']);
       rows.push(['Total MEDIQ Collected (I)', money(rec.outTotalI)]);
       return rows;
     }

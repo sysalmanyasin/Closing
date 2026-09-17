@@ -169,7 +169,8 @@ export function diffRecords(before, after) {
     r => `Deposit: ${r.lbl || 'Entry'}`, r => `${r.val || 0}`));
 
   changes = changes.concat(diffRowArray('mediqRows', before.mediqRows, after.mediqRows,
-    r => `MEDIQ: ${r.lbl || 'Order'}`, r => `${r.val || 0}`));
+    r => `MEDIQ: ${r.billNum || r.lbl || 'Order'}`,
+    r => `${r.val || 0}${r.pharmBill ? ' (Pharm Bill ' + r.pharmBill + ')' : ''}`));
 
   changes = changes.concat(diffRowArray('miscRows', before.miscRows, after.miscRows,
     r => `Misc: ${r.label || 'Charge'}`, r => `${r.val || 0}`));

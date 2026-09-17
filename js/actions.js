@@ -157,8 +157,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
   ['in-sys-cash','in-last-bill-amt','in-last-bill-num','in-comp-sale','in-alfalah','in-keenu',
    'pos-ret-1','pos-ret-2','pos-ret-3','pos-ret-sys',
    'in-book-1','in-book-2',
-   'out-prev-cc','out-curr-cc','out-prev-credit','in-credit-adj','out-prev-dep','out-prev-cash','in-extra-cash',
-   'in-mediq-delivery','in-mediq-rate'].forEach(id => {
+   'out-prev-cc','out-curr-cc','out-prev-credit','in-credit-adj','out-prev-dep','out-prev-cash','in-extra-cash'].forEach(id => {
     const el = document.getElementById(id);
     if(el && !el.readOnly) attachNumpad(el);
   });
@@ -733,21 +732,14 @@ export function calc() {
   const badge_misc = document.getElementById('badge-misc');
   if(badge_misc) badge_misc.textContent = 'Rs. ' + totalG.toLocaleString();
 
-  /* MEDIQ COD Orders (I) — each order collects a fixed delivery charge
-     plus a commission % of its bill value on top of the net POS sale;
-     this box just totals up what was collected extra on that day's
-     COD orders. Delivery charge / rate are editable per shift (they
-     aren't guaranteed to stay 250 / 5% forever). */
-  const mediqDelivery = val('in-mediq-delivery') || 0;
-  const mediqRate     = val('in-mediq-rate') || 0;
-  let mediqOrderCount = 0, mediqOrderValue = 0;
-  document.querySelectorAll('.row:not(.row-deleted) .mediq-val').forEach(el => {
-    const v = parseFloat(el.value)||0;
-    if(v === 0) return; /* blank/just-added row — not a real order yet */
-    mediqOrderCount++;
-    mediqOrderValue += v;
+  /* MEDIQ COD Orders (I) — each order now records the COD amount actually
+     collected directly; Bill Number / Pharmacy Bill are reference-only
+     fields for reconciliation and aren't part of the sum. This box just
+     totals what was collected on that day's COD orders. */
+  let totalI = 0;
+  document.querySelectorAll('#ledger-mediq .row:not(.row-deleted) .mediq-val').forEach(el => {
+    totalI += parseFloat(el.value)||0;
   });
-  const totalI = (mediqOrderCount * mediqDelivery) + (mediqOrderValue * mediqRate / 100);
   set('out-total-i', totalI);
   const badge_mediq = document.getElementById('badge-mediq');
   if(badge_mediq) badge_mediq.textContent = 'Rs. ' + totalI.toLocaleString();
@@ -1047,8 +1039,6 @@ export function buildSheetRecord() {
     creditAdj:    val('in-credit-adj'),
     extraCash:    val('in-extra-cash'),
     outTotalF:    val('out-total-f'),
-    mediqDelivery:val('in-mediq-delivery'),
-    mediqRate:    val('in-mediq-rate'),
     outTotalI:    val('out-total-i'),
     outTotalCash: val('out-liquid'),
     outNetCash:   val('out-net-cash'),
@@ -1122,9 +1112,10 @@ export function buildSheetRecord() {
       deleted: r.classList.contains('row-deleted')
     })),
     mediqRows: Array.from(document.querySelectorAll('#ledger-mediq .row')).map(r=>({
-      id:  r.dataset.rid || genRowId(),
-      lbl: r.querySelector('.mediq-lbl')?.value||'',
-      val: parseFloat(r.querySelector('.mediq-val')?.value)||0,
+      id:        r.dataset.rid || genRowId(),
+      billNum:   r.querySelector('.mediq-billnum')?.value||'',
+      val:       parseFloat(r.querySelector('.mediq-val')?.value)||0,
+      pharmBill: r.querySelector('.mediq-pharmbill')?.value||'',
       deleted: r.classList.contains('row-deleted')
     })),
     miscRows: Array.from(document.querySelectorAll('#ledger-misc .misc-row')).map(r => ({
@@ -1356,11 +1347,12 @@ export function hydrate(s) {
     if(o.deleted) markRowDeleted(document.getElementById('ledger-deposits').lastElementChild, true);
   });
 
-  /* MEDIQ COD orders */
+  /* MEDIQ COD orders — billNum/pharmBill fall back to the old single
+     "lbl" field so shifts saved before this change still hydrate. */
   document.getElementById('ledger-mediq').innerHTML = "";
   session.mediqCount = 0;
   if(s.mediqRows) s.mediqRows.forEach(o => {
-    addMediqRow(o.lbl, o.val, o.id);
+    addMediqRow(o.billNum ?? o.lbl ?? '', o.val, o.pharmBill ?? '', o.id);
     if(o.deleted) markRowDeleted(document.getElementById('ledger-mediq').lastElementChild, true);
   });
 
@@ -1378,8 +1370,6 @@ export function hydrate(s) {
   sv('in-extra-cash',   s.extraCash||0);
   sv('out-prev-dep',    s.outPrevDep ?? s.outTotalF);
   sv('out-prev-cash',   s.outPrevCash ?? s.outTotalCash);
-  sv('in-mediq-delivery', s.mediqDelivery ?? 250);
-  sv('in-mediq-rate',     s.mediqRate ?? 5);
   sv('in-final-sys-returns', s.finalSysReturns||0);
 }
 
@@ -1398,13 +1388,9 @@ export function flushInputs() {
   document.getElementById('ledger-misc').innerHTML = "";
   session.miscCount = 0;
   for(let i=1;i<=5;i++) addMiscRow();
-  /* MEDIQ starts with no order rows (added as they come in), but the
-     delivery charge / commission rate default back to 250 / 5% — the
-     blanket zero-out above would otherwise wipe them to 0. */
+  /* MEDIQ starts with no order rows — added as they come in. */
   document.getElementById('ledger-mediq').innerHTML = "";
   session.mediqCount = 0;
-  set('in-mediq-delivery', 250);
-  set('in-mediq-rate', 5);
 }
 
 /* ═══════════════════════════════════════════
