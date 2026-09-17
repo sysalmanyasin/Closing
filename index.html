@@ -818,8 +818,17 @@
           </div>
         </div>
         <div class="card-body">
+          <p class="mediq-desc">Enter each COD order's Bill Number, the cash collected from the customer, and the matching Pharmacy Bill amount. The difference (extra collected over the bill) totals below as the delivery/service charge collected on this order.</p>
+          <div class="mediq-head-row">
+            <span class="mediq-col-billnum">Bill Number</span>
+            <span class="mediq-col-val">COD Collected</span>
+            <span class="mediq-col-pharm">Pharmacy Bill</span>
+            <span class="mediq-col-extra">Extra</span>
+            <span class="mediq-col-spacer" aria-hidden="true"></span>
+          </div>
           <div id="ledger-mediq"></div>
-          <div class="row computed"><label for="out-total-i">Total MEDIQ Collected (I):</label><input type="number" id="out-total-i" readonly value="0"></div>
+          <div class="row computed" id="box-out-prev-mediq"><label for="out-prev-mediq">Previous MEDIQ amount collected:</label><input type="number" id="out-prev-mediq" value="0" oninput="calc()"></div>
+          <div class="row computed"><label for="out-total-i">Extra MEDIQ Collected (I):</label><input type="number" id="out-total-i" readonly value="0"></div>
         </div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMediqRow()">＋ Add Order</button></div>
       </div>
@@ -859,6 +868,7 @@
           <div class="row computed"><label id="lbl-final-same-sys">＋ POS Sale — same-date shifts &amp; this closing:</label><input type="number" id="out-final-same-sys" readonly value="0"></div>
           <div class="row computed"><label id="lbl-final-books">＋ Book Bills — all periods ＋ prev. final:</label><input type="number" id="out-final-books" readonly value="0"></div>
           <div class="row computed"><label id="lbl-final-same-cust">＋ Customers — same-date:</label><input type="number" id="out-final-same-cust" readonly value="0"></div>
+          <div class="row computed"><label id="lbl-final-mediq">＋ Extra MEDIQ Collected — all periods ＋ prev. final:</label><input type="number" id="out-final-mediq" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-man-ret">－ Manual Returns — all periods ＋ prev. final:</label><input type="number" id="out-final-man-ret" readonly value="0"></div>
           <div class="row computed highlight-red"><label id="lbl-final-same-sysret">－ System Returns — same-date:</label><input type="number" id="out-final-same-sysret" readonly value="0"></div>
           <div class="row highlight-red"><label for="in-final-sys-returns">－ Additional Sys Returns (entered here):</label><input type="number" id="in-final-sys-returns" value="0" oninput="calc()"></div>
@@ -1039,6 +1049,10 @@
                 <div class="fcs-stat">
                   <span class="fcs-stat-lbl">Manual Returns</span>
                   <span class="fcs-stat-val" id="fcs-val-manret"></span>
+                </div>
+                <div class="fcs-stat fcs-stat-wide">
+                  <span class="fcs-stat-lbl">MEDIQ Collected</span>
+                  <span class="fcs-stat-val" id="fcs-val-mediq"></span>
                 </div>
               </div>
             </div>

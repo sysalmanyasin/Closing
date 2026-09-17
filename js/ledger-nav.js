@@ -8,7 +8,7 @@
    review screen. Never mutates db directly.
 ═══════════════════════════════════════════════════════════════ */
 
-import { DENOMS, db, escHtml, srLabel, session } from './state.js';
+import { DENOMS, db, escHtml, mediqExtraOf, srLabel, session } from './state.js';
 import { calc, saveSheet } from './actions.js';
 import { getRealSheet, timelineStep } from './components.js';
 import { showAlert } from './notify.js';
@@ -342,16 +342,24 @@ export function snapshotRowsForSection(key, rec) {
       return rows;
     }
     case 'mediq': {
+      /* Shows the EXTRA kept per order (collected − pharmacy bill), and
+         a total recomputed from the rows rather than read off the saved
+         outTotalI — records written before this change stored the gross
+         COD there and would otherwise show the wrong figure. */
       const rows = [];
-      (rec.mediqRows||[]).filter(o=>(parseFloat(o.val)||0)!==0).forEach(o => {
+      (rec.mediqRows||[]).forEach(o => {
+        const collected = parseFloat(o.val)       || 0;
+        const bill      = parseFloat(o.pharmBill) || 0;
+        if(collected === 0 && bill === 0) return;
         const billNum = (o.billNum ?? o.lbl ?? '').trim();
-        const label = (billNum || o.pharmBill)
-          ? `Bill ${billNum || '—'}${o.pharmBill ? ' / Pharm Bill ' + o.pharmBill : ''}`
-          : 'Order';
-        rows.push([label, money(o.val), !!o.deleted]);
+        const label = `Bill ${billNum || '—'} — ${money(collected)} − ${money(bill)}`;
+        rows.push([label, money(collected - bill), !!o.deleted]);
       });
       if (!rows.length) rows.push(['No COD orders that shift', '']);
-      rows.push(['Total MEDIQ Collected (I)', money(rec.outTotalI)]);
+      if ((parseFloat(rec.outPrevMediq)||0) !== 0) {
+        rows.push(['Previous MEDIQ amount collected', money(rec.outPrevMediq)]);
+      }
+      rows.push(['Extra MEDIQ Collected (I)', money(mediqExtraOf(rec))]);
       return rows;
     }
     case 'audit':

@@ -6,7 +6,7 @@
 
 import { alBeginSession, alCommit, alLog } from './activity-log.js';
 import { fetchActiveStaff } from './bt-bridge.js';
-import { daySlots, db, escHtml, gatePermission, genRowId, hasPermission, isPinTaken, srLabel, session } from './state.js';
+import { daySlots, db, escHtml, gatePermission, genRowId, hasPermission, isPinTaken, mediqExtraOf, srLabel, session } from './state.js';
 import { repoPersist } from './repository.js';
 import { clEnsureArray, clSaveSnapshot, staleRecordKeys } from './ledger-engine.js';
 import {
@@ -74,6 +74,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
   const lblSameSys   = document.getElementById('lbl-final-same-sys');
   const lblBooks     = document.getElementById('lbl-final-books');
   const lblSameCust  = document.getElementById('lbl-final-same-cust');
+  const lblMediq     = document.getElementById('lbl-final-mediq');
   const lblManRet    = document.getElementById('lbl-final-man-ret');
   const lblSameSysRet= document.getElementById('lbl-final-same-sysret');
   const lblPreSys    = document.getElementById('lbl-final-pre-sys');
@@ -84,6 +85,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
     if(lblSameSys)    lblSameSys.textContent    = '＋ POS Sale — this Final Shift only:';
     if(lblBooks)      lblBooks.textContent      = '＋ Book Bills — this Final Shift only:';
     if(lblSameCust)   lblSameCust.textContent   = '＋ Customers — this Final Shift only:';
+    if(lblMediq)      lblMediq.textContent      = '＋ Extra MEDIQ Collected — this Final Shift only:';
     if(lblManRet)     lblManRet.textContent     = '－ Manual Returns — this Final Shift only:';
     if(lblSameSysRet) lblSameSysRet.textContent = '－ System Returns — this Final Shift only:';
     if(lblPreSys)     lblPreSys.textContent     = '－ Pre-date POS Sales (shifts before today ＋ last final):';
@@ -94,6 +96,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
     if(lblSameSys)    lblSameSys.textContent    = '＋ POS Sale — same-date shifts \u0026 this closing:';
     if(lblBooks)      lblBooks.textContent      = '＋ Book Bills — all periods ＋ prev. final:';
     if(lblSameCust)   lblSameCust.textContent   = '＋ Customers — same-date:';
+    if(lblMediq)      lblMediq.textContent      = '＋ Extra MEDIQ Collected — all periods ＋ prev. final:';
     if(lblManRet)     lblManRet.textContent     = '－ Manual Returns — all periods ＋ prev. final:';
     if(lblSameSysRet) lblSameSysRet.textContent = '－ System Returns — same-date:';
     if(lblPreSys)     lblPreSys.textContent     = '－ Pre-date POS Sales (shifts before today ＋ last final):';
@@ -157,7 +160,8 @@ export function initLedger(ds, shift, mode, opts = {}) {
   ['in-sys-cash','in-last-bill-amt','in-last-bill-num','in-comp-sale','in-alfalah','in-keenu',
    'pos-ret-1','pos-ret-2','pos-ret-3','pos-ret-sys',
    'in-book-1','in-book-2',
-   'out-prev-cc','out-curr-cc','out-prev-credit','in-credit-adj','out-prev-dep','out-prev-cash','in-extra-cash'].forEach(id => {
+   'out-prev-cc','out-curr-cc','out-prev-credit','in-credit-adj','out-prev-dep','out-prev-cash','in-extra-cash',
+   'out-prev-mediq'].forEach(id => {
     const el = document.getElementById(id);
     if(el && !el.readOnly) attachNumpad(el);
   });
@@ -533,7 +537,8 @@ export function findLastFinal(ds, shift) {
 export function aggregateSinceLastFinal(ds, shift) {
   const lastFinal = findLastFinal(ds, shift);
   let totalCustomers = 0, totalShiftSale = 0, totalManualReturns = 0, totalSysReturns = 0,
-      totalExtraCash = 0, totalShiftNetCash = 0, totalBookBills = 0, shiftCount = 0;
+      totalExtraCash = 0, totalShiftNetCash = 0, totalBookBills = 0, shiftCount = 0,
+      totalMediqExtra = 0;
   /* date-split: "same-date" = date === ds, "pre-date" = date < ds */
   let sameDateShiftSale = 0, preDateShiftSale = 0;
   let sameDateCustomers = 0, preDateCustomers = 0;
@@ -551,6 +556,7 @@ export function aggregateSinceLastFinal(ds, shift) {
     const sysRet    = parseFloat(rec.posRetSys)    || 0;
     const manRet    = (parseFloat(rec.posRet1)||0) + (parseFloat(rec.posRet2)||0) + (parseFloat(rec.posRet3)||0);
     const books     = (parseFloat(rec.inBook1)||0) + (parseFloat(rec.inBook2)||0);
+    const mediqEx   = mediqExtraOf(rec);
     const isToday   = (cur.date === ds);
     totalCustomers     += customers;
     totalShiftSale     += shiftSale;
@@ -559,6 +565,7 @@ export function aggregateSinceLastFinal(ds, shift) {
     totalExtraCash     += parseFloat(rec.extraCash) || 0;
     totalShiftNetCash  += parseFloat(rec.outNetCash) || 0;
     totalBookBills     += books;
+    totalMediqExtra    += mediqEx;
     shiftCount++;
     labels.unshift(srLabel(cur.shift).replace('Closing','C') + ' ' + cur.date);
     if(isToday) { sameDateShiftSale += shiftSale; sameDateCustomers += customers; sameDateSysReturns += sysRet; }
@@ -586,11 +593,14 @@ export function aggregateSinceLastFinal(ds, shift) {
     totalManualReturns += lfManRet;
     totalBookBills     += lfBooks;
     totalExtraCash     += lfExtraCash;
+    /* Extra MEDIQ follows the Book Bills rule exactly: cumulative across
+       ALL periods since the last final, including the last final's own. */
+    totalMediqExtra    += mediqExtraOf(lf);
   }
   return {
     lastFinal,
     totalCustomers, totalShiftSale, totalManualReturns, totalSysReturns,
-    totalExtraCash, totalShiftNetCash, totalBookBills, shiftCount, labels,
+    totalExtraCash, totalShiftNetCash, totalBookBills, totalMediqExtra, shiftCount, labels,
     sameDateShiftSale, preDateShiftSale,
     sameDateCustomers, preDateCustomers, sameDateSysReturns, preDateSysReturns,
     lfSameDateSale, lfPreDateSale,
@@ -732,19 +742,31 @@ export function calc() {
   const badge_misc = document.getElementById('badge-misc');
   if(badge_misc) badge_misc.textContent = 'Rs. ' + totalG.toLocaleString();
 
-  /* MEDIQ COD Orders (I) — each order now records the COD amount actually
-     collected directly; Bill Number / Pharmacy Bill are reference-only
-     fields for reconciliation and aren't part of the sum. This box just
-     totals what was collected on that day's COD orders. */
-  let totalI = 0;
-  document.querySelectorAll('#ledger-mediq .row:not(.row-deleted) .mediq-val').forEach(el => {
-    totalI += parseFloat(el.value)||0;
+  /* MEDIQ COD Orders (I) — the EXTRA collected, not the gross COD.
+     Each order records what the customer paid the rider and the
+     matching pharmacy bill; the difference is the delivery/service
+     charge that actually stays with the pharmacy, and that is what
+     belongs in the Grand Total. The gross COD amount is money that
+     was only ever passing through, so summing it inflated `I`. */
+  let totalI = val('out-prev-mediq');
+  document.querySelectorAll('#ledger-mediq .row:not(.row-deleted)').forEach(row => {
+    const v     = parseFloat(row.querySelector('.mediq-val')?.value) || 0;
+    const bill  = parseFloat(row.querySelector('.mediq-pharmbill')?.value) || 0;
+    const extra = v - bill;
+    const exEl  = row.querySelector('.mediq-extra');
+    if(exEl) exEl.value = extra;
+    totalI += extra;
   });
+  /* Deleted rows keep a visible 0 so a struck-through row can't look
+     like it is still contributing. */
+  document.querySelectorAll('#ledger-mediq .row.row-deleted .mediq-extra').forEach(el => { el.value = 0; });
   set('out-total-i', totalI);
   const badge_mediq = document.getElementById('badge-mediq');
   if(badge_mediq) badge_mediq.textContent = 'Rs. ' + totalI.toLocaleString();
 
-  /* Grand total: A=HS, B=Strips, C=Misc, D=CC, E=Till, F=Draw, G=Credit, H=Deposits, I=MEDIQ */
+  /* Grand total: A=HS, B=Strips, C=Misc, D=CC, E=Till, F=Draw, G=Credit,
+     H=Deposits, I=MEDIQ extra (cash kept beyond the pharmacy bill value,
+     NOT the gross COD collected) */
   const ccB   = val('out-prev-cc') + val('out-curr-cc');
   const grand = hsTotal + totalA + totalG + ccB + totalC + totalD + totalE + totalF + totalI;
   set('out-grand', grand);
@@ -765,11 +787,12 @@ export function calc() {
     set('out-final-shifts', agg.shiftCount ? `${agg.shiftCount} — ${agg.labels.join(', ')}` : '— none —');
 
     /* ─── PART 1: Net Final Sale ─────────────────────────── */
-    let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet;
+    let totalSameDateSys, totalBooks, totalSameDateCust, totalManRet, totalSameSysRet, totalMediq;
     if (session.activeMode === 'final') {
       /* Final Closing selected: use current shift values only */
       totalSameDateSys  = shiftSaleVal;
       totalBooks        = book1 + book2;
+      totalMediq        = totalI;
       totalSameDateCust = custVal;
       totalManRet       = ret1 + ret2 + ret3;
       totalSameSysRet   = retSys;
@@ -779,6 +802,8 @@ export function calc() {
       totalSameDateSys  = agg.sameDateShiftSale + agg.lfSameDateSale + shiftSaleVal;
       /* Book bills: ALL periods */
       totalBooks        = agg.totalBookBills + book1 + book2;
+      /* Extra MEDIQ: ALL periods, same rule as book bills */
+      totalMediq        = agg.totalMediqExtra + totalI;
       /* Customers: same-date only */
       totalSameDateCust = agg.sameDateCustomers + agg.lfSameDateCust + custVal;
       /* Manual returns: ALL periods */
@@ -788,12 +813,13 @@ export function calc() {
     }
     /* Additional sys returns entered manually in this final */
     const finalExtraRet     = val('in-final-sys-returns');
-    const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust
+    const finalNetSale = totalSameDateSys + totalBooks + totalSameDateCust + totalMediq
                        - totalManRet - totalSameSysRet - finalExtraRet;
 
     set('out-final-same-sys',    totalSameDateSys);
     set('out-final-books',       totalBooks);
     set('out-final-same-cust',   totalSameDateCust);
+    set('out-final-mediq',       totalMediq);
     set('out-final-man-ret',     totalManRet);
     set('out-final-same-sysret', totalSameSysRet);
     set('out-final-net-sale',    finalNetSale);
@@ -1039,6 +1065,7 @@ export function buildSheetRecord() {
     creditAdj:    val('in-credit-adj'),
     extraCash:    val('in-extra-cash'),
     outTotalF:    val('out-total-f'),
+    outPrevMediq: val('out-prev-mediq'),
     outTotalI:    val('out-total-i'),
     outTotalCash: val('out-liquid'),
     outNetCash:   val('out-net-cash'),
@@ -1048,6 +1075,7 @@ export function buildSheetRecord() {
     finalNetSale:    val('out-final-net-sale'),
     finalNetSaleAdj: val('out-final-net-sale-adj'),
     outFinalBooks:   val('out-final-books'),
+    outFinalMediq:   val('out-final-mediq'),
     outFinalManRet:  val('out-final-man-ret'),
     finalNetCash:    val('out-final-net-cash'),
     finalNetCashAdj: val('out-final-net-cash-adj'),
@@ -1347,8 +1375,11 @@ export function hydrate(s) {
     if(o.deleted) markRowDeleted(document.getElementById('ledger-deposits').lastElementChild, true);
   });
 
-  /* MEDIQ COD orders — billNum/pharmBill fall back to the old single
-     "lbl" field so shifts saved before this change still hydrate. */
+  /* MEDIQ COD orders — billNum falls back to the old single "lbl"
+     field so shifts saved before that split still hydrate. pharmBill
+     was once a free-text reference; anything non-numeric parses to 0,
+     which makes that order's extra equal its gross COD (the old
+     meaning) instead of breaking the row. */
   document.getElementById('ledger-mediq').innerHTML = "";
   session.mediqCount = 0;
   if(s.mediqRows) s.mediqRows.forEach(o => {
@@ -1369,6 +1400,7 @@ export function hydrate(s) {
   sv('in-credit-adj',   s.creditAdj||0);
   sv('in-extra-cash',   s.extraCash||0);
   sv('out-prev-dep',    s.outPrevDep ?? s.outTotalF);
+  sv('out-prev-mediq',  s.outPrevMediq || 0);
   sv('out-prev-cash',   s.outPrevCash ?? s.outTotalCash);
   sv('in-final-sys-returns', s.finalSysReturns||0);
 }

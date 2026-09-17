@@ -544,6 +544,40 @@
   .misc-row select { width: 110px; text-align: left; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 500; }
   .misc-row input[type="number"] { width: 90px; }
 
+  /* ── MEDIQ COD ORDERS ──────────────────────────────────────
+     Four columns: Bill Number (flexible) then three fixed money
+     columns — COD Collected, Pharmacy Bill, and the read-only
+     Extra (collected − bill) that feeds the card's total. The
+     header's trailing spacer matches .del-row-btn's footprint so
+     the labels stay aligned over their inputs. */
+  .mediq-desc {
+    margin: 0; padding: 10px 16px 8px;
+    font-size: 0.78rem; line-height: 1.45; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .mediq-head-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; background: var(--surface);
+    font-size: 0.72rem; font-weight: 700; color: var(--muted);
+  }
+  .mediq-head-row .mediq-col-billnum { flex: 1; min-width: 0; text-align: left; }
+  .mediq-head-row .mediq-col-val,
+  .mediq-head-row .mediq-col-pharm,
+  .mediq-head-row .mediq-col-extra { width: 80px; text-align: right; flex-shrink: 0; }
+  .mediq-head-row .mediq-col-spacer { width: 22px; flex-shrink: 0; }
+
+  #ledger-mediq .row { gap: 6px; }
+  #ledger-mediq .row .mediq-billnum { flex: 1; min-width: 0; }
+  #ledger-mediq .row .mediq-val,
+  #ledger-mediq .row .mediq-pharmbill,
+  #ledger-mediq .row .mediq-extra { width: 80px; flex-shrink: 0; margin: 0; }
+  /* The Extra cell is a derived figure, not an entry field — styled as
+     a result so nobody tries to type into it. */
+  #ledger-mediq .row .mediq-extra {
+    background: var(--teal-pale); border-color: var(--teal);
+    color: var(--teal-dark); font-weight: 700; cursor: default;
+  }
+
   /* ── UTILITY ── */
   .text-muted { color: var(--muted); }
   .text-sm    { font-size: 0.78rem; }
@@ -890,6 +924,8 @@
     padding: 0 16px 10px; font-size: 0.82rem; font-weight: 600; color: var(--navy); cursor: pointer;
   }
   .fcs-viewport { overflow: hidden; touch-action: pan-y; }
+  /* Five stats over a 2-up phone grid: the last tile spans the full
+     width rather than leaving a ragged empty cell. */
   .fcs-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
     background: var(--border-strong); margin: 0 16px 16px; border-radius: var(--radius-md);
@@ -900,6 +936,7 @@
     background: var(--white); padding: 12px 14px;
     display: flex; flex-direction: column; gap: 4px;
   }
+  .fcs-stat-wide { grid-column: 1 / -1; }
   .fcs-stat-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
   .fcs-stat-val { font-size: 1rem; font-weight: 800; color: var(--navy); font-family: 'JetBrains Mono', monospace; }
 
@@ -1798,8 +1835,11 @@
   .row select { width: 140px; }
   .row.three-col select { min-width: 90px; }
 
-  /* Stat grids use the freed-up width instead of stacking 2-wide */
-  .fcs-grid { grid-template-columns: repeat(4, 1fr); }
+  /* Stat grids use the freed-up width instead of stacking 2-wide —
+     all five tiles sit on one row, so the phone-only full-width span
+     on the last one is cancelled here. */
+  .fcs-grid { grid-template-columns: repeat(5, 1fr); }
+  .fcs-stat-wide { grid-column: auto; }
 
   /* ── Bottom sheets → centered dialogs ──
      On mobile these slide up from the bottom edge (a familiar

@@ -5,7 +5,7 @@
    Settings UI.
 ═══════════════════════════════════════════════════════════════ */
 
-import { SHIFTS, db, escHtml, confirmFinalClosingAccess, gatePermission, getSeq, PERMISSION_KEYS, srLabel, session } from './state.js';
+import { SHIFTS, db, escHtml, confirmFinalClosingAccess, gatePermission, getSeq, mediqExtraOf, PERMISSION_KEYS, srLabel, session } from './state.js';
 import {
   aggregateSinceLastFinal, initLedger, settingsAddNamedCredit, settingsAddStaff, settingsAddStrip,
   settingsAddStripGroup, settingsCommitAll, settingsRemoveNamedCredit,
@@ -111,17 +111,24 @@ function fcsShow() {
      regardless of what happened to be captured at save time. */
   const book1 = parseFloat(rec.inBook1) || 0, book2 = parseFloat(rec.inBook2) || 0;
   const ret1  = parseFloat(rec.posRet1) || 0, ret2  = parseFloat(rec.posRet2) || 0, ret3 = parseFloat(rec.posRet3) || 0;
-  let totalBooks, totalManRet;
+  /* MEDIQ is the EXTRA kept (collected − pharmacy bill), recomputed from
+     this record's own rows for the same reason Book Bills is: the saved
+     outTotalI may predate this meaning or be stale. */
+  const mediqOwn = mediqExtraOf(rec);
+  let totalBooks, totalManRet, totalMediq;
   if(rec.profileMode === 'final') {
     totalBooks  = book1 + book2;
     totalManRet = ret1 + ret2 + ret3;
+    totalMediq  = mediqOwn;
   } else {
     const agg   = aggregateSinceLastFinal(parts[0], parts[1]);
     totalBooks  = agg.totalBookBills     + book1 + book2;
     totalManRet = agg.totalManualReturns + ret1 + ret2 + ret3;
+    totalMediq  = agg.totalMediqExtra    + mediqOwn;
   }
   document.getElementById('fcs-val-books').textContent  = clFmt(totalBooks);
   document.getElementById('fcs-val-manret').textContent = clFmt(totalManRet);
+  document.getElementById('fcs-val-mediq').textContent  = clFmt(totalMediq);
 }
 
 /* Tapping the card (date line or the stat grid) opens that record,

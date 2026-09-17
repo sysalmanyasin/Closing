@@ -76,6 +76,9 @@ const FIELD_LABELS = {
   outPrevDep:     'Previous Deposits (carried)',
   outPrevCash:    'Previous Cash Position (carried)',
   extraCash:      'Extra Cash Added',
+  outPrevMediq:   'Previous MEDIQ Collected (carried)',
+  outTotalI:      'Extra MEDIQ Collected (I)',
+  outFinalMediq:  'Extra MEDIQ Collected (Final aggregation)',
   mediqDelivery:  'MEDIQ Delivery Charge/Order',
   mediqRate:      'MEDIQ Commission Rate %',
   profileMode:    'Closing Type',
@@ -170,7 +173,12 @@ export function diffRecords(before, after) {
 
   changes = changes.concat(diffRowArray('mediqRows', before.mediqRows, after.mediqRows,
     r => `MEDIQ: ${r.billNum || r.lbl || 'Order'}`,
-    r => `${r.val || 0}${r.pharmBill ? ' (Pharm Bill ' + r.pharmBill + ')' : ''}`));
+    /* Logged as "collected − bill = extra" so an audit line shows the
+       figure that actually reached the Grand Total, not the gross COD. */
+    r => {
+      const v = parseFloat(r.val) || 0, b = parseFloat(r.pharmBill) || 0;
+      return `${v} − ${b} = ${v - b} extra`;
+    }));
 
   changes = changes.concat(diffRowArray('miscRows', before.miscRows, after.miscRows,
     r => `Misc: ${r.label || 'Charge'}`, r => `${r.val || 0}`));

@@ -366,6 +366,36 @@ export function confirmFinalClosingAccess() {
 }
 
 /* ═══════════════════════════════════════════
+   MEDIQ EXTRA — single source of truth
+═══════════════════════════════════════════
+   The `I` term is the EXTRA cash collected on MEDIQ COD orders —
+   what the rider handed over ABOVE the pharmacy bill value — not
+   the gross COD amount. Per order:
+
+       extra = COD Amount Collected − Pharmacy Bill
+
+   Recomputed from the stored `mediqRows` rather than trusting a
+   saved `outTotalI`, because records written before this change
+   stored the GROSS total in that field, and some records may have
+   been saved from a screen where it was stale. Only when a record
+   carries no `mediqRows` at all do we fall back to `outTotalI`.
+
+   `outPrevMediq` — the manually-entered "Previous MEDIQ amount
+   collected" folded into this shift — is added on top, exactly as
+   the live card does it, so history and screen always agree. */
+export function mediqExtraOf(rec) {
+  if(!rec) return 0;
+  const prev = parseFloat(rec.outPrevMediq) || 0;
+  if(!Array.isArray(rec.mediqRows)) return (parseFloat(rec.outTotalI) || 0) + prev;
+  let extra = 0;
+  rec.mediqRows.forEach(o => {
+    if(!o || o.deleted) return;
+    extra += (parseFloat(o.val) || 0) - (parseFloat(o.pharmBill) || 0);
+  });
+  return extra + prev;
+}
+
+/* ═══════════════════════════════════════════
    SESSION — "what am I looking at right now"
    A single object so every module can set its fields directly
    (session.activeKey = x) without needing a setter function per

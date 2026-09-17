@@ -318,13 +318,21 @@ export function addMediqRow(billNum='', val='', pharmBill='', rid=null) {
   const row = document.createElement('div');
   row.className = "row"; row.id = id;
   row.dataset.rid = stableId;
+  /* Pharmacy Bill is now a MONEY amount, not a reference string — the
+     order's extra (the delivery/service charge actually kept) is
+     COD Collected − Pharmacy Bill, shown read-only at the end of the
+     row and summed into the card's Extra total. Rows saved while it
+     was a free-text reference parse to 0, so their extra degrades to
+     the old gross figure rather than throwing. */
   row.innerHTML = `
     <input type="text"   class="lbl-input mediq-billnum" placeholder="Bill Number" value="${escHtml(billNum)}" style="flex:1;">
-    <input type="number" class="mediq-val" placeholder="COD Amount" value="${val||0}" oninput="calc()">
-    <input type="text"   class="lbl-input mediq-pharmbill" placeholder="Pharmacy Bill" value="${escHtml(pharmBill)}" style="flex:1;">
+    <input type="number" class="mediq-val" placeholder="COD Collected" value="${val||0}" oninput="calc()">
+    <input type="number" class="mediq-pharmbill" placeholder="Pharmacy Bill" value="${parseFloat(pharmBill)||0}" oninput="calc()">
+    <input type="number" class="mediq-extra" readonly tabindex="-1" aria-label="Extra collected on this order" value="0">
     <button class="del-row-btn" onclick="delRow('${id}',true)" aria-label="Remove row">✕</button>`;
   document.getElementById('ledger-mediq').appendChild(row);
-  attachNumpad(row.querySelector('.mediq-val'), 'COD Amount Collected');
+  attachNumpad(row.querySelector('.mediq-val'),       'COD Amount Collected');
+  attachNumpad(row.querySelector('.mediq-pharmbill'), 'Pharmacy Bill Amount');
   calc();
 }
 
@@ -601,17 +609,18 @@ export function buildPrintSheet() {
   let mediqRows = '';
   document.querySelectorAll('#ledger-mediq .row').forEach(row => {
     const billNum   = row.querySelector('.mediq-billnum')?.value;
-    const v         = row.querySelector('.mediq-val')?.value;
-    const pharmBill = row.querySelector('.mediq-pharmbill')?.value;
-    if((parseFloat(v)||0) !== 0) {
-      const label = (billNum || pharmBill)
-        ? `Bill ${billNum || '—'}${pharmBill ? ' / Pharm Bill ' + pharmBill : ''}`
-        : 'Order';
-      mediqRows += psRow(label, (parseFloat(v)||0).toLocaleString('en-PK'));
+    const v         = parseFloat(row.querySelector('.mediq-val')?.value) || 0;
+    const pharmBill = parseFloat(row.querySelector('.mediq-pharmbill')?.value) || 0;
+    if(v !== 0 || pharmBill !== 0) {
+      /* Printed as "collected − bill" so the extra can be checked by
+         eye against the order slip without reopening the app. */
+      const label = `Bill ${billNum || '—'} — ${v.toLocaleString('en-PK')} − ${pharmBill.toLocaleString('en-PK')}`;
+      mediqRows += psRow(label, (v - pharmBill).toLocaleString('en-PK'));
     }
   });
   if(!mediqRows) mediqRows = psRow('— no orders —', '', 'ps-empty');
-  mediqRows += psRow('TOTAL MEDIQ', num('out-total-i'), 'ps-total');
+  if(numRaw('out-prev-mediq') !== 0) mediqRows += psRow('Previous MEDIQ amount collected', num('out-prev-mediq'));
+  mediqRows += psRow('EXTRA MEDIQ COLLECTED', num('out-total-i'), 'ps-total');
 
   /* Misc Charges box */
   let miscRows = '';
@@ -632,7 +641,7 @@ export function buildPrintSheet() {
   sumRows += psRow('Draw Cash', num('out-subtotal-d'));
   sumRows += psRow('Credit', num('out-total-e'));
   sumRows += psRow('Deposits', num('out-total-f'));
-  sumRows += psRow('MEDIQ', num('out-total-i'));
+  sumRows += psRow('MEDIQ Extra Collected', num('out-total-i'));
   sumRows += psRow('GRAND TOTAL', num('out-grand'), 'ps-total');
   sumRows += psRow('Less: Cash Reserve (float)', '45,000', 'ps-minus');
   sumRows += psRow('Liquid Cash', num('out-liquid'));
