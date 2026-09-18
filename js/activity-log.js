@@ -77,7 +77,7 @@ const FIELD_LABELS = {
   outPrevCash:    'Previous Cash Position (carried)',
   extraCash:      'Extra Cash Added',
   outPrevMediq:   'Previous MEDIQ Collected (carried)',
-  outTotalI:      'Extra MEDIQ Collected (I)',
+  outTotalI:      'Extra MEDIQ Collected',
   outFinalMediq:  'Extra MEDIQ Collected (Final aggregation)',
   mediqDelivery:  'MEDIQ Delivery Charge/Order',
   mediqRate:      'MEDIQ Commission Rate %',

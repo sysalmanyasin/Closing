@@ -19,6 +19,7 @@ import { showAlert } from './notify.js';
    computes its values in all modes, not just Final closings. */
 const LEDGER_SECTIONS = [
   { key: 'pos',       cardId: 'card-pos',       label: 'POS',      icon: '🧾', badgeId: 'badge-pos' },
+  { key: 'mediq',     cardId: 'card-mediq',     label: 'MEDIQ',    icon: '🛵', badgeId: 'badge-mediq' },
   { key: 'shift',     cardId: 'card-shift',     label: 'Shift',    icon: '🔁', badgeId: 'badge-shift' },
   { key: 'hs',        cardId: 'card-hs',        label: 'HS',       icon: '🏠', badgeId: 'badge-hs' },
   { key: 'strips',    cardId: 'card-strips',    label: 'Strips',   icon: '📦', badgeId: 'badge-strips' },
@@ -28,7 +29,6 @@ const LEDGER_SECTIONS = [
   { key: 'vault',     cardId: 'card-vault',     label: 'Vault',    icon: '🏦', badgeId: 'badge-vault' },
   { key: 'credit',    cardId: 'card-credit',    label: 'Credit',   icon: '📒', badgeId: 'badge-credit' },
   { key: 'deposits',  cardId: 'card-deposits',  label: 'Deposit',  icon: '💰', badgeId: 'badge-deposits' },
-  { key: 'mediq',     cardId: 'card-mediq',     label: 'MEDIQ',    icon: '🛵', badgeId: 'badge-mediq' },
   { key: 'audit',     cardId: 'card-audit',     label: 'Audit',    icon: '📊', badgeId: null },
   { key: 'final-agg', cardId: 'card-final-agg', label: 'Final',    icon: '🧮', badgeId: null },
 ];
@@ -359,7 +359,7 @@ export function snapshotRowsForSection(key, rec) {
       if ((parseFloat(rec.outPrevMediq)||0) !== 0) {
         rows.push(['Previous MEDIQ amount collected', money(rec.outPrevMediq)]);
       }
-      rows.push(['Extra MEDIQ Collected (I)', money(mediqExtraOf(rec))]);
+      rows.push(['Extra MEDIQ Collected', money(mediqExtraOf(rec))]);
       return rows;
     }
     case 'audit':

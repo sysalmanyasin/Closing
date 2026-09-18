@@ -661,6 +661,34 @@
         </div>
       </div>
 
+      <!-- MEDIQ COD Orders -->
+      <div class="card ledger-section" id="card-mediq" data-section="mediq">
+        <div class="card-head" onclick="toggleCard('card-mediq')">
+          <h3>MEDIQ COD Orders</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-mediq">Rs. 0</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <p class="mediq-desc">Enter each COD order's Bill Number, the cash collected from the customer, and the matching Pharmacy Bill amount. The difference (extra collected over the bill) totals below as the delivery/service charge collected on this order.</p>
+          <div class="mediq-table">
+            <div class="mediq-head-row">
+              <span class="mediq-col-orderid">Order ID</span>
+              <span class="mediq-col-billnum">Bill Number</span>
+              <span class="mediq-col-val">COD Collected</span>
+              <span class="mediq-col-pharm">Pharmacy Bill</span>
+              <span class="mediq-col-extra">Extra</span>
+              <span class="mediq-col-spacer" aria-hidden="true"></span>
+            </div>
+            <div id="ledger-mediq"></div>
+          </div>
+          <div class="row computed" id="box-out-prev-mediq"><label for="out-prev-mediq">Previous MEDIQ amount collected:</label><input type="number" id="out-prev-mediq" value="0" oninput="calc()"></div>
+          <div class="row computed"><label for="out-total-i">Extra MEDIQ Collected:</label><input type="number" id="out-total-i" readonly value="0"></div>
+        </div>
+        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMediqRow()">＋ Add Order</button></div>
+      </div>
+
       <!-- Shift Calculations -->
       <div class="card ledger-section" id="card-shift" data-section="shift">
         <div class="card-head" onclick="toggleCard('card-shift')">
@@ -808,34 +836,6 @@
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addDepositRow()">＋ Add Row</button></div>
       </div>
 
-      <!-- BLOCK 9: MEDIQ COD Orders (I) -->
-      <div class="card ledger-section" id="card-mediq" data-section="mediq">
-        <div class="card-head" onclick="toggleCard('card-mediq')">
-          <h3><span class="step">9</span> MEDIQ COD Orders (I)</h3>
-          <div class="card-head-right">
-            <span class="card-total-badge" id="badge-mediq">Rs. 0</span>
-            <span class="collapse-icon">▼</span>
-          </div>
-        </div>
-        <div class="card-body">
-          <p class="mediq-desc">Enter each COD order's Bill Number, the cash collected from the customer, and the matching Pharmacy Bill amount. The difference (extra collected over the bill) totals below as the delivery/service charge collected on this order.</p>
-          <div class="mediq-table">
-            <div class="mediq-head-row">
-              <span class="mediq-col-orderid">Order ID</span>
-              <span class="mediq-col-billnum">Bill Number</span>
-              <span class="mediq-col-val">COD Collected</span>
-              <span class="mediq-col-pharm">Pharmacy Bill</span>
-              <span class="mediq-col-extra">Extra</span>
-              <span class="mediq-col-spacer" aria-hidden="true"></span>
-            </div>
-            <div id="ledger-mediq"></div>
-          </div>
-          <div class="row computed" id="box-out-prev-mediq"><label for="out-prev-mediq">Previous MEDIQ amount collected:</label><input type="number" id="out-prev-mediq" value="0" oninput="calc()"></div>
-          <div class="row computed"><label for="out-total-i">Extra MEDIQ Collected (I):</label><input type="number" id="out-total-i" readonly value="0"></div>
-        </div>
-        <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMediqRow()">＋ Add Order</button></div>
-      </div>
-
       <!-- BLOCK: Final Audit -->
       <div class="card ledger-section" id="card-audit" data-section="audit">
         <div class="card-head" onclick="toggleCard('card-audit')" style="background:linear-gradient(90deg,var(--navy) 0%,var(--teal-dark) 100%);">
@@ -843,7 +843,7 @@
           <div class="card-head-right"><span class="collapse-icon" style="color:var(--on-dark-secondary);">▼</span></div>
         </div>
         <div class="card-body">
-          <div class="row computed"><label for="out-grand">Grand Total (A+B+C+D+E+F+G+H+I):</label><input type="number" id="out-grand" readonly value="0"></div>
+          <div class="row computed"><label for="out-grand">Grand Total (A+B+C+D+E+F+G+H):</label><input type="number" id="out-grand" readonly value="0"></div>
           <div class="row"><label for="out-cash-reserve-display">Less: Cash Reserve (held in till):</label><input type="text" id="out-cash-reserve-display" readonly value="– Rs. 45,000" style="border:none;font-weight:700;color:var(--red);background:transparent;width:auto;text-align:right;"></div>
           <div class="row computed"><label for="out-liquid">Net Cash Available:</label><input type="number" id="out-liquid" readonly value="0"></div>
           <div class="row computed" id="box-out-prev-cash"><label for="out-prev-cash">Less: Previous Shift's Cash Position:</label><input type="number" id="out-prev-cash" oninput="setOverride('out-prev-cash')"></div>
@@ -1252,7 +1252,7 @@
           <div style="padding:12px 16px;font-size:0.76rem;color:var(--muted);line-height:1.5;">
             Every closing in range, plus a month-by-month rollup. Shows the <strong>extra collected over the
             pharmacy bill</strong> on MEDIQ COD orders — not the gross COD amount — the same figure folded into
-            the Grand Total as the <strong>I</strong> term.
+            Net Sale (this shift).
           </div>
         </div>
 

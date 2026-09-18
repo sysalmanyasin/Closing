@@ -658,6 +658,31 @@ export function calc() {
   const badge_pos = document.getElementById('badge-pos');
   if(badge_pos) badge_pos.textContent = 'Rs. ' + sysCash.toLocaleString();
 
+  /* MEDIQ COD Orders — the EXTRA collected, not the gross COD.
+     Each order records what the customer paid the rider and the
+     matching pharmacy bill; the difference is the delivery/service
+     charge that actually stays with the pharmacy, and that is what
+     belongs in Net Sale (this shift). The gross COD amount is money
+     that was only ever passing through, so summing it would inflate
+     this figure. Computed here (right after POS/Returns) because the
+     MEDIQ card now sits between POS and Shift, and Net Sale below
+     needs this total. */
+  let totalI = val('out-prev-mediq');
+  document.querySelectorAll('#ledger-mediq .row:not(.row-deleted)').forEach(row => {
+    const v     = parseFloat(row.querySelector('.mediq-val')?.value) || 0;
+    const bill  = parseFloat(row.querySelector('.mediq-pharmbill')?.value) || 0;
+    const extra = v - bill;
+    const exEl  = row.querySelector('.mediq-extra');
+    if(exEl) exEl.value = extra;
+    totalI += extra;
+  });
+  /* Deleted rows keep a visible 0 so a struck-through row can't look
+     like it is still contributing. */
+  document.querySelectorAll('#ledger-mediq .row.row-deleted .mediq-extra').forEach(el => { el.value = 0; });
+  set('out-total-i', totalI);
+  const badge_mediq = document.getElementById('badge-mediq');
+  if(badge_mediq) badge_mediq.textContent = 'Rs. ' + totalI.toLocaleString();
+
   /* Shift sale delta */
   const parts     = session.activeKey ? session.activeKey.split('_') : ['',''];
   const prevNode  = timelineStep(parts[0], parts[1], -1);
@@ -683,7 +708,7 @@ export function calc() {
   const book1  = val('in-book-1');
   const book2  = val('in-book-2');
   const custVal = val('out-cust');
-  const netSale = shiftSaleVal + book1 + book2 + custVal - totalReturns;
+  const netSale = shiftSaleVal + book1 + book2 + custVal - totalReturns + totalI;
   set('out-net-sale', netSale);
   const badge_shift = document.getElementById('badge-shift');
   if(badge_shift) badge_shift.textContent = 'Rs. ' + netSale.toLocaleString();
@@ -742,33 +767,11 @@ export function calc() {
   const badge_misc = document.getElementById('badge-misc');
   if(badge_misc) badge_misc.textContent = 'Rs. ' + totalG.toLocaleString();
 
-  /* MEDIQ COD Orders (I) — the EXTRA collected, not the gross COD.
-     Each order records what the customer paid the rider and the
-     matching pharmacy bill; the difference is the delivery/service
-     charge that actually stays with the pharmacy, and that is what
-     belongs in the Grand Total. The gross COD amount is money that
-     was only ever passing through, so summing it inflated `I`. */
-  let totalI = val('out-prev-mediq');
-  document.querySelectorAll('#ledger-mediq .row:not(.row-deleted)').forEach(row => {
-    const v     = parseFloat(row.querySelector('.mediq-val')?.value) || 0;
-    const bill  = parseFloat(row.querySelector('.mediq-pharmbill')?.value) || 0;
-    const extra = v - bill;
-    const exEl  = row.querySelector('.mediq-extra');
-    if(exEl) exEl.value = extra;
-    totalI += extra;
-  });
-  /* Deleted rows keep a visible 0 so a struck-through row can't look
-     like it is still contributing. */
-  document.querySelectorAll('#ledger-mediq .row.row-deleted .mediq-extra').forEach(el => { el.value = 0; });
-  set('out-total-i', totalI);
-  const badge_mediq = document.getElementById('badge-mediq');
-  if(badge_mediq) badge_mediq.textContent = 'Rs. ' + totalI.toLocaleString();
-
   /* Grand total: A=HS, B=Strips, C=Misc, D=CC, E=Till, F=Draw, G=Credit,
-     H=Deposits, I=MEDIQ extra (cash kept beyond the pharmacy bill value,
-     NOT the gross COD collected) */
+     H=Deposits. MEDIQ Extra is no longer part of the Grand Total — it's
+     folded into Net Sale (this shift) instead, see above. */
   const ccB   = val('out-prev-cc') + val('out-curr-cc');
-  const grand = hsTotal + totalA + totalG + ccB + totalC + totalD + totalE + totalF + totalI;
+  const grand = hsTotal + totalA + totalG + ccB + totalC + totalD + totalE + totalF;
   set('out-grand', grand);
   const liquid = grand - 45000;
   set('out-liquid', liquid);

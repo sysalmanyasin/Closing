@@ -531,6 +531,7 @@ export function buildPrintSheet() {
   retRows += psRowOrEmpty('Return 3', g('pos-ret-3')?.value);
   retRows += psRowOrEmpty('System Return', g('pos-ret-sys')?.value);
   retRows += psRow('TOTAL RETURNS', num('out-total-returns'), 'ps-total');
+  retRows += psRow('Extra MEDIQ Collected', num('out-total-i'));
   retRows += psRow('NET SHIFT SALE', num('out-net-sale'), 'ps-highlight');
 
   /* Card Sales (CC) box */
@@ -653,7 +654,6 @@ export function buildPrintSheet() {
   sumRows += psRow('Draw Cash', num('out-subtotal-d'));
   sumRows += psRow('Credit', num('out-total-e'));
   sumRows += psRow('Deposits', num('out-total-f'));
-  sumRows += psRow('MEDIQ Extra Collected', num('out-total-i'));
   sumRows += psRow('GRAND TOTAL', num('out-grand'), 'ps-total');
   sumRows += psRow('Less: Cash Reserve (float)', '45,000', 'ps-minus');
   sumRows += psRow('Liquid Cash', num('out-liquid'));

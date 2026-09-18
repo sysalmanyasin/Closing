@@ -346,7 +346,7 @@ function renderMediqShiftBlock(r) {
         ${orderRows}
         ${carryRow}
         <div class="mh-order-row mh-shift-total-row">
-          <span class="mh-order-cell mh-order-total-label">Shift Extra MEDIQ (I)</span>
+          <span class="mh-order-cell mh-order-total-label">Shift Extra MEDIQ</span>
           <span class="mh-order-cell mh-order-num mh-order-extra">${mhMoney(r.extra)}</span>
         </div>
       </div>`;
@@ -390,7 +390,7 @@ export function renderMediqMonthTable(monthRows) {
       <span class="mh-cell mh-num">Closings</span>
       <span class="mh-cell mh-num">Orders</span>
       <span class="mh-cell mh-num">Previous MEDIQ</span>
-      <span class="mh-cell mh-num mh-extra">Extra MEDIQ (I)</span>
+      <span class="mh-cell mh-num mh-extra">Extra MEDIQ</span>
     </div>`;
 
   monthRows.forEach(m => {
@@ -428,7 +428,7 @@ export function renderMediqMonthTable(monthRows) {
 export function exportMediqHistoryCsv() {
   if(mhState.view === 'month') {
     if(!mhState.monthRows.length) return;
-    const lines = ['Month,Closings,Orders,Previous MEDIQ,Extra MEDIQ (I)'];
+    const lines = ['Month,Closings,Orders,Previous MEDIQ,Extra MEDIQ'];
     mhState.monthRows.forEach(m => {
       lines.push([mhFmtMonth(m.month), m.shiftCount, m.orderCount, m.prevMediq, m.extra].join(','));
     });
