@@ -672,6 +672,7 @@
         </div>
         <div class="card-body">
           <p class="mediq-desc">Enter each COD order's Bill Number, the cash collected from the customer, and the matching Pharmacy Bill amount. The difference (extra collected over the bill) totals below as the delivery/service charge collected on this order.</p>
+          <div class="row computed" id="box-out-prev-mediq"><label for="out-prev-mediq">Previous MEDIQ amount collected:</label><input type="number" id="out-prev-mediq" value="0" oninput="calc()"></div>
           <div class="mediq-table">
             <div class="mediq-head-row">
               <span class="mediq-col-orderid">Order ID</span>
@@ -683,7 +684,6 @@
             </div>
             <div id="ledger-mediq"></div>
           </div>
-          <div class="row computed" id="box-out-prev-mediq"><label for="out-prev-mediq">Previous MEDIQ amount collected:</label><input type="number" id="out-prev-mediq" value="0" oninput="calc()"></div>
           <div class="row computed"><label for="out-total-i">Extra MEDIQ Collected:</label><input type="number" id="out-total-i" readonly value="0"></div>
         </div>
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addMediqRow()">＋ Add Order</button></div>

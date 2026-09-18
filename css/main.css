@@ -562,17 +562,24 @@
     margin: 10px 16px 4px;
     border: 1.5px solid var(--border-strong);
     border-radius: var(--radius-md);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 1px 4px rgba(10, 81, 71, .06);
   }
 
-  /* Order ID / Bill Number (flexible) / COD Collected / Pharmacy
-     Bill / Extra / trailing action button — six columns, identical
-     on the header and on every order row. */
+  /* Order ID / Bill Number (flexible, but never below 90px) / COD
+     Collected / Pharmacy Bill / Extra / trailing action button — six
+     columns, identical on the header and on every order row. The
+     total (500px) is wider than most phone screens on purpose: every
+     column keeps its own width rather than being squeezed down to
+     the point its label overlaps its neighbour, and .mediq-table
+     above scrolls horizontally to reveal the rest. */
   .mediq-head-row,
   #ledger-mediq .row {
     display: grid;
-    grid-template-columns: 100px minmax(0,1fr) 90px 90px 90px 40px;
+    grid-template-columns: 100px minmax(90px,1fr) 90px 90px 90px 40px;
+    min-width: 500px;
     align-items: center;
   }
 
