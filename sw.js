@@ -1,7 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.14
+   Pharma Plus Closing App — Service Worker  v5.15
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.15 — Settings-reset fix. persist() no longer stamps
+   settings._updatedAt on every save (only real Settings edits do, via
+   persistSettings()), sync.js _mergeSettings() never lets factory-default
+   settings overwrite real ones, sheets now freeze stripNames/stripGroups
+   next to stripPrices. Version bump so cached devices actually load the
+   fixed js/actions.js, js/sync.js, js/state.js, js/repository.js,
+   js/ledger-nav.js.
 
    v5.14 — css/main.css: the Date/Closing/Status column freeze added
    in v5.13 was eating over half of a phone-width screen and showing
@@ -71,7 +79,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.14';
+const CACHE_NAME = 'pharmpos-closing-v5.15';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only

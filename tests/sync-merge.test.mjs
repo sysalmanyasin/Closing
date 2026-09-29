@@ -62,3 +62,58 @@ describe('_mergeByKey — finalized save must beat a later draft', () => {
     assert.equal(localWonSomething, true);
   });
 });
+
+/* ───────────── Settings merge: factory defaults must never win ───────────── */
+import { _mergeSettings } from '../js/sync.js';
+import { isSeedSettings } from '../js/state.js';
+
+const seed = () => ({
+  namedCredits: [{label:"Corporate Account"},{label:"Wholesale Ledger"},{label:"Third Party Tab"}],
+  subTiers: [
+    {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
+    {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
+    {type:"Branch Tabs",    names:["Johar Town","DHA Branch","Bahria Pool"]}
+  ],
+  strips: [
+    {name:"Water 1.5L",price:17,group:"Water"},{name:"Water 500ml",price:28,group:"Water"},
+    {name:"Water 330ml",price:0,group:"Water"},{name:"Regular Strips",price:10,group:""},
+    {name:"Pura Water 1L",price:16,group:"Water"},{name:"Pura Water 0.5L",price:28,group:"Water"},
+    {name:"Juice Pack 60x",price:0,group:"Nestlé Juice"},{name:"Juice Pack 80x",price:60,group:"Nestlé Juice"},
+    {name:"Juice Pack 140x",price:5,group:"Nestlé Juice"},{name:"Juice Pack 150x",price:4,group:"Nestlé Juice"},
+    {name:"Juice Pack 250x",price:6,group:"Nestlé Juice"}
+  ]
+});
+const real = () => ({ ...seed(), strips: [{name:"Water 1.5L",price:100,group:"Water"},{name:"Sugar Strips",price:60,group:"Strips"}] });
+
+describe('_mergeSettings — wiped device must not reset real settings', () => {
+  test('recognises factory-default settings', () => {
+    assert.equal(isSeedSettings(seed()), true);
+    assert.equal(isSeedSettings(real()), false);
+  });
+
+  test('REGRESSION 2026-09-28: default local settings with a NEWER timestamp still lose to real cloud settings', () => {
+    const local = { ...seed(), _updatedAt: 9_999_999 };   // stamped by an ordinary save on a wiped device
+    const cloud = { ...real(), _updatedAt: 1_000 };
+    const { settings, keptLocal } = _mergeSettings(local, cloud);
+    assert.equal(settings.strips[0].price, 100, 'real cloud prices must survive');
+    assert.equal(keptLocal, false, 'defaults must not be pushed back up');
+  });
+
+  test('a genuine newer local edit still beats older cloud settings', () => {
+    const local = { ...real(), strips: [{name:"Water 1.5L",price:120,group:"Water"}], _updatedAt: 2_000 };
+    const cloud = { ...real(), _updatedAt: 1_000 };
+    const { settings, keptLocal } = _mergeSettings(local, cloud);
+    assert.equal(settings.strips[0].price, 120);
+    assert.equal(keptLocal, true);
+  });
+
+  test('older local real settings lose to newer cloud settings', () => {
+    const { settings } = _mergeSettings({ ...real(), _updatedAt: 1 }, { ...real(), strips: [{name:"X",price:1,group:""}], _updatedAt: 5 });
+    assert.equal(settings.strips[0].name, 'X');
+  });
+
+  test('empty cloud: real local settings are kept and pushed; defaults are not pushed', () => {
+    assert.equal(_mergeSettings(real(), null).keptLocal, true);
+    assert.equal(_mergeSettings(seed(), null).keptLocal, false);
+  });
+});

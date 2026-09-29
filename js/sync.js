@@ -16,7 +16,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { repoGetLocal, repoRemoveLocal, repoReplaceDB, repoSetLocal } from './repository.js';
-import { db, session } from './state.js';
+import { db, session, isSeedSettings } from './state.js';
 import { buildCalendar, renderFinalSummaryCard, renderManifest } from './pages.js';
 import { showAlert, showConfirm } from './notify.js';
 import { refreshOpenLedgerFromSync } from './actions.js';
@@ -388,7 +388,7 @@ export async function syncPushToCloud(manual = false) {
        this guard is deliberately scoped to settings only, since that
        was the only table a stale local default could silently
        clobber wholesale. */
-    if(supaState.settingsHydrated) {
+    if(supaState.settingsHydrated && !isSeedSettings(db.settings)) {
       const { error: setErr } = await supaState.client.from('settings').upsert(
         { id: 1, data: db.settings || {}, updated_at: db.settings?._updatedAt || 0 },
         { onConflict: 'id' }
@@ -456,6 +456,24 @@ export async function syncPushToCloud(manual = false) {
   } finally {
     supaSetBusy(false);
   }
+}
+
+/* Settings merge (pure, unit-tested). Decides whether the cloud's or this
+   device's settings survive a pull.
+
+   HARD RULE: factory-default settings (a wiped browser, new phone,
+   reinstalled PWA) can NEVER overwrite real settings, whatever their
+   timestamp says. Before this rule existed, every save stamped
+   settings._updatedAt = now, so a wiped device's defaults looked newer
+   than the cloud's real settings, won this merge, and were pushed up —
+   resetting every inventory price/name/group (2026-08-27 and again
+   2026-09-28). */
+export function _mergeSettings(local, cloud) {
+  if(!cloud) return { settings: local, keptLocal: !isSeedSettings(local) }; /* nothing in cloud yet */
+  if(!local) return { settings: cloud, keptLocal: false };
+  if(isSeedSettings(local) && !isSeedSettings(cloud)) return { settings: cloud, keptLocal: false };
+  if((local._updatedAt || 0) > (cloud._updatedAt || 0)) return { settings: local, keptLocal: true };
+  return { settings: cloud, keptLocal: false };
 }
 
 /* ── PULL: Cloud → Local ─────────────────────────────────────
@@ -585,14 +603,9 @@ export async function syncPullFromCloud(_manual = false) {
       deletedKeys:  Array.from(tombstones.entries()).map(([key, deleted_at]) => ({ key, deletedAt: new Date(deleted_at).getTime() }))
     };
 
-    let keptLocalSettings = false;
-    const localUpdatedAt = db.settings?._updatedAt || 0;
-    const cloudUpdatedAt = cloudDb.settings?._updatedAt || 0;
-    if(localUpdatedAt > cloudUpdatedAt) {
-      cloudDb.settings = db.settings;
-      keptLocalSettings = true;
-    }
-    if(!cloudDb.settings) cloudDb.settings = db.settings; /* nothing in cloud yet — keep local */
+    const settingsMerge = _mergeSettings(db.settings, cloudDb.settings);
+    cloudDb.settings = settingsMerge.settings;
+    const keptLocalSettings = settingsMerge.keptLocal;
 
     /* We've now genuinely seen what the cloud has (or confirmed it's
        empty) — from here on db.settings can be trusted enough to

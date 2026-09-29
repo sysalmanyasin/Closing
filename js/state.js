@@ -158,34 +158,48 @@ function applySettingsDefaults(dbObj) {
   return dbObj;
 }
 
+/* The factory-default settings a brand-new install starts with. Kept as
+   ONE constant so isSeedSettings() below can recognise "this device has
+   never had real settings" — see sync.js _mergeSettings() for why that
+   matters (a wiped/new device must never push these over real cloud
+   settings — that is what reset every inventory price on 2026-09-28). */
+const SEED_SETTINGS = Object.freeze({
+  bookBrandCode: "FDPP BT",
+  namedCredits: [
+    {label:"Corporate Account"},
+    {label:"Wholesale Ledger"},
+    {label:"Third Party Tab"}
+  ],
+  subTiers: [
+    {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
+    {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
+    {type:"Branch Tabs",    names:["Johar Town","DHA Branch","Bahria Pool"]}
+  ],
+  strips: [
+    {name:"Water 1.5L",        price:17,  group:"Water"},
+    {name:"Water 500ml",       price:28,  group:"Water"},
+    {name:"Water 330ml",       price:0,   group:"Water"},
+    {name:"Regular Strips",    price:10,  group:""},
+    {name:"Pura Water 1L",     price:16,  group:"Water"},
+    {name:"Pura Water 0.5L",   price:28,  group:"Water"},
+    {name:"Juice Pack 60x",    price:0,   group:"Nestlé Juice"},
+    {name:"Juice Pack 80x",    price:60,  group:"Nestlé Juice"},
+    {name:"Juice Pack 140x",   price:5,   group:"Nestlé Juice"},
+    {name:"Juice Pack 150x",   price:4,   group:"Nestlé Juice"},
+    {name:"Juice Pack 250x",   price:6,   group:"Nestlé Juice"}
+  ],
+  stripGroups: ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"]
+});
+
+/* True when `settings` still has the untouched factory strips /
+   named-credits / sub-tiers — i.e. nobody ever configured this copy. */
+export function isSeedSettings(settings) {
+  const pick = x => JSON.stringify([x?.strips, x?.namedCredits, x?.subTiers]);
+  return pick(settings) === pick(SEED_SETTINGS);
+}
+
 export let db = applySettingsDefaults(repoLoad() || {
-  settings: {
-    bookBrandCode: "FDPP BT",
-    namedCredits: [
-      {label:"Corporate Account"},
-      {label:"Wholesale Ledger"},
-      {label:"Third Party Tab"}
-    ],
-    subTiers: [
-      {type:"Staff Credit",   names:["Dr. Salman","Asif Malik","Kashif Shah"]},
-      {type:"Delivery Staff", names:["Raza Hazrat","Noman Ali","Saeed Khan"]},
-      {type:"Branch Tabs",    names:["Johar Town","DHA Branch","Bahria Pool"]}
-    ],
-    strips: [
-      {name:"Water 1.5L",        price:17,  group:"Water"},
-      {name:"Water 500ml",       price:28,  group:"Water"},
-      {name:"Water 330ml",       price:0,   group:"Water"},
-      {name:"Regular Strips",    price:10,  group:""},
-      {name:"Pura Water 1L",     price:16,  group:"Water"},
-      {name:"Pura Water 0.5L",   price:28,  group:"Water"},
-      {name:"Juice Pack 60x",    price:0,   group:"Nestlé Juice"},
-      {name:"Juice Pack 80x",    price:60,  group:"Nestlé Juice"},
-      {name:"Juice Pack 140x",   price:5,   group:"Nestlé Juice"},
-      {name:"Juice Pack 150x",   price:4,   group:"Nestlé Juice"},
-      {name:"Juice Pack 250x",   price:6,   group:"Nestlé Juice"}
-    ],
-    stripGroups: ["Water","Nestlé Juice","Nescafé","1L Juice","Milo","Mask","Bags"]
-  },
+  settings: JSON.parse(JSON.stringify(SEED_SETTINGS)),
   sheets: {}
 });
 

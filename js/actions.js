@@ -1094,6 +1094,10 @@ export function buildSheetRecord() {
     })),
     stripQtys:  Array.from(document.querySelectorAll('.strip-qty')).map(e=>parseFloat(e.value)||0),
     stripPrices:Array.from(document.querySelectorAll('.strip-price')).map(e=>parseFloat(e.value)||0),
+    /* Freeze the item names/groups next to the prices. Prices are stored by position, so without
+       this a later change to Settings (or a reset) silently relabels every past sheet. */
+    stripNames: (db.settings.strips||[]).map(x=>x.name),
+    stripGroups:(db.settings.strips||[]).map(x=>x.group||''),
     /* Reads each row as a whole (not three separately-zipped NodeLists
        by position) so a stable id travels with its own row, and nothing
        shifts out of alignment if rows are ever reordered.
@@ -1498,15 +1502,23 @@ export function scheduleAutoSave() {
    reset as soon as a write succeeds again. */
 let _persistFailWarned = false;
 
-export function persist() {
-  /* Stamp *when* this device last wrote settings to storage. Used by
-     sync.js to decide whether a cloud pull is allowed to overwrite
-     local settings (Admin/staff PINs, inventory, named credits, etc).
-     Bumped on every persist (not just settings edits) because the
-     settings object as currently held in memory is, by definition,
-     up to date as of this write — this is a "last confirmed good
-     locally" heartbeat, not a per-field dirty flag. */
+/* Stamp settings as "genuinely edited just now". ONLY call this from a
+   real settings mutation (see persistSettings below). sync.js uses this
+   timestamp to decide whether local settings may overwrite the cloud's,
+   so it must never be bumped by a routine save of a sheet/draft — that
+   used to make a wiped device's factory defaults look "newer" than the
+   real cloud settings and silently overwrite every inventory price. */
+export function touchSettings() {
   db.settings._updatedAt = Date.now();
+}
+
+/* Same as persist(), but for a deliberate settings change. */
+export function persistSettings() {
+  touchSettings();
+  persist();
+}
+
+export function persist() {
   const ok = repoPersist();
   if(!ok) {
     if(!_persistFailWarned) {
@@ -1631,7 +1643,7 @@ export function setSheetProfileMode(key, mode) {
 
 export function settingsSetBookBrandCode(code) {
   db.settings.bookBrandCode = code.trim() || 'FDPP BT';
-  persist();
+  persistSettings();
 }
 
 /* ── Access PINs (Admin + per-staff) ──────────────────────────
@@ -1646,65 +1658,65 @@ export function settingsSetAdminPin(newPin) {
   if(!clean) return false;
   if(db.settings.staff.some(s => s.pin === clean)) return false; /* collides with a staff PIN */
   db.settings.adminPin = clean;
-  persist();
+  persistSettings();
   return true;
 }
 
 export function settingsAddStaff() {
   db.settings.staff.push({name:"New Staff", pin:""});
-  persist();
+  persistSettings();
 }
 export function settingsRemoveStaff(i) {
   db.settings.staff.splice(i,1);
-  persist();
+  persistSettings();
 }
 export function settingsSetStaffName(i, name) {
   if(!db.settings.staff[i]) return;
   db.settings.staff[i].name = (name || '').trim() || 'New Staff';
-  persist();
+  persistSettings();
 }
 export function settingsSetStaffPin(i, pin) {
   if(!db.settings.staff[i]) return false;
   const clean = (pin || '').trim();
   if(clean && isPinTaken(clean, i)) return false; /* collides with Admin PIN or another staff member */
   db.settings.staff[i].pin = clean;
-  persist();
+  persistSettings();
   return true;
 }
 
-export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); persist(); }
-export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); persist(); }
-export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) { db.settings.namedCredits[i].label = v; persist(); } }
+export function settingsAddNamedCredit()          { db.settings.namedCredits.push({label:"New Account"}); persistSettings(); }
+export function settingsRemoveNamedCredit(i)      { db.settings.namedCredits.splice(i,1); persistSettings(); }
+export function settingsSetNamedCreditLabel(i, v) { if(db.settings.namedCredits[i]) { db.settings.namedCredits[i].label = v; persistSettings(); } }
 
 export function settingsAddStrip() {
   db.settings.strips.push({name:"New Item",price:0,group:""});
-  persist();
+  persistSettings();
 }
 export function settingsRemoveStrip(i) {
   db.settings.strips.splice(i,1);
-  persist();
+  persistSettings();
 }
 export function settingsSetStripField(i, field, value) {
-  if(db.settings.strips[i]) { db.settings.strips[i][field] = value; persist(); }
+  if(db.settings.strips[i]) { db.settings.strips[i][field] = value; persistSettings(); }
 }
 
 export function settingsAddStripGroup() {
   db.settings.stripGroups.push("New Group");
-  persist();
+  persistSettings();
 }
 export function settingsRenameStripGroup(i, newName) {
   const oldName = db.settings.stripGroups[i];
   db.settings.stripGroups[i] = newName;
   /* keep items pointed at the renamed group */
   db.settings.strips.forEach(item => { if(item.group === oldName) item.group = newName; });
-  persist();
+  persistSettings();
 }
 export function settingsRemoveStripGroup(i) {
   const name = db.settings.stripGroups[i];
   db.settings.stripGroups.splice(i, 1);
   /* items in the removed group fall back to Ungrouped, not deleted */
   db.settings.strips.forEach(item => { if(item.group === name) item.group = ""; });
-  persist();
+  persistSettings();
 }
 
 /* Commits the staged fields (finalEveryN, named-credit labels,
@@ -1716,7 +1728,7 @@ export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) 
     if(db.settings.namedCredits[i]) db.settings.namedCredits[i].label = label;
   });
   subTiersData.forEach((t, i) => { db.settings.subTiers[i] = t; });
-  persist();
+  persistSettings();
 }
 
 /* ═══════════════════════════════════════════
@@ -1730,7 +1742,7 @@ export function settingsCommitAll(finalEveryN, namedCreditLabels, subTiersData) 
 
 export function settingsSetRetentionMonths(months) {
   db.settings.retentionMonths = Math.max(1, parseInt(months) || 6);
-  persist();
+  persistSettings();
 }
 
 export async function archiveOldRecords() {

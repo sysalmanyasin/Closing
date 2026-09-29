@@ -8,7 +8,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { db, setDB } from './state.js';
-import { persist } from './actions.js';
+import { persistSettings } from './actions.js';
 import { goToDashboard } from './pages.js';
 import { showAlert, showConfirm } from './notify.js';
 
@@ -100,7 +100,7 @@ export function importDataJSON(evt) {
       if(!incoming.sheets || !incoming.settings) { showAlert('Invalid backup file.'); return; }
       if(!await showConfirm('This will REPLACE all current data on this device with the backup file. Continue?', { confirmLabel: 'Replace data' })) return;
       setDB(incoming);
-      persist(); /* Floor 3's door — also triggers the usual cloud push */
+      persistSettings(); /* Floor 3's door — a deliberate restore counts as a settings edit; also triggers the cloud push */
       showAlert('Backup restored.');
       goToDashboard();
     } catch(err) {

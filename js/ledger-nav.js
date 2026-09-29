@@ -282,7 +282,7 @@ export function snapshotRowsForSection(key, rec) {
         const q = parseFloat(rec.stripQtys?.[i]) || 0;
         const price = parseFloat(p) || 0;
         if (q === 0) return; // keep the snapshot to what actually moved that shift
-        const name = db.settings.strips[i]?.name || `Item ${i+1}`;
+        const name = rec.stripNames?.[i] || db.settings.strips[i]?.name || `Item ${i+1}`;
         rows.push([name, `${q} × ${money(price)} = ${money(q*price)}`]);
       });
       (rec.auxStrips || []).forEach(o => {
