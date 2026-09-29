@@ -30,6 +30,12 @@ across-device backup.
 - **Named credit accounts** with multiple entries per account (each
   with an optional description and signed amount), staff/tier credit
   groups, and free-label credit entries.
+- **Cloud Settings History** — every real change to the cloud `settings`
+  row is archived by a Postgres trigger; *Settings → Backup & Retention →
+  Cloud Settings History* lists versions and restores one (Admin PIN,
+  checked server-side, 5-try lockout). Setup: run
+  `supabase/settings_restore.sql`. Guards against the settings resets of
+  2026-08-27 and 2026-09-28 (see `_mergeSettings()` in `js/sync.js`).
 - **Backup & restore** — full JSON export/import of all local data.
 - **Supabase cloud sync** (optional) — pushes a copy after every save
   and subscribes to realtime changes, so the same data stays in sync

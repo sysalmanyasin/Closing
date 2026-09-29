@@ -486,6 +486,20 @@
         </div>
 
         <div class="card">
+          <div class="card-head" style="cursor:default;"><h3>Cloud Settings History</h3></div>
+          <div class="card-body">
+            <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+              Every change to your settings (inventory prices, credits, staff, tiers) is archived in the cloud.
+              If settings ever get reset, restore an earlier version here. Needs the Admin PIN and an internet connection.
+            </p>
+            <div style="padding:12px 16px;">
+              <button class="btn btn-ghost" style="width:100%;" onclick="openSettingsHistory()">🕘 Load versions</button>
+            </div>
+            <div id="settings-history-list"></div>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="card-head" style="cursor:default;"><h3>Data Retention</h3></div>
           <div class="card-body">
             <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">

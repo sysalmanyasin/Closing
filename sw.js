@@ -1,7 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.15
+   Pharma Plus Closing App — Service Worker  v5.16
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.16 — New js/settings-history.js + Settings → Backup & Retention →
+   "Cloud Settings History": list/restore archived settings from the
+   cloud (Admin PIN, server-side). index.html/app.js changed too.
 
    v5.15 — Settings-reset fix. persist() no longer stamps
    settings._updatedAt on every save (only real Settings edits do, via
@@ -79,7 +83,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.15';
+const CACHE_NAME = 'pharmpos-closing-v5.16';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -107,6 +111,7 @@ const APP_SHELL = [
   './js/cc-history.js',
   './js/rbd-history.js',
   './js/sync.js',
+  './js/settings-history.js',
   './js/activity-log.js',
   './js/auth.js',
   './js/bt-bridge.js',
