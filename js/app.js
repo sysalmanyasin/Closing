@@ -33,6 +33,7 @@ import * as Sync        from './sync.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
 import * as DriveBackup from './drive-backup.js';
+import * as NtfyLink    from './ntfy-link.js';
 import * as SettingsHistory from './settings-history.js';
 import { showAlert }    from './notify.js';
 /* state.js and ledger-engine.js aren't imported directly here — they
@@ -214,7 +215,14 @@ Object.assign(window, {
   driveSaveClientId:  DriveBackup.driveSaveClientId,
   driveListVersions:  DriveBackup.driveListVersions,
   driveRestore:       DriveBackup.driveRestore,
+
+  // ntfy-link.js
+  ntfySaveTopic:      NtfyLink.ntfySaveTopic,
+  ntfyOpenApp:        NtfyLink.ntfyOpenApp,
+  ntfyOpenWeb:        NtfyLink.ntfyOpenWeb,
 });
+
+NtfyLink.ntfyRefreshUI();
 
 /* One-time boot check: if a saved db blob existed but failed to
    parse, State (Floor 2) already fell back to a fresh empty db so

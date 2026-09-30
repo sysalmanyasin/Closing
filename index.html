@@ -469,6 +469,29 @@
         </div>
         <!-- /GOOGLE DRIVE BACKUP CARD -->
 
+        <!-- ── NTFY NOTIFICATIONS CARD ── -->
+        <div class="card" id="card-ntfy">
+          <div class="card-head" style="cursor:default;"><h3>🔔 Closing Notifications (ntfy)</h3></div>
+          <div class="card-body">
+            <p style="font-size:0.8rem;color:var(--muted);padding:8px 16px 0;">
+              Every saved closing is also pushed to an ntfy topic. Paste the topic name
+              (or its ntfy.sh link) once — it is kept on this device only.
+            </p>
+            <div style="padding:10px 16px 0;">
+              <input type="text" id="ntfy-topic-input" placeholder="bt-closing-…" autocapitalize="off" autocomplete="off" spellcheck="false"
+                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border, #ccc);font-size:0.85rem;font-family:'JetBrains Mono',monospace;">
+            </div>
+            <div style="display:flex;gap:8px;padding:10px 16px;">
+              <button class="btn btn-ghost" style="flex:1;" onclick="ntfySaveTopic()">💾 Save</button>
+            </div>
+            <div id="ntfy-open-row" style="display:none;gap:8px;padding:0 16px 14px;">
+              <button class="btn btn-ghost" style="flex:1;" onclick="ntfyOpenApp()">📱 Open in ntfy app</button>
+              <button class="btn btn-ghost" style="flex:1;" onclick="ntfyOpenWeb()">🌐 Open web</button>
+            </div>
+          </div>
+        </div>
+        <!-- /NTFY NOTIFICATIONS CARD -->
+
         <div class="card">
           <div class="card-head" style="cursor:default;"><h3>Data Backup</h3></div>
           <div class="card-body">

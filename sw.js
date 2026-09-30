@@ -1,7 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.16
+   Pharma Plus Closing App — Service Worker  v5.17
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.17 — New js/ntfy-link.js + Settings → "Closing Notifications (ntfy)"
+   card: stores the ntfy topic on-device and opens it in the ntfy app/web.
+   index.html/app.js changed too.
 
    v5.16 — New js/settings-history.js + Settings → Backup & Retention →
    "Cloud Settings History": list/restore archived settings from the
@@ -83,7 +87,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.16';
+const CACHE_NAME = 'pharmpos-closing-v5.17';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -112,6 +116,7 @@ const APP_SHELL = [
   './js/rbd-history.js',
   './js/sync.js',
   './js/settings-history.js',
+  './js/ntfy-link.js',
   './js/activity-log.js',
   './js/auth.js',
   './js/bt-bridge.js',
