@@ -19,6 +19,7 @@ import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
 import { showAlert, showConfirm } from './notify.js';
+import { invAuditGetSnapshot, invAuditRender, invAuditReset, invAuditRestore } from './inventory-audit.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
   if(!opts.silent) showPage('page-ledger');
@@ -112,6 +113,10 @@ export function initLedger(ds, shift, mode, opts = {}) {
 
   /* reset dynamic counters */
   session.auxCreditCount = 0; session.depositCount = 0; session.miscCount = 0; session.hsRowCount = 0; session.auxStripCount = 0; session.mediqCount = 0;
+
+  /* Inventory Audit card: wipe the previous sheet's state (hydrate()
+     restores the saved snapshot, if any, further down) */
+  invAuditReset();
 
   /* clear dynamic containers */
   ['hs-rows','ledger-strips','ledger-named-credits','ledger-tier-credits',
@@ -225,6 +230,7 @@ export function initLedger(ds, shift, mode, opts = {}) {
      can ever schedule an autosave. */
   _draftReady = false;
   setLockedState(!!db.sheets[session.activeKey]?.locked);
+  invAuditRender(); /* lock state decides read-only vs. Sync button */
   calc();
   /* enable real-time auto-draft only after the ledger has fully settled */
   setTimeout(() => { _draftReady = true; }, 600);
@@ -1092,6 +1098,7 @@ export function buildSheetRecord() {
       val: parseFloat(r.querySelector('.hs-val')?.value)||0,
       deleted: r.classList.contains('row-deleted')
     })),
+    inventoryAudit: invAuditGetSnapshot(),
     stripQtys:  Array.from(document.querySelectorAll('.strip-qty')).map(e=>parseFloat(e.value)||0),
     stripPrices:Array.from(document.querySelectorAll('.strip-price')).map(e=>parseFloat(e.value)||0),
     /* Freeze the item names/groups next to the prices. Prices are stored by position, so without
@@ -1247,6 +1254,7 @@ export function hydrate(s) {
   const sv = (id, v) => { const el=g(id); if(el && v!==undefined) el.value=v; };
 
   sv('sel-responsible-staff', s.responsibleStaff || '');
+  invAuditRestore(s.inventoryAudit || null);
   sv('in-sys-cash',      s.inSysCash);
   sv('out-shift-sale',   s.outShiftSale);
   sv('out-curr-cc',      s.outCurrCC);

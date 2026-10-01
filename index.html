@@ -774,6 +774,18 @@
         <div class="add-row-btn-wrap"><button class="add-row-btn" onclick="addAuxStripRow()">＋ Add Row</button></div>
       </div>
 
+      <!-- BLOCK 2b: Inventory Audit (snapshot, no money total) -->
+      <div class="card ledger-section" id="card-invaudit" data-section="invaudit">
+        <div class="card-head" onclick="toggleCard('card-invaudit')">
+          <h3><span class="step">📋</span> Inventory Audit</h3>
+          <div class="card-head-right">
+            <span class="card-total-badge" id="badge-invaudit">—</span>
+            <span class="collapse-icon">▼</span>
+          </div>
+        </div>
+        <div id="inv-audit-body" class="card-body inv-audit"></div>
+      </div>
+
       <!-- BLOCK 3: Misc Charges (C) -->
       <div class="card ledger-section" id="card-misc" data-section="misc">
         <div class="card-head" onclick="toggleCard('card-misc')">

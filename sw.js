@@ -87,7 +87,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.17';
+const CACHE_NAME = 'pharmpos-closing-v5.18';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -120,6 +120,7 @@ const APP_SHELL = [
   './js/activity-log.js',
   './js/auth.js',
   './js/bt-bridge.js',
+  './js/inventory-audit.js',
   /* ── Icons ── */
   './icons/icon.svg',
   './icons/icon-192.png',

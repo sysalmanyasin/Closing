@@ -29,6 +29,7 @@ import * as ClosingBook from './closing-book.js';
 import * as CcHistory   from './cc-history.js';
 import * as RbdHistory  from './rbd-history.js';
 import * as MediqHistory from './mediq-history.js';
+import * as InventoryAudit from './inventory-audit.js';
 import * as Sync        from './sync.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
@@ -67,6 +68,8 @@ Object.assign(window, {
   addAuxStripRow:       Components.addAuxStripRow,
   addDepositRow:        Components.addDepositRow,
   addMediqRow:          Components.addMediqRow,
+  invAuditSync:         InventoryAudit.invAuditSync,
+  invAuditVerify:       InventoryAudit.invAuditVerify,
   addHsRow:             Components.addHsRow,
   addMiscRow:           Components.addMiscRow,
   addNamedCreditEntryRow: Components.addNamedCreditEntryRow,

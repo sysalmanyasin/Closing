@@ -23,6 +23,7 @@ const LEDGER_SECTIONS = [
   { key: 'shift',     cardId: 'card-shift',     label: 'Shift',    icon: '🔁', badgeId: 'badge-shift' },
   { key: 'hs',        cardId: 'card-hs',        label: 'HS',       icon: '🏠', badgeId: 'badge-hs' },
   { key: 'strips',    cardId: 'card-strips',    label: 'Strips',   icon: '📦', badgeId: 'badge-strips' },
+  { key: 'invaudit',  cardId: 'card-invaudit',  label: 'Inv Audit', icon: '📋', badgeId: 'badge-invaudit' },
   { key: 'misc',      cardId: 'card-misc',      label: 'Misc',     icon: '🧮', badgeId: 'badge-misc' },
   { key: 'cc',        cardId: 'card-cc',        label: 'Card',     icon: '💳', badgeId: 'badge-cc' },
   { key: 'till',      cardId: 'card-till',      label: 'Till',     icon: '💵', badgeId: 'badge-till' },
@@ -294,6 +295,13 @@ export function snapshotRowsForSection(key, rec) {
         + (rec.auxStrips||[]).filter(o=>!o.deleted).reduce((a,o)=>a+(parseFloat(o.p)||0)*(parseFloat(o.q)||0),0);
       if (!rows.length) rows.push(['No items sold that shift', '']);
       return rows.concat([['Total Inventory Revenue (B)', money(total)]]);
+    }
+    case 'invaudit': {
+      const a = rec.inventoryAudit;
+      if (!a || !Array.isArray(a.items)) return [['No inventory audit recorded', '']];
+      const rows = a.items.map(i => [`${i.code} ${i.name || ''}`.trim(), String(i.verifiedQty)]);
+      if (!rows.length) rows.push(['All audited items at 0 stock', '']);
+      return rows.concat([[`Verified by ${a.staffName || a.staffId}`, new Date(a.verifiedAt).toLocaleString('en-PK')]]);
     }
     case 'misc': {
       const rows = (rec.miscRows||[]).filter(r=>(parseFloat(r.val)||0)!==0 || (r.label||'').trim())
