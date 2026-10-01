@@ -75,6 +75,7 @@ locked: true` — written by `saveSheet()`).
 | `hsRows` | `{id, lbl, val, deleted}[]` | "HS" (household/misc sundry?) line items |
 | `stripQtys` / `stripPrices` | `number[]` | Parallel arrays, index-matched to `db.settings.strips` |
 | `auxStrips` | `{id, label, p, q, deleted}[]` | Extra ad-hoc strip line items not in the main strips list |
+| `inventoryAudit` | `{version, source, sheetKey, verifiedAt, staffId, staffName, fetchedAt, inventoryDataAsOf, codesChecked, notFound[], items[]}` or `null` | Frozen Inventory Audit snapshot, set when staff tap *Verify & Confirm* (`js/inventory-audit.js`). `items[]` = `{code, name, verifiedQty, verifiedAt, staffId}` for each non-zero balance among the 31 audited codes; `notFound` lists codes the inventory table didn't return. `null`/absent = no audit recorded. Written by `buildSheetRecord()`, restored by `hydrate()`. |
 | `tillValues` / `vaultValues` | `number[]` | Cash-count grid values |
 | `namedCredits` | `{id, idx, lbl, desc, val}[]` | Entries against `db.settings.namedCredits[idx]` — NOT part of the soft-delete mechanism below (tier sub-accounts have their own add/remove UX) |
 | `tierCredits` | `{tIdx, name, val}[]` (length 3) | One per sub-tier dropdown — fixed 3 slots, no `id` needed (nothing to add/remove/reorder) |
