@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════
    NTFY LINK — Settings shortcut to the closing-notification topic.
 
-   The whatsapp-notify edge function also publishes every saved
-   closing to an ntfy topic. This file only stores that topic name on
+   The closing-ntfy-notify edge function publishes every saved
+   closing to an ntfy topic (WhatsApp sending was removed). This file only stores that topic name on
    THIS device and opens it (ntfy app first, web page as fallback).
 
    The topic name is deliberately NOT hardcoded: this repo is public,

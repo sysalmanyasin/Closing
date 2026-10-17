@@ -58,7 +58,8 @@ across-device backup.
   the browser).
 - **Closing notifications** — Settings shortcut to the ntfy topic that
   receives each saved closing (`js/ntfy-link.js`; topic name is stored
-  on the device only, never in the repo).
+  on the device only, never in the repo). See *Closing notifications
+  (ntfy)* under Supabase below for how they are sent and what breaks them.
 - **Android home-screen widgets** — separate native app in
   `android-widget/` (see its own README).
 - **Supabase cloud sync** (optional) — pushes a copy after every save
@@ -160,6 +161,37 @@ wired into any CI step):
 - `settings_restore.sql` — `settings_history` trigger and restore RPCs.
 - `google_drive_backup.sql` and `functions/google-drive/index.ts` — Drive
   backup table and Edge Function.
+
+### Closing notifications (ntfy)
+
+Every saved (non-draft) closing is pushed to ntfy by the
+`closing-ntfy-notify` Edge Function (source lives in the BT Sale Data
+repo, deployed to project `wetbugzzchkghpzmowod` by its CI; WhatsApp
+sending was removed). Flow: insert/update on `public.sheets` →
+`trg_notify_admin_shift_saved_ins` / `_upd` → `notify_admin_shift_saved()`
+→ `net.http_post` to the function.
+
+**Required Edge Function secrets** (Dashboard → Edge Functions →
+Secrets). The function fails closed, so a missing secret means no
+notifications and no visible error in the app:
+
+| Secret | Purpose |
+|---|---|
+| `NOTIFY_SHARED_SECRET` | Must match the Bearer token in `notify_admin_shift_saved()`. Missing/wrong → HTTP 401. |
+| `NTFY_CLOSING_TOPIC` | ntfy topic to publish to (never commit it; the repo is public). Missing → HTTP 500 `NTFY_CLOSING_TOPIC secret is not set`. |
+| `NTFY_VARIANCE_ALERT` | Optional. Variance (Rs.) at/above which priority is high (default 500). |
+
+**Incident 2026-10-15:** a CI redeploy shipped the no-default-topic
+version while `NTFY_CLOSING_TOPIC` was unset, so every notification
+failed with a 500 from ~23:05 PKT until the secret was added on
+2026-10-17. Missed closings can be re-sent by POSTing the saved sheet
+(`key`, `date`, `shift`, `data`) to the function with the shared-secret
+Bearer token.
+
+**Debugging:** check recent responses with
+`select status_code, content, created from net._http_response order by created desc limit 10;`
+and confirm the triggers exist with
+`select tgname from pg_trigger where tgrelid = 'public.sheets'::regclass and not tgisinternal;`
 
 The Inventory Audit card reads from a **different** project (Pharmacy
 Audit Hub, table `inventory_products`) with a read-only publishable key,
