@@ -4,7 +4,7 @@
    Supabase API calls always go to network (never cached).
 
    v5.19 — Phone usability + accessibility pass. New js/walkthrough.js
-   (first-run intro to the ledger sections, re-openable from the ledger's
+   (intro to the ledger sections, opened only from the ledger's
    ⋮ menu) and js/a11y.js (accessible names/roles/keyboard support for the
    inline-onclick UI) — both new ES module imports, so both are in
    APP_SHELL. css/main.css: text floor raised to 0.8rem, 44px touch

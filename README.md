@@ -126,7 +126,7 @@ from any other file, not just "private by agreement."
     ├── settings-history.js   ← FLOOR 5 (ext) — cloud settings history/restore
     ├── drive-backup.js       ← Google Drive backup client
     ├── ntfy-link.js          ← ntfy topic shortcut (Settings)
-    ├── walkthrough.js        ← first-run intro to the ledger sections (per staff member)
+    ├── walkthrough.js        ← ledger intro, opened only from the ⋮ menu → "How this works"
     └── a11y.js               ← accessible names/roles/keyboard support for the onclick-driven UI
 ```
 
@@ -148,7 +148,7 @@ Final.
 - Status is never color-only: variance has ▲ / ▼ / ✓ markers and sync states
   change wording and icon. New icon-only buttons need a `title` or
   `aria-label` (`js/a11y.js` fills gaps, but don't rely on it).
-- The first-run walkthrough's steps are in `js/walkthrough.js`; update them
+- The walkthrough (menu only, never automatic) steps are in `js/walkthrough.js`; update them
   when ledger sections change (a test checks they cover every jump-nav chip).
 
 **Third-party scripts** loaded by `index.html` from CDNs: html2canvas,

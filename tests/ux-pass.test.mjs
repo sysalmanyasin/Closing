@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    UX PASS TESTS — sync status chip, accessibility enhancer,
-   first-run walkthrough, and CSS/markup guards for the phone pass
+   menu-only walkthrough, and CSS/markup guards for the phone pass
    (text floor, safe-area, viewport, service-worker shell).
    Loads the REAL index.html into jsdom, same approach as the
    end-to-end test.
@@ -137,10 +137,9 @@ test('walkthrough: covers every ledger section chip, in order, exactly once', ()
   assert.deepEqual(covered, labels);
 });
 
-test('walkthrough: per-staff key, opens, steps through, and closing marks it seen', () => {
-  localStorage.clear();
-  assert.notEqual(WT.walkthroughKey('a'), WT.walkthroughKey('b'));
-  assert.equal(WT.walkthroughSeen(), false);
+test('walkthrough: opens only on request, steps through, and closes', () => {
+  const before = document.getElementById('walkthrough-overlay');
+  assert.ok(!before || before.classList.contains('hidden'), 'must not be open until asked');
 
   WT.openWalkthrough();
   const ov = document.getElementById('walkthrough-overlay');
@@ -152,25 +151,26 @@ test('walkthrough: per-staff key, opens, steps through, and closing marks it see
   for(let i = 1; i < WT.WALKTHROUGH_STEPS.length; i++) document.getElementById('wt-next').click();
   assert.equal(document.getElementById('wt-next').textContent, 'Got it');
   document.getElementById('wt-next').click();
-
   assert.ok(ov.classList.contains('hidden'));
-  assert.equal(WT.walkthroughSeen(), true);
-});
 
-test('walkthrough: skipping also counts as seen; locked sheets never trigger it', async () => {
-  localStorage.clear();
   WT.openWalkthrough();
   document.getElementById('wt-skip').click();
-  assert.equal(WT.walkthroughSeen(), true);
-
-  localStorage.clear();
-  WT.maybeShowWalkthrough({ locked: true });
-  await new Promise(r => setTimeout(r, 900));
-  assert.ok(document.getElementById('walkthrough-overlay').classList.contains('hidden'), 'locked sheet must not open the intro');
-  assert.equal(WT.walkthroughSeen(), false);
+  assert.ok(ov.classList.contains('hidden'));
 });
 
-test('walkthrough: re-openable from the ledger menu and closable with Escape', () => {
+test('walkthrough: never auto-opens when a sheet is opened', async () => {
+  const actions = read('../js/actions.js');
+  assert.ok(!/walkthrough/i.test(actions), 'actions.js must not reference the walkthrough');
+  assert.equal(typeof WT.maybeShowWalkthrough, 'undefined');
+  localStorage.clear();
+  const { loadKey } = await import('../js/pages.js');
+  loadKey('2026-07-11_Night');
+  await new Promise(r => setTimeout(r, 1000));
+  const ov = document.getElementById('walkthrough-overlay');
+  assert.ok(!ov || ov.classList.contains('hidden'));
+});
+
+test('walkthrough: reachable from the ledger menu and closable with Escape', () => {
   assert.match(html, /openWalkthrough\(\);toggleMoreMenu\(\)/);
   const app = read('../js/app.js');
   assert.match(app, /id: 'walkthrough-overlay'/);

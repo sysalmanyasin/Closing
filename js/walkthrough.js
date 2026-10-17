@@ -1,16 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
-   WALKTHROUGH — short first-run intro to the ledger sections
-   Shown once per signed-in staff member (or once per device when
-   nobody is signed in) the first time they open an editable sheet,
-   and re-openable any time from the ledger's ⋮ menu → "How this works".
+   WALKTHROUGH — short intro to the ledger sections.
+   Never opens on its own. It is only shown when someone chooses
+   ledger ⋮ menu → "How this works".
 
-   Reads/writes its "seen" flag only through repository.js — the one
-   door to localStorage. Builds its own DOM so index.html stays lean,
-   and does nothing at import time (safe under the Node test stub).
+   Builds its own DOM so index.html stays lean, and does nothing at
+   import time (safe under the Node test stub).
 ═══════════════════════════════════════════════════════════════ */
-
-import { repoGetLocal, repoSetLocal } from './repository.js';
-import { session } from './state.js';
 
 /* Section order matches LEDGER_SECTIONS in ledger-nav.js:
    POS → MEDIQ → Shift → HS → Strips → Inv Audit → Misc → Card →
@@ -77,16 +72,6 @@ export const WALKTHROUGH_STEPS = [
     ]
   }
 ];
-
-const KEY_PREFIX = 'closing_walkthrough_v1';
-
-export function walkthroughKey(staffId) {
-  return `${KEY_PREFIX}:${staffId || 'device'}`;
-}
-function currentKey() { return walkthroughKey(session.loggedInStaff?.staffId); }
-
-export function walkthroughSeen() { return repoGetLocal(currentKey()) === 'done'; }
-function markSeen() { repoSetLocal(currentKey(), 'done'); }
 
 /* ── DOM ──────────────────────────────────────────────────── */
 let _idx = 0;
@@ -188,26 +173,11 @@ export function openWalkthrough(startAt = 0) {
   showStep(startAt);
 }
 
-/* Closing always counts as "seen" — skipping is a valid choice, and the
-   intro stays one tap away in the ledger's ⋮ menu. */
 export function closeWalkthrough() {
   const ov = typeof document !== 'undefined' ? document.getElementById('walkthrough-overlay') : null;
   if(ov) ov.classList.add('hidden');
-  markSeen();
   if(_returnFocus && typeof _returnFocus.focus === 'function') {
     try { _returnFocus.focus(); } catch(e) { /* element may be gone */ }
   }
   _returnFocus = null;
-}
-
-/* Called by initLedger() each time a sheet opens. Only editable sheets
-   trigger it, so someone just viewing a saved record is never interrupted. */
-export function maybeShowWalkthrough({ locked = false } = {}) {
-  if(locked || walkthroughSeen()) return;
-  const t = setTimeout(() => {
-    if(walkthroughSeen()) return;
-    openWalkthrough(0);
-  }, 800);
-  /* Don't let a pending intro keep a Node process (the test runner) alive. */
-  if(t && typeof t.unref === 'function') t.unref();
 }

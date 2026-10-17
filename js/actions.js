@@ -19,7 +19,6 @@ import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
 import { showAlert, showConfirm } from './notify.js';
-import { maybeShowWalkthrough } from './walkthrough.js';
 import { invAuditGetSnapshot, invAuditRender, invAuditReset, invAuditRestore } from './inventory-audit.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
@@ -238,9 +237,6 @@ export function initLedger(ds, shift, mode, opts = {}) {
 
   /* sticky jump-nav + progress bar + focus mode reset for this sheet */
   if (typeof initLedgerNav === 'function') initLedgerNav();
-
-  /* first-run intro for new staff — editable sheets only */
-  maybeShowWalkthrough({ locked: !!db.sheets[session.activeKey]?.locked });
 }
 
 /* ═══════════════════════════════════════════
