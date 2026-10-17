@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fazal Din's Pharma Plus — Shift Register</title>
 
 <!-- ── Content-Security-Policy ──
@@ -83,9 +83,11 @@
 </div>
 
 <div id="app-root">
-<div id="sync-topbar" onclick="syncPullFromCloud(true)" title="Tap to sync now">
-  <span id="sync-tb-icon">☁</span>
-  <span id="sync-tb-text">Checking…</span>
+<div id="sync-topbar" role="button" tabindex="0" onclick="syncTopbarTap()"
+     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();syncTopbarTap()}"
+     title="Tap to sync now">
+  <span id="sync-tb-icon" aria-hidden="true">☁</span>
+  <span id="sync-tb-text" role="status" aria-live="polite">Checking…</span>
 </div>
 
 <div id="whoami-bar" class="hidden" onclick="goToSettings()" title="Tap to open Settings"
@@ -624,6 +626,7 @@
           <button class="ltb-icon-btn" onclick="toggleMoreMenu()" title="More" aria-label="More options">⋮</button>
           <div class="ltb-more-menu hidden" id="ltb-more-menu">
             <button onclick="openViewAll();toggleMoreMenu()">⊞ View All Sections</button>
+            <button onclick="openWalkthrough();toggleMoreMenu()">❓ How this works</button>
             <button id="menu-edit-pin" class="hidden" onclick="openEditModal();toggleMoreMenu()">✏️ Edit (PIN)</button>
             <button id="menu-clear-fields" onclick="clearAllFields();toggleMoreMenu()">🧹 Clear Fields</button>
             <button id="menu-delete-sheet" onclick="deleteCurrentSheet();toggleMoreMenu()" style="color:var(--red);">🗑 Delete Sheet</button>

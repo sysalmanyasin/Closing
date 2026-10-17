@@ -31,6 +31,8 @@ import * as RbdHistory  from './rbd-history.js';
 import * as MediqHistory from './mediq-history.js';
 import * as InventoryAudit from './inventory-audit.js';
 import * as Sync        from './sync.js';
+import * as Walkthrough from './walkthrough.js';
+import * as A11y        from './a11y.js';
 import * as Auth        from './auth.js';
 import * as BtBridge     from './bt-bridge.js';
 import * as DriveBackup from './drive-backup.js';
@@ -200,6 +202,7 @@ Object.assign(window, {
   supaShowImport:        Sync.supaShowImport,
   supaShowKeyError:      Sync.supaShowKeyError,
   syncPullFromCloud:    Sync.syncPullFromCloud,
+  syncTopbarTap:        Sync.syncTopbarTap,
   syncPushToCloud:      Sync.syncPushToCloud,
 
   // auth.js
@@ -223,9 +226,14 @@ Object.assign(window, {
   ntfySaveTopic:      NtfyLink.ntfySaveTopic,
   ntfyOpenApp:        NtfyLink.ntfyOpenApp,
   ntfyOpenWeb:        NtfyLink.ntfyOpenWeb,
+
+  // walkthrough.js
+  openWalkthrough:    Walkthrough.openWalkthrough,
+  closeWalkthrough:   Walkthrough.closeWalkthrough,
 });
 
 NtfyLink.ntfyRefreshUI();
+A11y.initA11y();
 
 /* One-time boot check: if a saved db blob existed but failed to
    parse, State (Floor 2) already fell back to a fresh empty db so
@@ -250,6 +258,7 @@ const ESCAPE_CLOSABLE_MODALS = [
   { id: 'edit-modal-overlay',   close: Components.closeEditModal },
   { id: 'summary-modal-overlay', close: LedgerNav.closeSummaryModal },
   { id: 'viewall-overlay',      close: LedgerNav.closeViewAll },
+  { id: 'walkthrough-overlay',  close: Walkthrough.closeWalkthrough },
 ];
 
 document.addEventListener('keydown', (e) => {

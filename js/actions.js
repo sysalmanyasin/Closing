@@ -19,6 +19,7 @@ import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger
 import { cbIsAssembling } from './closing-book.js';
 import { syncIsReady, syncPushToCloud } from './sync.js';
 import { showAlert, showConfirm } from './notify.js';
+import { maybeShowWalkthrough } from './walkthrough.js';
 import { invAuditGetSnapshot, invAuditRender, invAuditReset, invAuditRestore } from './inventory-audit.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
@@ -237,6 +238,9 @@ export function initLedger(ds, shift, mode, opts = {}) {
 
   /* sticky jump-nav + progress bar + focus mode reset for this sheet */
   if (typeof initLedgerNav === 'function') initLedgerNav();
+
+  /* first-run intro for new staff — editable sheets only */
+  maybeShowWalkthrough({ locked: !!db.sheets[session.activeKey]?.locked });
 }
 
 /* ═══════════════════════════════════════════
@@ -966,14 +970,17 @@ export function calc() {
       if(varLbl) varLbl.textContent = 'Variance';
       varEl.textContent = "Rs. 0";
       varEl.className = 'val pos';
+      varEl.dataset.state = 'even';
     } else if(diff > 0) {
       if(varLbl) varLbl.textContent = 'Plus';
       varEl.textContent = "Rs. " + diff.toLocaleString('en-PK');
       varEl.className = 'val pos';
+      varEl.dataset.state = 'plus';
     } else {
       if(varLbl) varLbl.textContent = 'Less';
       varEl.textContent = "Rs. " + Math.abs(diff).toLocaleString('en-PK');
       varEl.className = 'val neg';
+      varEl.dataset.state = 'less';
     }
   }
   paintBanner('ban-');

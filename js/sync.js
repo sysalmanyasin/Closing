@@ -63,7 +63,11 @@ const supaState = {
      what corrupted the settings row on 2026-08-27. Gating the push
      on this flag closes that hole without changing any other sync
      behavior (sheets/ledger/etc. still push immediately as before). */
-  settingsHydrated: false
+  settingsHydrated: false,
+  /* true while a save is waiting to reach the cloud (offline, or the
+     last push failed). Drives the "Offline, will sync" / "Sync failed,
+     tap to retry" chip and the automatic flush when the network is back. */
+  pendingPush: false
 };
 
 /* Accessor for Actions (Floor 3) — see scheduleSyncPush() in
@@ -71,28 +75,79 @@ const supaState = {
 export function syncIsReady() { return !!supaState.client; }
 
 /* ── UI HELPERS ─────────────────────────────────────────── */
+/* Network check that is safe under the Node test stub (no navigator.onLine there). */
+export function isOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/* Pure: turns a raw sync status into the short chip a cashier reads at a
+   glance. States: ok → "Saved ✓", busy → "Syncing…", offline → "Offline,
+   will sync", error → "Sync failed, tap to retry", warn → live updates off
+   (saves still sync), info → any other message shown as-is. The full
+   technical text stays available in `detail` (chip tooltip + Settings). */
+export function syncChipFor(type, text, offline = false) {
+  const raw = String(text || '');
+  if(type === 'offline' || (offline && type === 'error')) {
+    return { state: 'offline', icon: '⏸', label: 'Offline, will sync', detail: raw };
+  }
+  if(type === 'busy') return { state: 'busy', icon: '⟳', label: 'Syncing…', detail: raw };
+  if(type === 'ok') {
+    if(/^Synced/i.test(raw)) return { state: 'ok', icon: '☁', label: 'Saved ✓', detail: raw };
+    return { state: 'info', icon: '☁', label: raw.length > 40 ? raw.substring(0, 38) + '…' : raw, detail: raw };
+  }
+  if(/^Live sync unavailable/i.test(raw)) {
+    return { state: 'warn', icon: '!', label: 'Live updates off, saves still sync', detail: raw };
+  }
+  return { state: 'error', icon: '✕', label: 'Sync failed, tap to retry', detail: raw };
+}
+
 export function supaSetStatus(text, type = 'ok', spinner = false) {
+  /* The Settings card has no "offline" style — show it as the calm amber one. */
+  const lineType = type === 'offline' ? 'busy' : type;
   const line = document.getElementById('sync-status-line');
   const icon = document.getElementById('sync-status-icon');
   const msg  = document.getElementById('sync-status-text');
   if(line) {
-    line.className = 'sync-status-line status-' + type;
+    line.className = 'sync-status-line status-' + lineType;
     icon.innerHTML = spinner
       ? '<span class="sync-spinner">⟳</span>'
-      : (type === 'ok' ? '✓' : type === 'error' ? '✕' : '⟳');
+      : (lineType === 'ok' ? '✓' : lineType === 'error' ? '✕' : '⟳');
     msg.textContent = text;
   }
   const tb     = document.getElementById('sync-topbar');
   const tbIcon = document.getElementById('sync-tb-icon');
   const tbText = document.getElementById('sync-tb-text');
   if(tb) {
-    tb.className = 'tb-show tb-' + type;
+    const chip = syncChipFor(type, text, isOffline());
+    tb.className = 'tb-show tb-' + chip.state;
     document.body.classList.add('topbar-on');
-    tbIcon.innerHTML = (spinner || type === 'busy')
+    tbIcon.innerHTML = chip.state === 'busy'
       ? '<span class="tb-spin">⟳</span>'
-      : (type === 'ok' ? '☁' : '✕');
-    tbText.textContent = text.length > 48 ? text.substring(0, 46) + '…' : text;
+      : chip.icon;
+    tbText.textContent = chip.label;
+    tb.title = chip.detail ? chip.detail + ' — tap to sync now' : 'Tap to sync now';
   }
+}
+
+export function supaSetOffline() {
+  supaSetStatus('Offline — changes are saved on this device and will sync when you reconnect', 'offline');
+}
+
+/* Tap handler for the status chip: retry what actually failed. */
+export async function syncTopbarTap() {
+  if(!supaState.client) {
+    /* Never connected this session (or init failed) — try the connection again. */
+    if(supaGetAppKey() && getAnonKey()) {
+      if(isOffline()) { supaSetOffline(); return; }
+      supaState.quickRetryCount = 0;
+      supaState.backoffIndex    = 0;
+      await supaInit();
+    }
+    return;
+  }
+  if(isOffline()) { supaSetOffline(); return; }
+  if(supaState.pendingPush) await syncPushToCloud(true);
+  await syncPullFromCloud(true);
 }
 
 export function supaSetBusy(busy) {
@@ -217,6 +272,7 @@ export async function supaInit() {
     supaSetStatus('Checking for updates…', 'busy', true);
 
     await syncPullFromCloud(false);
+    if(supaState.pendingPush) syncPushToCloud(false).catch(() => {});
 
     supaState.backoffIndex = 0;
     if(supaState.retryTimer) { clearTimeout(supaState.retryTimer); supaState.retryTimer = null; }
@@ -288,7 +344,16 @@ function supaHealConnection(reason) {
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible') supaHealConnection('Tab focused');
 });
-window.addEventListener('online', () => supaHealConnection('Network back online'));
+window.addEventListener('online', () => {
+  if(supaState.client) {
+    if(supaState.pendingPush) syncPushToCloud(false).catch(() => {});
+  } else {
+    supaHealConnection('Network back online');
+  }
+});
+window.addEventListener('offline', () => {
+  if(supaGetAppKey() && getAnonKey()) supaSetOffline();
+});
 window.addEventListener('pageshow', (e) => {
   if(e.persisted) supaHealConnection('Page restored from bfcache');
 });
@@ -355,6 +420,12 @@ export async function supaDisconnect() {
 export async function syncPushToCloud(manual = false) {
   if(!supaState.client) return;
   if(supaState.busy && !manual) return;
+  if(isOffline()) {
+    /* No point trying — keep the save pending and say so plainly. */
+    supaState.pendingPush = true;
+    supaSetOffline();
+    return;
+  }
   supaSetBusy(true);
   supaSetStatus('Syncing to cloud…', 'busy', true);
 
@@ -442,6 +513,7 @@ export async function syncPushToCloud(manual = false) {
     }
 
     const ts = new Date().toLocaleTimeString('en-PK');
+    supaState.pendingPush = false;
     supaSetStatus(`Synced at ${ts}`, 'ok');
     if(manual) {
       const statusEl = document.getElementById('sync-status-line');
@@ -452,6 +524,7 @@ export async function syncPushToCloud(manual = false) {
     }
   } catch(err) {
     console.error('[Supabase] Push failed:', err);
+    supaState.pendingPush = true;
     supaSetStatus(`Upload failed: ${(err?.message || 'Unknown error').substring(0,50)}`, 'error');
   } finally {
     supaSetBusy(false);

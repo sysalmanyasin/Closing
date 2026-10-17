@@ -1,7 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pharma Plus Closing App — Service Worker  v5.17
+   Pharma Plus Closing App — Service Worker  v5.19
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
+
+   v5.19 — Phone usability + accessibility pass. New js/walkthrough.js
+   (first-run intro to the ledger sections, re-openable from the ledger's
+   ⋮ menu) and js/a11y.js (accessible names/roles/keyboard support for the
+   inline-onclick UI) — both new ES module imports, so both are in
+   APP_SHELL. css/main.css: text floor raised to 0.8rem, 44px touch
+   targets, visible focus rings, safe-area padding. sync.js: status chip
+   now reads Saved ✓ / Syncing… / Offline, will sync / Sync failed, tap
+   to retry. index.html: viewport-fit=cover. Version bump so cached
+   devices actually pick all of this up.
 
    v5.17 — New js/ntfy-link.js + Settings → "Closing Notifications (ntfy)"
    card: stores the ntfy topic on-device and opens it in the ntfy app/web.
@@ -87,7 +97,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.18';
+const CACHE_NAME = 'pharmpos-closing-v5.19';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
@@ -121,6 +131,8 @@ const APP_SHELL = [
   './js/auth.js',
   './js/bt-bridge.js',
   './js/inventory-audit.js',
+  './js/walkthrough.js',
+  './js/a11y.js',
   /* ── Icons ── */
   './icons/icon.svg',
   './icons/icon-192.png',

@@ -125,12 +125,31 @@ from any other file, not just "private by agreement."
     ├── mediq-history.js      ← FLOOR 5 (ext) — MEDIQ History tab
     ├── settings-history.js   ← FLOOR 5 (ext) — cloud settings history/restore
     ├── drive-backup.js       ← Google Drive backup client
-    └── ntfy-link.js          ← ntfy topic shortcut (Settings)
+    ├── ntfy-link.js          ← ntfy topic shortcut (Settings)
+    ├── walkthrough.js        ← first-run intro to the ledger sections (per staff member)
+    └── a11y.js               ← accessible names/roles/keyboard support for the onclick-driven UI
 ```
 
 **Ledger section order** (jump-nav): POS → MEDIQ → Shift → HS → Strips →
 Inventory Audit → Misc → Card → Till → Vault → Credit → Deposit → Audit →
 Final.
+
+**Phone UX conventions** (keep these when editing the UI):
+- Text is never smaller than `0.8rem`, except the dense report grids (CC /
+  Returns-Book-Deposit / MEDIQ history) which floor at `0.72rem`.
+- Buttons and row inputs are at least 44px tall on phones/touch screens
+  (`@media (pointer: coarse), (max-width: 860px)` block at the end of
+  `css/main.css`).
+- The top bar is the save/sync status chip: `Saved ✓`, `Syncing…`,
+  `Offline, will sync`, `Sync failed, tap to retry`. The wording lives in
+  `syncChipFor()` in `js/sync.js`; tapping it retries what failed.
+- `viewport-fit=cover` is on, so fixed bars and bottom sheets must add
+  `env(safe-area-inset-*)` padding.
+- Status is never color-only: variance has ▲ / ▼ / ✓ markers and sync states
+  change wording and icon. New icon-only buttons need a `title` or
+  `aria-label` (`js/a11y.js` fills gaps, but don't rely on it).
+- The first-run walkthrough's steps are in `js/walkthrough.js`; update them
+  when ledger sections change (a test checks they cover every jump-nav chip).
 
 **Third-party scripts** loaded by `index.html` from CDNs: html2canvas,
 jsPDF, and supabase-js.
