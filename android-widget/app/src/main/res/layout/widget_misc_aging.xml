@@ -29,7 +29,7 @@
             android:textColor="@color/accent_inventory_dark"
             android:textStyle="bold"
             android:textSize="13sp"
-            android:letterSpacing="0.01" />
+            android:textAllCaps="true" android:letterSpacing="0.08" android:fontFamily="sans-serif-medium" />
     </LinearLayout>
 
     <TextView
@@ -40,7 +40,7 @@
         android:layout_marginBottom="8dp"
         android:text="@string/ml_aging_widget_subtitle"
         android:textColor="@color/ink_500"
-        android:textSize="10sp" />
+        android:textSize="10sp" android:textAllCaps="true" android:letterSpacing="0.06" android:fontFamily="sans-serif-medium" />
 
     <FrameLayout
         android:layout_width="match_parent"

@@ -29,7 +29,7 @@
             android:textColor="@color/accent_closing_dark"
             android:textStyle="bold"
             android:textSize="13sp"
-            android:letterSpacing="0.01" />
+            android:textAllCaps="true" android:letterSpacing="0.08" android:fontFamily="sans-serif-medium" />
     </LinearLayout>
 
     <TextView
@@ -39,7 +39,7 @@
         android:layout_marginBottom="8dp"
         android:text="@string/last_shifts_widget_subtitle"
         android:textColor="@color/ink_500"
-        android:textSize="10sp" />
+        android:textSize="10sp" android:textAllCaps="true" android:letterSpacing="0.06" android:fontFamily="sans-serif-medium" />
 
     <LinearLayout
         android:id="@+id/last_shifts_list_container"

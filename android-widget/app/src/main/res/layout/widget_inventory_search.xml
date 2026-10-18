@@ -25,7 +25,8 @@
         android:textColor="@color/ink_900"
         android:textStyle="bold"
         android:textSize="13sp"
-        android:gravity="center" />
+        android:gravity="center"
+            android:textAllCaps="true" android:letterSpacing="0.08" android:fontFamily="sans-serif-medium" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -34,6 +35,6 @@
         android:text="@string/inv_search_widget_subtitle"
         android:textColor="@color/ink_500"
         android:textSize="10sp"
-        android:gravity="center" />
+        android:gravity="center" android:textAllCaps="true" android:letterSpacing="0.06" android:fontFamily="sans-serif-medium" />
 
 </LinearLayout>

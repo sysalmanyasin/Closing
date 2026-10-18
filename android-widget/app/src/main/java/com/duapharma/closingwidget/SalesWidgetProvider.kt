@@ -58,7 +58,7 @@ class SalesWidgetProvider : AppWidgetProvider() {
 
                 if (summary.changePct != null) {
                     val arrow = if (summary.changePct >= 0) "▲" else "▼"
-                    val color = if (summary.changePct >= 0) 0xFF2E9E4F.toInt() else 0xFFD64541.toInt()
+                    val color = if (summary.changePct >= 0) 0xFF34F5A0.toInt() else 0xFFFF5C7A.toInt()
                     val pctText = "$arrow ${SalesRepository.formatPct(kotlin.math.abs(summary.changePct.roundToInt().toDouble()))}"
                     views.setTextViewText(R.id.sales_change_pct, pctText)
                     views.setTextColor(R.id.sales_change_pct, color)

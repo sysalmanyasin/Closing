@@ -72,7 +72,7 @@ class LastShiftsWidgetProvider : AppWidgetProvider() {
                     row.setTextViewText(R.id.ls_row_target, LastShiftsRepository.formatAmount(s.targetNetSale))
                     row.setTextViewText(R.id.ls_row_diff_label, s.diffLabel)
                     row.setTextViewText(R.id.ls_row_diff, LastShiftsRepository.formatAmount(s.diff))
-                    val color = if (s.diff >= 0) 0xFF2E7D32.toInt() else 0xFFB3261E.toInt()
+                    val color = if (s.diff >= 0) 0xFF34F5A0.toInt() else 0xFFFF5C7A.toInt()
                     row.setTextColor(R.id.ls_row_diff, color)
                     views.addView(R.id.last_shifts_list_container, row)
                 }

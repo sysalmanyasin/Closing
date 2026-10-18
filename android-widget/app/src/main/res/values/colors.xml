@@ -1,53 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- NEON GLASS theme: deep-space surfaces, luminous accents.
+         Token names are unchanged so every widget layout picks this up. -->
+
     <!-- Surfaces -->
-    <color name="surface_card">#FFFFFF</color>
-    <color name="surface_card_top">#FFFFFF</color>
-    <color name="surface_card_bottom">#F7F8FC</color>
-    <color name="surface_inset">#F4F5FA</color>
-    <color name="surface_inset_border">#E9EBF3</color>
-    <color name="hairline">#EDEFF5</color>
+    <color name="surface_card">#FF0B1228</color>
+    <color name="surface_card_top">#FF0F1A38</color>
+    <color name="surface_card_bottom">#FF060A18</color>
+    <color name="surface_inset">#FF0D1731</color>
+    <color name="surface_inset_border">#FF1F2F5C</color>
+    <color name="hairline">#FF1A2850</color>
 
-    <!-- Ink -->
-    <color name="ink_900">#12131A</color>
-    <color name="ink_700">#3A3D4A</color>
-    <color name="ink_500">#8388A0</color>
-    <color name="ink_400">#A6AABD</color>
-    <color name="ink_300">#C6C9D6</color>
+    <!-- Ink (text on dark) -->
+    <color name="ink_900">#FFF2F6FF</color>
+    <color name="ink_700">#FFC9D3F0</color>
+    <color name="ink_500">#FF8C9AC0</color>
+    <color name="ink_400">#FF7585AE</color>
+    <color name="ink_300">#FF5B6A94</color>
 
-    <!-- Brand accents (per module) -->
-    <color name="accent_sales">#4F46E5</color>
-    <color name="accent_sales_soft">#EEECFC</color>
-    <color name="accent_sales_dark">#3730A3</color>
+    <!-- Module accents: solid / glass fill / bright text / edge -->
+    <color name="accent_sales">#FF8B7CFF</color>
+    <color name="accent_sales_soft">#2E8B7CFF</color>
+    <color name="accent_sales_dark">#FFB9AEFF</color>
+    <color name="accent_sales_edge">#668B7CFF</color>
 
-    <color name="accent_credit">#D97706</color>
-    <color name="accent_credit_soft">#FDF1DF</color>
-    <color name="accent_credit_dark">#92400E</color>
+    <color name="accent_credit">#FFFFB020</color>
+    <color name="accent_credit_soft">#2EFFB020</color>
+    <color name="accent_credit_dark">#FFFFCB66</color>
+    <color name="accent_credit_edge">#66FFB020</color>
 
-    <color name="accent_inventory">#0D9488</color>
-    <color name="accent_inventory_soft">#E1F5F2</color>
-    <color name="accent_inventory_dark">#065F5A</color>
+    <color name="accent_inventory">#FF22E5D3</color>
+    <color name="accent_inventory_soft">#2E22E5D3</color>
+    <color name="accent_inventory_dark">#FF7DF3E6</color>
+    <color name="accent_inventory_edge">#6622E5D3</color>
 
-    <color name="accent_closing">#16A34A</color>
-    <color name="accent_closing_soft">#E4F7EA</color>
-    <color name="accent_closing_dark">#0F7A38</color>
+    <color name="accent_closing">#FF34F5A0</color>
+    <color name="accent_closing_soft">#2E34F5A0</color>
+    <color name="accent_closing_dark">#FF7CF9C3</color>
+    <color name="accent_closing_edge">#6634F5A0</color>
 
     <!-- Status -->
-    <color name="status_positive">#16A34A</color>
-    <color name="status_positive_soft">#E4F7EA</color>
-    <color name="status_negative">#DC2626</color>
-    <color name="status_negative_soft">#FCE8E8</color>
-    <color name="status_warning">#D97706</color>
-    <color name="status_warning_soft">#FDF1DF</color>
-    <color name="status_info">#2563EB</color>
-    <color name="status_info_soft">#E7EEFD</color>
+    <color name="status_positive">#FF34F5A0</color>
+    <color name="status_positive_soft">#2634F5A0</color>
+    <color name="status_negative">#FFFF5C7A</color>
+    <color name="status_negative_soft">#26FF5C7A</color>
+    <color name="status_warning">#FFFFB84D</color>
+    <color name="status_warning_soft">#26FFB84D</color>
+    <color name="status_info">#FF5CC8FF</color>
+    <color name="status_info_soft">#265CC8FF</color>
 
-    <!-- Aggregated (dark) widget -->
-    <color name="agg_bg_top">#241A3D</color>
-    <color name="agg_bg_bottom">#120D24</color>
-    <color name="agg_hairline">#3C3160</color>
-    <color name="agg_gold">#F4C56A</color>
-    <color name="agg_gold_soft">#B79A6B</color>
-    <color name="agg_text_dim">#B7ADD6</color>
-    <color name="agg_mint">#4ADE80</color>
+    <!-- Aggregated (gold on violet-black) -->
+    <color name="agg_bg_top">#FF1A1238</color>
+    <color name="agg_bg_bottom">#FF080616</color>
+    <color name="agg_hairline">#FF3A2D66</color>
+    <color name="agg_gold">#FFF4C56A</color>
+    <color name="agg_gold_soft">#FFC9AB78</color>
+    <color name="agg_text_dim">#FFB7ADD6</color>
+    <color name="agg_mint">#FF4ADE80</color>
+
+    <!-- Neon edge + ambient glows -->
+    <color name="neon_cyan">#FF22D3EE</color>
+    <color name="neon_violet">#FF8B7CFF</color>
+    <color name="neon_border">#4422D3EE</color>
+    <color name="glow_cyan_start">#2822D3EE</color>
+    <color name="glow_cyan_end">#0022D3EE</color>
+    <color name="glow_violet_start">#248B7CFF</color>
+    <color name="glow_violet_end">#008B7CFF</color>
+    <color name="glow_gold_start">#2AF4C56A</color>
+    <color name="glow_gold_end">#00F4C56A</color>
+    <color name="edge_fade_start">#0022D3EE</color>
+    <color name="edge_fade_end">#008B7CFF</color>
+    <color name="edge_gold_start">#00F4C56A</color>
+    <color name="edge_gold_mid">#FFF4C56A</color>
+    <color name="edge_gold_end">#00FF9F5A</color>
 </resources>

@@ -29,7 +29,7 @@
             android:textColor="@color/ink_900"
             android:textStyle="bold"
             android:textSize="13sp"
-            android:letterSpacing="0.01" />
+            android:textAllCaps="true" android:letterSpacing="0.08" android:fontFamily="sans-serif-medium" />
     </LinearLayout>
 
     <LinearLayout

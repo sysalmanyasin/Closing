@@ -19,14 +19,14 @@
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:text="@string/ls_label_cash" android:textColor="@color/ink_500" android:textSize="10sp" />
+            android:text="@string/ls_label_cash" android:textColor="@color/ink_500" android:textSize="10sp" android:textAllCaps="true" android:letterSpacing="0.06" android:fontFamily="sans-serif-medium" />
         <TextView android:id="@+id/ls_row_cash" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="—" android:textColor="@color/ink_900" android:textSize="11sp" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="4dp">
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:text="@string/ls_label_prev" android:textColor="@color/ink_500" android:textSize="10sp" />
+            android:text="@string/ls_label_prev" android:textColor="@color/ink_500" android:textSize="10sp" android:textAllCaps="true" android:letterSpacing="0.06" android:fontFamily="sans-serif-medium" />
         <TextView android:id="@+id/ls_row_prev" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="—" android:textColor="@color/ink_900" android:textSize="11sp" />
     </LinearLayout>
@@ -40,7 +40,7 @@
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="4dp">
         <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:text="@string/ls_label_target" android:textColor="@color/ink_500" android:textSize="10sp" />
+            android:text="@string/ls_label_target" android:textColor="@color/ink_500" android:textSize="10sp" android:textAllCaps="true" android:letterSpacing="0.06" android:fontFamily="sans-serif-medium" />
         <TextView android:id="@+id/ls_row_target" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="—" android:textColor="@color/ink_900" android:textSize="11sp" />
     </LinearLayout>

@@ -35,8 +35,21 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Refreshing widgets…", Toast.LENGTH_SHORT).show()
         }
 
+        findViewById<Button>(R.id.assistant_button).setOnClickListener {
+            startActivity(Intent(this, AssistantActivity::class.java))
+        }
+
         findViewById<Button>(R.id.search_inventory_button).setOnClickListener {
             startActivity(Intent(this, ProductSearchActivity::class.java))
+        }
+
+        findViewById<Button>(R.id.ai_briefing_button).setOnClickListener {
+            val prompt = "Prepare a concise business briefing using only the live BT Sale Data records you can actually access. Cover today's sales and closing status, outstanding credit, and important exceptions. Include inventory low-stock, out-of-stock, or reorder alerts only if those records are available to you. If inventory or any other requested data is outside your connected data access, say so clearly and direct me to Search Inventory; do not estimate or invent figures. Include dates and figures where verified. This is read-only: do not create or modify records."
+            startActivity(
+                Intent(this, AssistantActivity::class.java)
+                    .putExtra("ask_prompt", prompt)
+                    .putExtra("focus_ask_dua", true)
+            )
         }
     }
 }
