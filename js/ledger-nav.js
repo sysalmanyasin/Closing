@@ -9,7 +9,8 @@
 ═══════════════════════════════════════════════════════════════ */
 
 import { DENOMS, db, escHtml, mediqExtraOf, srLabel, session } from './state.js';
-import { calc, saveSheet } from './actions.js';
+import { calc, closeShiftVerified } from './actions.js';
+import { invAuditIsVerified } from './inventory-audit.js';
 import { getRealSheet, timelineStep } from './components.js';
 import { showAlert } from './notify.js';
 
@@ -501,8 +502,17 @@ export function confirmSummaryAndSave() {
     respSel.focus();
     return; /* modal stays open so they can pick and re-confirm */
   }
+  /* Hard gate — Inventory Audit must be synced AND verified. Checked
+     here so the person is taken straight to the card; closeShiftVerified()
+     re-checks it (plus cloud sync + ntfy) as the authoritative gate. */
+  if (!invAuditIsVerified()) {
+    closeSummaryModal();
+    showAlert('⛔ Closing NOT saved. Inventory Audit is not done — tap Sync & Audit, then Verify & Confirm, before closing this shift.');
+    jumpToSection('invaudit');
+    return;
+  }
   closeSummaryModal();
-  if (typeof saveSheet === 'function') saveSheet();
+  closeShiftVerified();
 }
 
 /* ═══════════════════════════════════════════════════════════

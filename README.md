@@ -207,6 +207,15 @@ failed with a 500 from ~23:05 PKT until the secret was added on
 (`key`, `date`, `shift`, `data`) to the function with the shared-secret
 Bearer token.
 
+**Save & Close is gated.** "Save & Close This Shift" refuses (nothing is
+locked or saved; a ⛔ message explains why) unless: (1) the Inventory Audit
+is synced **and** verified, and (2) the closing uploaded to the cloud **and**
+the ntfy notification for it was confirmed (HTTP 2xx) via
+`closing_notify_status()`. Offline devices cannot close. This needs
+`supabase/closing_notify_ack.sql` applied once (it makes
+`notify_admin_shift_saved()` log each request id) — apply it **before**
+deploying, or every close is blocked.
+
 **Debugging:** check recent responses with
 `select status_code, content, created from net._http_response order by created desc limit 10;`
 and confirm the triggers exist with

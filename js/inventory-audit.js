@@ -277,6 +277,12 @@ export async function invAuditVerify() {
 }
 
 /* ── Hooks for actions.js ──────────────────────────────────────── */
+/* True only once Sync & Audit has been run AND Verify & Confirm tapped
+   (the snapshot exists). "Save & Close This Shift" refuses without it. */
+export function invAuditIsVerified() {
+  return !!(st.snapshot && Array.isArray(st.snapshot.items));
+}
+
 export function invAuditGetSnapshot() {
   return st.snapshot ? JSON.parse(JSON.stringify(st.snapshot)) : null;
 }

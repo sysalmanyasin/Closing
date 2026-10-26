@@ -17,9 +17,9 @@ import {
 import { buildCalendar, goToDashboard, refreshRetentionStatus, renderFinalSummaryCard, renderManifest, showPage } from './pages.js';
 import { initLedgerNav, updateFocusButtons, updateSectionStatus } from './ledger-nav.js';
 import { cbIsAssembling } from './closing-book.js';
-import { syncIsReady, syncPushToCloud } from './sync.js';
+import { isOffline, syncIsReady, syncPushToCloud, syncSaveClosingVerified } from './sync.js';
 import { showAlert, showConfirm } from './notify.js';
-import { invAuditGetSnapshot, invAuditRender, invAuditReset, invAuditRestore } from './inventory-audit.js';
+import { invAuditGetSnapshot, invAuditIsVerified, invAuditRender, invAuditReset, invAuditRestore } from './inventory-audit.js';
 
 export function initLedger(ds, shift, mode, opts = {}) {
   if(!opts.silent) showPage('page-ledger');
@@ -1175,7 +1175,114 @@ export function buildSheetRecord() {
 
 /* ── TOAST ───────────────────────────────────────────────── */
 
-export function saveSheet(silent=false) {
+/* Builds the FINAL (draft:false, locked) record for the open sheet
+   without committing anything. Split out of saveSheet() so the
+   verified-close flow can upload this exact record, confirm the ntfy
+   notification, and only THEN commit the identical object locally —
+   same data both places means the later wholesale re-push is a no-op
+   for the DB's "data changed" notify trigger (no duplicate ntfy). */
+export function prepareClosingRecord() {
+  const record = buildSheetRecord();
+  record.draft    = false;
+  record.locked   = true;
+  record.savedAt  = Date.now();
+  record._updatedAt = record.savedAt;
+  /* seq/shiftLabel are slot-identity metadata (which Handover number
+     this is, its assigned order) — not something buildSheetRecord()
+     can derive from the DOM, so they'd otherwise be silently wiped
+     out by this save. Carry them forward from whatever's already
+     stored at this key. */
+  const existing = db.sheets[session.activeKey];
+  if(existing && typeof existing.seq === 'number') record.seq = existing.seq;
+  if(existing && existing.shiftLabel) record.shiftLabel = existing.shiftLabel;
+  return record;
+}
+
+/* Pure pre-flight for "Save & Close This Shift". Returns
+   { ok:true } or { ok:false, message, jump? } — `jump` names the ledger
+   section the person should be taken to. Exported for unit tests. */
+export function closingGateCheck({ auditVerified, cloudReady, offline }) {
+  if(!auditVerified) {
+    return {
+      ok: false, jump: 'invaudit',
+      message: 'Inventory Audit is not done. Open the Inv Audit card, tap Sync & Audit, then Verify & Confirm before closing this shift.'
+    };
+  }
+  if(!cloudReady) {
+    return {
+      ok: false,
+      message: 'Cloud sync is not connected on this device, so the closing cannot be synced or notified. Link cloud sync in Settings, then try again.'
+    };
+  }
+  if(offline) {
+    return {
+      ok: false,
+      message: 'This device is offline. A closing can only be saved while online so it syncs and the ntfy notification is sent. Reconnect and try again.'
+    };
+  }
+  return { ok: true };
+}
+
+let _closeInFlight = false;
+function setCloseBtnBusy(busy) {
+  const btn = g('btn-save-close');
+  if(!btn) return;
+  if(busy) {
+    btn.dataset.label = btn.dataset.label || btn.innerHTML;
+    btn.innerHTML = '⏳ Syncing &amp; sending notification…';
+    btn.disabled = true;
+  } else {
+    if(btn.dataset.label) btn.innerHTML = btn.dataset.label;
+    delete btn.dataset.label;
+    btn.disabled = false;
+  }
+}
+
+/* The ONLY path the UI uses to finalize a shift. Blocks (nothing is
+   locked or saved) unless:
+     1. the Inventory Audit is synced AND verified, and
+     2. the closing reached the cloud AND the closing-ntfy-notify call
+        for it was confirmed successful.
+   On any failure the person sees a ⛔ message and the sheet stays an
+   open, editable draft so they can fix the cause and press Save again. */
+export async function closeShiftVerified() {
+  if(_closeInFlight) return;
+  if(hasPermission('closing') === false) {
+    showAlert("You don't have permission to close shifts. Ask an Admin to grant it in Settings → Permissions.");
+    return;
+  }
+  const gate = closingGateCheck({
+    auditVerified: invAuditIsVerified(), cloudReady: syncIsReady(), offline: isOffline()
+  });
+  if(!gate.ok) {
+    showAlert('⛔ Closing NOT saved. ' + gate.message);
+    if(gate.jump && typeof window.jumpToSection === 'function') window.jumpToSection(gate.jump);
+    return;
+  }
+
+  _closeInFlight = true;
+  setCloseBtnBusy(true);
+  try {
+    const key = session.activeKey;
+    const record = prepareClosingRecord();
+    const prev = db.sheets[key] ? JSON.parse(JSON.stringify(db.sheets[key])) : null;
+    const res = await syncSaveClosingVerified(key, record, prev);
+    if(!res.ok) {
+      showAlert('⛔ Closing NOT saved. ' + res.message + '\n\nNothing was locked. Fix the problem and press Save & Close again.');
+      return;
+    }
+    if(session.activeKey !== key) {
+      showAlert('⚠️ The closing was uploaded and notified, but you left this sheet before it finished. Re-open it to confirm it shows as saved.');
+      return;
+    }
+    saveSheet(false, record);
+  } finally {
+    _closeInFlight = false;
+    setCloseBtnBusy(false);
+  }
+}
+
+export function saveSheet(silent=false, prebuilt=null) {
   /* Closing was never PIN-gated at all before permissions existed —
      keep that frictionless for everyone by default. This only ever
      BLOCKS: a staff member who is logged in (via BT phone+PIN) AND
@@ -1186,20 +1293,7 @@ export function saveSheet(silent=false) {
     showAlert("You don't have permission to close shifts. Ask an Admin to grant it in Settings → Permissions.");
     return;
   }
-  const record = buildSheetRecord();
-  record.draft    = false;
-  record.locked   = true;
-  record.savedAt  = Date.now();
-  record._updatedAt = record.savedAt;
-  /* seq/shiftLabel are slot-identity metadata (which Handover number
-     this is, its assigned order) — not something buildSheetRecord()
-     can derive from the DOM, so they'd otherwise be silently wiped
-     out by this save. Carry them forward from whatever's already
-     stored at this key, same as draft/locked/savedAt are explicitly
-     set here rather than left to buildSheetRecord(). */
-  const existing = db.sheets[session.activeKey];
-  if(existing && typeof existing.seq === 'number') record.seq = existing.seq;
-  if(existing && existing.shiftLabel) record.shiftLabel = existing.shiftLabel;
+  const record = prebuilt || prepareClosingRecord();
   unmarkKeyDeleted(session.activeKey);
   db.sheets[session.activeKey] = record;
   clSaveSnapshot(session.activeKey, record);  /* ← credit ledger snapshot */

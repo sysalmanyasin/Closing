@@ -418,13 +418,13 @@ export async function supaDisconnect() {
    activity_log is APPEND-ONLY — only rows not yet pushed by this
    device are inserted, tracked by a locally-persisted counter. ──── */
 export async function syncPushToCloud(manual = false) {
-  if(!supaState.client) return;
-  if(supaState.busy && !manual) return;
+  if(!supaState.client) return false;
+  if(supaState.busy && !manual) return false;
   if(isOffline()) {
     /* No point trying — keep the save pending and say so plainly. */
     supaState.pendingPush = true;
     supaSetOffline();
-    return;
+    return false;
   }
   supaSetBusy(true);
   supaSetStatus('Syncing to cloud…', 'busy', true);
@@ -522,13 +522,111 @@ export async function syncPushToCloud(manual = false) {
         setTimeout(() => { if(statusEl) statusEl.style.background = ''; }, 1200);
       }
     }
+    return true;
   } catch(err) {
     console.error('[Supabase] Push failed:', err);
     supaState.pendingPush = true;
     supaSetStatus(`Upload failed: ${(err?.message || 'Unknown error').substring(0,50)}`, 'error');
+    return false;
   } finally {
     supaSetBusy(false);
   }
+}
+
+/* ── VERIFIED CLOSE: upload + confirm the ntfy notification ─────────
+   "Save & Close This Shift" must not finalize unless (a) the closing
+   reached the cloud and (b) the closing-ntfy-notify call it triggers
+   was confirmed successful. The notification itself is fired by the DB
+   trigger notify_admin_shift_saved() (net.http_post), so the app learns
+   the outcome through the RPC public.closing_notify_status(p_key) —
+   see supabase/closing_notify_ack.sql, which must be applied first.
+
+   Order matters: the FINAL record is upserted on its own (before any
+   local commit) so a failure leaves this device untouched; if the
+   notification is not confirmed the cloud row is put back to what it
+   was (or a draft) so a failed close never leaves a "saved" closing
+   behind. The caller then commits the very same record locally, so the
+   later wholesale push carries identical data and the trigger's
+   "data changed" condition does not re-notify. */
+export const NOTIFY_ACK_TIMEOUT_MS  = 30000;
+export const NOTIFY_ACK_INTERVAL_MS = 1500;
+
+/* Pure-ish poller (fetchStatus + sleep injected so it is unit-tested).
+   fetchStatus() → { log_id, status_code, ok, error } | null.
+   Resolves { ok:true } | { ok:false, message }. */
+export async function _waitForNotifyAck(fetchStatus, baselineId, opts = {}) {
+  const timeoutMs  = opts.timeoutMs  ?? NOTIFY_ACK_TIMEOUT_MS;
+  const intervalMs = opts.intervalMs ?? NOTIFY_ACK_INTERVAL_MS;
+  const sleep = opts.sleep || (ms => new Promise(r => setTimeout(r, ms)));
+  let waited = 0;
+  for(;;) {
+    const st = await fetchStatus();
+    if(st && Number(st.log_id) > baselineId && st.status_code != null) {
+      if(st.ok) return { ok: true };
+      return { ok: false, message: `The ntfy notification failed (server replied ${st.status_code}${st.error ? ': ' + String(st.error).substring(0, 80) : ''}).` };
+    }
+    if(waited >= timeoutMs) {
+      return { ok: false, message: 'The ntfy notification was not confirmed in time.' };
+    }
+    await sleep(intervalMs);
+    waited += intervalMs;
+  }
+}
+
+function _notifyRpcMessage(err) {
+  const m = String(err?.message || err || 'unknown error');
+  if(/could not find the function|does not exist|PGRST202|42883/i.test(m + ' ' + (err?.code || ''))) {
+    return 'The notification check is not installed on the server (run supabase/closing_notify_ack.sql once).';
+  }
+  return `Could not check the notification status (${m.substring(0, 80)}).`;
+}
+
+export async function syncSaveClosingVerified(key, record, previous, opts = {}) {
+  const client = supaState.client;
+  if(!client) return { ok: false, message: 'Cloud sync is not connected on this device.' };
+  if(isOffline()) return { ok: false, message: 'This device is offline.' };
+
+  const statusOf = async () => {
+    const { data, error } = await client.rpc('closing_notify_status', { p_key: key });
+    if(error) throw error;
+    return data || null;
+  };
+
+  let baselineId = 0;
+  try {
+    const base = await statusOf();
+    baselineId = Number(base?.log_id) || 0;
+  } catch(err) {
+    return { ok: false, message: _notifyRpcMessage(err) };
+  }
+
+  const row = (rec, draft) => ({
+    key, date: key.split('_')[0], shift: key.split('_').slice(1).join('_'),
+    draft, data: rec, updated_at: new Date().toISOString()
+  });
+
+  try {
+    const { error } = await client.from('sheets').upsert(row(record, false), { onConflict: 'key' });
+    if(error) throw error;
+  } catch(err) {
+    return { ok: false, message: `The closing could not be uploaded (${String(err?.message || err).substring(0, 80)}).` };
+  }
+
+  let ack;
+  try {
+    ack = await _waitForNotifyAck(statusOf, baselineId, opts);
+  } catch(err) {
+    ack = { ok: false, message: _notifyRpcMessage(err) };
+  }
+  if(ack.ok) return { ok: true };
+
+  /* Not confirmed → put the cloud row back (previous record, or this
+     one as a draft) so no finalized-but-unnotified closing is left. */
+  try {
+    const back = previous || { ...record, draft: true, locked: false, savedAt: undefined };
+    await client.from('sheets').upsert(row(back, !!back.draft), { onConflict: 'key' });
+  } catch(e) { console.error('[Supabase] Could not revert closing after failed notify:', e); }
+  return { ok: false, message: ack.message };
 }
 
 /* Settings merge (pure, unit-tested). Decides whether the cloud's or this

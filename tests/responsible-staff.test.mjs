@@ -90,10 +90,19 @@ test('Responsible Closing Person + Staff Ledger — driven through the real app'
     assert.equal(warn.classList.contains('hidden'), false, 'inline warning should now be visible');
   });
 
-  await t.test('confirmSummaryAndSave() succeeds once a name is picked', () => {
+  await t.test('once a name is picked the name gate passes (the verified-close gates take over)', () => {
     document.getElementById('sel-responsible-staff').value = 'Ali Raza';
+    document.getElementById('app-alert-overlay').classList.add('hidden');
     LedgerNav.openSummaryModal();
     LedgerNav.confirmSummaryAndSave();
+    /* No Inventory Audit verified in this test → the closing is blocked by
+       the audit gate (not the name gate) and nothing is saved. The full
+       gate matrix lives in verified-close.test.mjs. */
+    const alertMsg = document.getElementById('app-alert-msg');
+    assert.ok(/Inventory Audit/.test(alertMsg.textContent), 'blocked by the audit gate, not the name gate');
+    assert.equal(db.sheets[`${DS}_Night`], undefined, 'must not be finalized without a verified audit');
+    /* The local commit itself still stores the name on a finalized record. */
+    Actions.saveSheet();
     const rec = db.sheets[`${DS}_Night`];
     assert.ok(rec, 'Night record should now be saved');
     assert.equal(rec.draft, false);
