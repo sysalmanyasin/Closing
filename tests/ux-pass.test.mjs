@@ -180,5 +180,5 @@ test('walkthrough: reachable from the ledger menu and closable with Escape', () 
 test('service worker caches the new modules and the cache version was bumped', () => {
   assert.match(sw, /'\.\/js\/walkthrough\.js'/);
   assert.match(sw, /'\.\/js\/a11y\.js'/);
-  assert.match(sw, /CACHE_NAME = 'pharmpos-closing-v5\.19'/);
+  assert.match(sw, /CACHE_NAME = 'pharmpos-closing-v5\.20'/);
 });
