@@ -183,3 +183,12 @@ If a future need requires keeping data past 6 months (e.g. tax/audit
 requirements), export a backup (Settings → Data Backup) before
 archiving — the archived data is not recoverable from within the app
 afterward.
+
+## Egress-reduction additions (2026-11-04)
+
+Applied by `supabase/egress_reduction.sql` (also in BT Sale Data's `supabase/migrations/20261104120000_egress_reduction.sql`):
+
+- `sheets.server_updated_at`, `credit_ledger.server_updated_at` — server-set change cursor (trigger `b_set_server_updated_at`). `sync.js` pulls only rows newer than its cursor.
+- `a_suppress_noop_update` triggers on `sheets`, `credit_ledger`, `deleted_records`, `settings` — updates that change nothing meaningful are dropped (no write, no Realtime event). Closing's push upserts every row each time; this makes that free.
+- `activity_log(created_at)` index — cursor for incremental log pulls. `activity_log_archive` + `archive_activity_log(90)` (weekly pg_cron) move rows older than 90 days out of the hot table; nothing is deleted.
+- `closing_change_token()` — tiny RPC returning a change fingerprint; BT Sale Data polls it instead of re-downloading everything.

@@ -135,11 +135,10 @@ object InventoryRepository {
     // Excess Working's Retain Stock List — synced via bt_salesdata.payload.excessRetain
     // (same shared row CreditRepository reads; see that file's header for why).
     fun fetchExcessRetainSet(): Set<String> {
-        val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_salesdata?select=payload&id=eq.main"
+        val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_salesdata?select=excessRetain:payload->excessRetain&id=eq.main"
         val arr = fetchJsonArray(endpoint, BuildConfig.SUPABASE_ANON_KEY) ?: return emptySet()
         if (arr.length() == 0) return emptySet()
-        val payload = arr.getJSONObject(0).optJSONObject("payload") ?: return emptySet()
-        val retain = payload.optJSONArray("excessRetain") ?: return emptySet()
+        val retain = arr.getJSONObject(0).optJSONArray("excessRetain") ?: return emptySet()
         val set = HashSet<String>()
         for (i in 0 until retain.length()) set.add(retain.optString(i, "").trim().lowercase(Locale.US))
         return set

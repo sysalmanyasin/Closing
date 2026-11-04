@@ -33,6 +33,26 @@ import { SUPA_URL_KEY, SUPA_ANON_KEY, getSupaUrl, getSupaAnonKey, getSupabaseCli
    page reload doesn't re-push (harmless, just noisy) duplicates. */
 const SUPA_AL_PUSHED_KEY = 'supabase_al_pushed_count';
 
+/* ── INCREMENTAL PULL (egress control) ──────────────────────
+   Before 2026-11 every pull re-downloaded ALL of sheets, credit_ledger
+   and activity_log (~3.8 MB of JSON) — and a pull ran on every Realtime
+   event from any device. Now:
+     'full'    — manual sync, no/stale cursor, new project, or >6 h since
+                 the last full pull: everything is re-read (the safety net).
+     'session' — first pull after a page load: sheets/credit_ledger/settings
+                 are re-read in full (so offline edits get reconciled and
+                 pushed) but the big append-only activity_log is incremental.
+     'delta'   — every later pull: only rows changed since the cursor.
+   The cursor is SERVER-side time (sheets/credit_ledger.server_updated_at,
+   activity_log.created_at) so device clock skew can't hide a change. */
+const SUPA_CURSOR_KEY   = 'supabase_pull_cursor_v1';
+const DELTA_OVERLAP_MS  = 90 * 1000;          /* re-read a little behind the cursor: commits can land out of order */
+const AL_OVERLAP_MS     = 5 * 60 * 1000;
+const FULL_RESYNC_MS    = 6 * 60 * 60 * 1000;
+const PULL_DEBOUNCE_MS  = 1500;
+const PULL_MIN_GAP_MS   = 5000;               /* one autosaving editor must not make every device pull every 3 s */
+const EPOCH_ISO         = '1970-01-01T00:00:00.000Z';
+
 /* ── RETRY CONFIG ───────────────────────────────────────── */
 const QUICK_RETRIES  = 3;
 const QUICK_DELAY_MS = 5000;
@@ -50,6 +70,9 @@ const supaState = {
   backoffIndex:    0,
   quickRetryCount: 0,
   pullDebounce:    null,
+  lastPullAt:      0,
+  sessionPulled:   false,  /* first pull after page load re-reads sheets/credit_ledger in full */
+  staleWhileHidden:false,  /* a Realtime event arrived while the tab was hidden */
   /* True only once a syncPullFromCloud() has completed WITHOUT
      throwing at least once this session, so we've actually seen what
      the cloud has for settings (or confirmed there's genuinely
@@ -291,16 +314,27 @@ export async function supaInit() {
    pull rather than reasoning about the individual payload — the
    existing conflict logic in syncPullFromCloud() already knows how
    to merge safely, so we just ask it to run again. */
+function _schedulePull() {
+  /* Don't download in a hidden tab — catch up once it's visible again. */
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    supaState.staleWhileHidden = true;
+    return;
+  }
+  clearTimeout(supaState.pullDebounce);
+  const wait = Math.max(PULL_DEBOUNCE_MS, PULL_MIN_GAP_MS - (Date.now() - supaState.lastPullAt));
+  supaState.pullDebounce = setTimeout(() => {
+    syncPullFromCloud(false).catch(() => {});
+  }, wait);
+}
+
 function _openRealtimeChannel() {
   if(!supaState.client || supaState.channel) return;
   const channel = supaState.client.channel('closing-app-sync');
-  ['settings', 'sheets', 'credit_ledger', 'activity_log', 'deleted_records'].forEach(table => {
-    channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-      clearTimeout(supaState.pullDebounce);
-      supaState.pullDebounce = setTimeout(() => {
-        syncPullFromCloud(false).catch(() => {});
-      }, 800);
-    });
+  /* activity_log is deliberately NOT listened to: every user action inserts a
+     log row, which used to trigger a pull on every device. Log rows arrive
+     with the next (incremental) pull that a sheet/settings change triggers. */
+  ['settings', 'sheets', 'credit_ledger', 'deleted_records'].forEach(table => {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table }, _schedulePull);
   });
   channel.subscribe((status, err) => {
     console.log('[Supabase Realtime] channel status:', status, err || '');
@@ -342,7 +376,13 @@ function supaHealConnection(reason) {
   supaInit();
 }
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') supaHealConnection('Tab focused');
+  if(document.visibilityState === 'visible') {
+    supaHealConnection('Tab focused');
+    if(supaState.staleWhileHidden && supaState.client) {
+      supaState.staleWhileHidden = false;
+      _schedulePull();
+    }
+  }
 });
 window.addEventListener('online', () => {
   if(supaState.client) {
@@ -717,19 +757,105 @@ export function _mergeByKey(localMap, cloudMap, tsOf, isDraft) {
   return { merged, localWonSomething, cloudWonKeys };
 }
 
-export async function syncPullFromCloud(_manual = false) {
+/* ── PURE HELPERS (exported for tests) ───────────────────── */
+export function _alId(e) { return `${e.ts}|${e.actor}|${e.key}|${e.action}`; }
+
+const _alStrip = e => ({ ts: e.ts, actor: e.actor, key: e.key, action: e.action, changes: e.changes });
+const _byTs    = (a, b) => (a.ts || 0) - (b.ts || 0);   /* Array#sort is stable: ties keep fetch order */
+
+/* Activity log is append-only. `localAl` = this device's db.activityLog,
+   `pushedCount` = how many of its leading entries are already in the cloud
+   (the rest is an unpushed tail that must survive the pull).
+   delta=false: cloudRows is the whole table → replace the pushed head.
+   delta=true : cloudRows is only what's new → append the ones the head
+                doesn't already have (identity ts+actor+key+action). */
+export function _mergeActivityLog(localAl, pushedCount, cloudRows, delta) {
+  const local = Array.isArray(localAl) ? localAl : [];
+  const tail  = local.slice(pushedCount);
+  let head;
+  if(delta) {
+    const base = local.slice(0, pushedCount);
+    const seen = new Set(base.map(_alId));
+    const fresh = (cloudRows || []).filter(e => !seen.has(_alId(e))).map(_alStrip);
+    head = base.concat(fresh).sort(_byTs);
+  } else {
+    head = (cloudRows || []).map(_alStrip).sort(_byTs);
+  }
+  return { head, merged: head.concat(tail), unpushed: tail };
+}
+
+/* Highest `field` (ISO timestamp) among rows, never going backwards from prev. */
+export function _maxIso(rows, field, prev) {
+  let best = prev || null;
+  let bestMs = best ? Date.parse(best) : -Infinity;
+  (rows || []).forEach(r => {
+    const v = r && r[field];
+    const ms = v ? Date.parse(v) : NaN;
+    if(!isNaN(ms) && ms > bestMs) { best = v; bestMs = ms; }
+  });
+  return best;
+}
+const _sinceIso = (iso, overlapMs) => new Date(Date.parse(iso) - overlapMs).toISOString();
+
+function _loadCursor() {
+  try {
+    const c = JSON.parse(repoGetLocal(SUPA_CURSOR_KEY) || 'null');
+    /* A cursor only means something for the project it was recorded against. */
+    return (c && typeof c === 'object' && c.url === supaGetAppKey()) ? c : null;
+  } catch(e) { return null; }
+}
+function _saveCursor(c) { try { repoSetLocal(SUPA_CURSOR_KEY, JSON.stringify(c)); } catch(e) { /* best-effort */ } }
+
+export function _pickPullMode(cursor, manual, sessionPulled, now = Date.now()) {
+  const fullDue = manual === true || !cursor || !cursor.sheets || !cursor.cl || !cursor.al ||
+                  !(cursor.fullAt > 0) || (now - cursor.fullAt) > FULL_RESYNC_MS;
+  return fullDue ? 'full' : (sessionPulled ? 'delta' : 'session');
+}
+
+function _fetchCloud(mode, cursor, legacy) {
+  const c = supaState.client;
+  const rowsDelta = !legacy && mode === 'delta';
+  const alDelta   = !legacy && mode !== 'full';
+  const cols = legacy ? 'key, data' : 'key, data, server_updated_at';
+  let sQ = c.from('sheets').select(cols);
+  let cQ = c.from('credit_ledger').select(cols);
+  if(rowsDelta) {
+    sQ = sQ.gte('server_updated_at', _sinceIso(cursor.sheets, DELTA_OVERLAP_MS));
+    cQ = cQ.gte('server_updated_at', _sinceIso(cursor.cl,     DELTA_OVERLAP_MS));
+  }
+  let aQ = c.from('activity_log').select(legacy ? 'ts, actor, key, action, changes' : 'ts, actor, key, action, changes, created_at');
+  if(alDelta) aQ = aQ.gte('created_at', _sinceIso(cursor.al, AL_OVERLAP_MS));
+  aQ = aQ.order(legacy ? 'ts' : 'created_at', { ascending: true });
+  return Promise.all([
+    sQ, cQ,
+    c.from('settings').select('data, updated_at').eq('id', 1).maybeSingle(),
+    aQ,
+    c.from('deleted_records').select('key, deleted_at')   /* tiny; always complete so tombstones are never missed */
+  ]);
+}
+
+export async function syncPullFromCloud(manual = false) {
   if(!supaState.client) return;
   supaSetBusy(true);
   supaSetStatus('Checking for updates…', 'busy', true);
+  supaState.lastPullAt = Date.now();
 
   try {
-    const [sheetsRes, clRes, settingsRes, alRes, delRes] = await Promise.all([
-      supaState.client.from('sheets').select('key, data'),
-      supaState.client.from('credit_ledger').select('key, data'),
-      supaState.client.from('settings').select('data, updated_at').eq('id', 1).maybeSingle(),
-      supaState.client.from('activity_log').select('ts, actor, key, action, changes').order('ts', { ascending: true }),
-      supaState.client.from('deleted_records').select('key, deleted_at')
-    ]);
+    const cursor = _loadCursor();
+    let mode   = _pickPullMode(cursor, manual, supaState.sessionPulled);
+    let legacy = false;
+    let [sheetsRes, clRes, settingsRes, alRes, delRes] = await _fetchCloud(mode, cursor, false);
+
+    /* Pointed at a project that hasn't had the 2026-11 migration (no
+       server_updated_at column): fall back to the old full pull. */
+    const missingCol = r => r.error && (r.error.code === '42703' || /server_updated_at|created_at/.test(r.error.message || ''));
+    if(missingCol(sheetsRes) || missingCol(clRes) || missingCol(alRes)) {
+      legacy = true; mode = 'full';
+      [sheetsRes, clRes, settingsRes, alRes, delRes] = await _fetchCloud('full', null, true);
+    }
+    const rowsDelta = mode === 'delta';
+    const alDelta   = mode !== 'full';
+
     if(sheetsRes.error) throw sheetsRes.error;
     if(clRes.error) throw clRes.error;
     if(settingsRes.error) throw settingsRes.error;
@@ -743,6 +869,8 @@ export async function syncPullFromCloud(_manual = false) {
     /* Union of cloud tombstones and any not-yet-pushed local ones —
        covers the case where this device deleted something while
        offline and hasn't successfully pushed the tombstone yet. */
+    const cloudTombKeys = new Set((delRes.data || []).map(r => r.key));
+    const pendingTombstones = (db.deletedKeys || []).filter(d => !cloudTombKeys.has(d.key)).length;
     const tombstones = new Map((delRes.data || []).map(r => [r.key, r.deleted_at]));
     (db.deletedKeys || []).forEach(d => {
       if(!tombstones.has(d.key)) tombstones.set(d.key, new Date(d.deletedAt).toISOString());
@@ -754,23 +882,29 @@ export async function syncPullFromCloud(_manual = false) {
     const localCL         = Object.fromEntries((db.creditLedger || []).map(r => [r.key, r]));
     tombstones.forEach((_v, key) => { delete localSheets[key]; delete localCL[key]; });
 
-    const sheetMerge = _mergeByKey(localSheets, cloudSheetsRaw, r => r._updatedAt || r.savedAt || 0, r => !!r.draft);
-    const clMerge     = _mergeByKey(localCL, cloudCLRaw, r => r.savedAt || 0);
+    /* In delta mode the cloud side only holds CHANGED rows, so only those keys
+       may be compared — a local key absent from the delta is "unchanged in the
+       cloud", not "local-only, push it". */
+    const only = (map, keys) => Object.fromEntries(keys.filter(k => k in map).map(k => [k, map[k]]));
+    const sheetMerge = _mergeByKey(rowsDelta ? only(localSheets, Object.keys(cloudSheetsRaw)) : localSheets, cloudSheetsRaw, r => r._updatedAt || r.savedAt || 0, r => !!r.draft);
+    const clMerge    = _mergeByKey(rowsDelta ? only(localCL, Object.keys(cloudCLRaw)) : localCL, cloudCLRaw, r => r.savedAt || 0);
+    if(rowsDelta) {
+      sheetMerge.merged = { ...localSheets, ...sheetMerge.merged };
+      clMerge.merged    = { ...localCL,     ...clMerge.merged };
+    }
 
     /* Activity log: append-only, so union by identity (ts+actor+key+action)
        rather than picking one side — a not-yet-pushed local entry must
        never be discarded just because a pull happened to land first. */
-    const localAl  = Array.isArray(db.activityLog) ? db.activityLog : [];
-    const cloudAl  = alRes.data || [];
     const alPushedCount = parseInt(repoGetLocal(SUPA_AL_PUSHED_KEY) || '0', 10);
-    const unpushedLocalAl = localAl.slice(alPushedCount);
-    const mergedAl = cloudAl.concat(unpushedLocalAl);
+    const alMerge = _mergeActivityLog(db.activityLog, alPushedCount, alRes.data, alDelta);
+    const unpushedLocalAl = alMerge.unpushed;
 
     const cloudDb = {
       settings:     settingsRes.data?.data || null,
       sheets:       sheetMerge.merged,
       creditLedger: Object.values(clMerge.merged),
-      activityLog:  mergedAl,
+      activityLog:  alMerge.merged,
       deletedKeys:  Array.from(tombstones.entries()).map(([key, deleted_at]) => ({ key, deletedAt: new Date(deleted_at).getTime() }))
     };
 
@@ -787,7 +921,18 @@ export async function syncPullFromCloud(_manual = false) {
     /* Only entries that actually came back FROM the cloud are "known
        pushed" — the unpushed local tail we just re-appended above is
        still pending, so the next push must still send it. */
-    repoSetLocal(SUPA_AL_PUSHED_KEY, String(cloudAl.length));
+    repoSetLocal(SUPA_AL_PUSHED_KEY, String(alMerge.head.length));
+
+    if(!legacy) {
+      _saveCursor({
+        url:    supaGetAppKey(),
+        sheets: _maxIso(sheetsRes.data, 'server_updated_at', rowsDelta ? cursor.sheets : null) || EPOCH_ISO,
+        cl:     _maxIso(clRes.data,     'server_updated_at', rowsDelta ? cursor.cl     : null) || EPOCH_ISO,
+        al:     _maxIso(alRes.data,     'created_at',        alDelta   ? cursor.al     : null) || EPOCH_ISO,
+        fullAt: mode === 'full' ? Date.now() : (cursor?.fullAt || Date.now())
+      });
+    }
+    supaState.sessionPulled = true;
 
     buildCalendar();
     renderManifest();
@@ -815,7 +960,7 @@ export async function syncPullFromCloud(_manual = false) {
        record cloud didn't have yet, a pending tombstone, unpushed
        settings, or unpushed log lines), push it back up now so the
        cloud — and every other device — converges on the same state. */
-    if(sheetMerge.localWonSomething || clMerge.localWonSomething || keptLocalSettings || unpushedLocalAl.length || (db.deletedKeys || []).length) {
+    if(sheetMerge.localWonSomething || clMerge.localWonSomething || keptLocalSettings || unpushedLocalAl.length || pendingTombstones) {
       await syncPushToCloud(false);
     }
 

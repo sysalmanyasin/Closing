@@ -300,7 +300,11 @@ object CreditRepository {
     private fun fetchPayload(context: Context): JSONObject? {
         val accessToken = WidgetAuthManager.getAccessToken(context) ?: return null
 
-        val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_salesdata?select=payload&id=eq.main"
+        // Egress: the full `payload` is ~2.5 MB (82% is `daily`, which this widget never reads).
+        // Ask Postgres for just the three keys used below; the aliases rebuild the same shape.
+        val endpoint = "${BuildConfig.SUPABASE_URL}/rest/v1/bt_salesdata" +
+            "?select=manager:payload->manager,ledger:payload->ledger,ledgerCustomTypes:payload->ledgerCustomTypes" +
+            "&id=eq.main"
         val connection = URL(endpoint).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
@@ -313,7 +317,7 @@ object CreditRepository {
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             val array = JSONArray(body)
             if (array.length() == 0) return null
-            array.getJSONObject(0).optJSONObject("payload")
+            array.getJSONObject(0)  // already {manager, ledger, ledgerCustomTypes}
         } catch (e: Exception) {
             null
         } finally {

@@ -3,6 +3,10 @@
    Strategy: Cache-first for app shell.
    Supabase API calls always go to network (never cached).
 
+   v5.21 — Egress cut: sync.js pulls only changed rows (server-side cursor) instead of
+   re-downloading sheets/credit_ledger/activity_log on every Realtime event; Realtime no
+   longer listens to activity_log. See supabase/egress_reduction.sql.
+
    v5.20 — Save & Close is now gated: Inventory Audit must be verified, and the
    closing must upload to the cloud AND its ntfy notification must be confirmed
    (closing_notify_status RPC) — otherwise nothing is saved. actions.js,
@@ -102,7 +106,7 @@
    JazzCash category sync, Log Out button) via the version bump below.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'pharmpos-closing-v5.20';
+const CACHE_NAME = 'pharmpos-closing-v5.21';
 
 /* ── App Shell — all files that make the app work offline ──
    Load order no longer matters here — js/app.js is the only
