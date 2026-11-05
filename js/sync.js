@@ -44,7 +44,11 @@ const SUPA_AL_PUSHED_KEY = 'supabase_al_pushed_count';
                  pushed) but the big append-only activity_log is incremental.
      'delta'   — every later pull: only rows changed since the cursor.
    The cursor is SERVER-side time (sheets/credit_ledger.server_updated_at,
-   activity_log.created_at) so device clock skew can't hide a change. */
+   activity_log.created_at) so device clock skew can't hide a change.
+   The sheets/credit_ledger part of the cursor lives only in memory (supaState.rowsCursor):
+   localStorage is shared by every tab, and a cursor advanced by tab A would make tab B
+   skip rows that only A has merged — B would then push its stale copy over them. Only the
+   append-only activity_log cursor (+ the 6 h full-resync clock) is persisted. */
 const SUPA_CURSOR_KEY   = 'supabase_pull_cursor_v1';
 const DELTA_OVERLAP_MS  = 90 * 1000;          /* re-read a little behind the cursor: commits can land out of order */
 const AL_OVERLAP_MS     = 5 * 60 * 1000;
@@ -71,7 +75,7 @@ const supaState = {
   quickRetryCount: 0,
   pullDebounce:    null,
   lastPullAt:      0,
-  sessionPulled:   false,  /* first pull after page load re-reads sheets/credit_ledger in full */
+  rowsCursor:      null,   /* {sheets, cl} — IN MEMORY, per tab (see _pickPullMode); null until this page's first pull */
   staleWhileHidden:false,  /* a Realtime event arrived while the tab was hidden */
   /* True only once a syncPullFromCloud() has completed WITHOUT
      throwing at least once this session, so we've actually seen what
@@ -807,7 +811,7 @@ function _loadCursor() {
 function _saveCursor(c) { try { repoSetLocal(SUPA_CURSOR_KEY, JSON.stringify(c)); } catch(e) { /* best-effort */ } }
 
 export function _pickPullMode(cursor, manual, sessionPulled, now = Date.now()) {
-  const fullDue = manual === true || !cursor || !cursor.sheets || !cursor.cl || !cursor.al ||
+  const fullDue = manual === true || !cursor || !cursor.al ||
                   !(cursor.fullAt > 0) || (now - cursor.fullAt) > FULL_RESYNC_MS;
   return fullDue ? 'full' : (sessionPulled ? 'delta' : 'session');
 }
@@ -841,8 +845,9 @@ export async function syncPullFromCloud(manual = false) {
   supaState.lastPullAt = Date.now();
 
   try {
-    const cursor = _loadCursor();
-    let mode   = _pickPullMode(cursor, manual, supaState.sessionPulled);
+    const persisted = _loadCursor();
+    let mode   = _pickPullMode(persisted, manual, !!supaState.rowsCursor);
+    const cursor = persisted ? { ...persisted, ...(supaState.rowsCursor || {}) } : null;
     let legacy = false;
     let [sheetsRes, clRes, settingsRes, alRes, delRes] = await _fetchCloud(mode, cursor, false);
 
@@ -924,15 +929,16 @@ export async function syncPullFromCloud(manual = false) {
     repoSetLocal(SUPA_AL_PUSHED_KEY, String(alMerge.head.length));
 
     if(!legacy) {
+      supaState.rowsCursor = {
+        sheets: _maxIso(sheetsRes.data, 'server_updated_at', rowsDelta ? cursor.sheets : null) || EPOCH_ISO,
+        cl:     _maxIso(clRes.data,     'server_updated_at', rowsDelta ? cursor.cl     : null) || EPOCH_ISO
+      };
       _saveCursor({
         url:    supaGetAppKey(),
-        sheets: _maxIso(sheetsRes.data, 'server_updated_at', rowsDelta ? cursor.sheets : null) || EPOCH_ISO,
-        cl:     _maxIso(clRes.data,     'server_updated_at', rowsDelta ? cursor.cl     : null) || EPOCH_ISO,
-        al:     _maxIso(alRes.data,     'created_at',        alDelta   ? cursor.al     : null) || EPOCH_ISO,
+        al:     _maxIso(alRes.data, 'created_at', alDelta ? cursor.al : null) || EPOCH_ISO,
         fullAt: mode === 'full' ? Date.now() : (cursor?.fullAt || Date.now())
       });
     }
-    supaState.sessionPulled = true;
 
     buildCalendar();
     renderManifest();

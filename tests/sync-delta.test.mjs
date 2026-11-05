@@ -73,7 +73,7 @@ describe('_maxIso / _pickPullMode', () => {
     assert.equal(_maxIso([{ t: '2026-11-04T03:00:00Z' }], 't', '2026-11-04T02:00:00Z'), '2026-11-04T03:00:00Z');
     assert.equal(_maxIso([], 't', null), null);
   });
-  const fresh = { sheets: 'a', cl: 'b', al: 'c', fullAt: 1_000_000 };
+  const fresh = { al: 'c', fullAt: 1_000_000 };   // persisted part only; sheets/credit_ledger cursor is per-tab, in memory
   test('no cursor, manual, or a stale cursor → full', () => {
     assert.equal(_pickPullMode(null, false, false, 1_000_100), 'full');
     assert.equal(_pickPullMode(fresh, true, true, 1_000_100), 'full');
