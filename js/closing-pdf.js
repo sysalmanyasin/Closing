@@ -56,15 +56,24 @@ export async function publishClosingPdf(blob, key, deps = {}) {
     const up = await store.upload(path, blob, { upsert: true, contentType: 'application/pdf' });
     if (up.error) throw up.error;
 
-    const { data: list } = await store.list('', {
+    // Retention is housekeeping: a listing/deletion failure must not stop
+    // the signed link and notification for the PDF that was just uploaded.
+    const { data: list, error: listError } = await store.list('', {
       limit: 100, sortBy: { column: 'updated_at', order: 'desc' }
     });
+    if (listError) console.warn('Closing PDF retention list failed:', listError);
     const stale = stalePdfNames(list);
-    if (stale.length) await store.remove(stale);
+    if (stale.length) {
+      const { error: removeError } = await store.remove(stale);
+      if (removeError) console.warn('Closing PDF retention cleanup failed:', removeError);
+    }
 
-    if (!topic) return { ok: true, notified: false };
-    const { data: signed } = await store.createSignedUrl(path, PDF_LINK_SECS);
-    if (!signed?.signedUrl) return { ok: true, notified: false };
+    if (!topic) return { ok: true, notified: false, reason: 'no-topic' };
+    const { data: signed, error: signedError } = await store.createSignedUrl(path, PDF_LINK_SECS);
+    if (signedError || !signed?.signedUrl) {
+      console.warn('Closing PDF signed URL failed:', signedError || 'No signed URL returned');
+      return { ok: true, notified: false, reason: 'signed-url-failed' };
+    }
 
     const res = await fetchFn(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
       method: 'POST',
@@ -75,11 +84,15 @@ export async function publishClosingPdf(blob, key, deps = {}) {
         Filename: path,
         Click: signed.signedUrl
       },
-      // Keep the direct URL visible as well as using ntfy's remote-attachment
-      // feature. This guarantees a usable link even if the client hides Attach.
+      // Keep a plain, tappable URL in the message as a fallback if a client
+      // does not render the remote attachment preview.
       body: `Closing sheet PDF: ${signed.signedUrl}`
     });
-    return { ok: true, notified: !!res?.ok };
+    if (!res?.ok) {
+      console.warn('Closing PDF ntfy publish failed:', res?.status || 'unknown HTTP status');
+      return { ok: true, notified: false, reason: 'ntfy-http-error', status: res?.status || null };
+    }
+    return { ok: true, notified: true };
   } catch (e) {
     console.warn('Closing PDF upload/notify failed:', e);
     return { ok: false, reason: 'error' };
