@@ -577,25 +577,10 @@ export async function syncPushToCloud(manual = false) {
   }
 }
 
-/* ── VERIFIED CLOSE: upload + confirm the ntfy notification ─────────
-   "Save & Close This Shift" must not finalize unless (a) the closing
-   reached the cloud and (b) the closing-ntfy-notify call it triggers
-   was confirmed successful. The notification itself is fired by the DB
-   trigger notify_admin_shift_saved() (net.http_post), so the app learns
-   the outcome through the RPC public.closing_notify_status(p_key) —
-   see supabase/closing_notify_ack.sql, which must be applied first.
-
-   Order matters: the FINAL record is upserted on its own (before any
-   local commit) so a failure leaves this device untouched; if the
-   notification is not confirmed the cloud row is put back to what it
-   was (or a draft) so a failed close never leaves a "saved" closing
-   behind. The caller then commits the very same record locally, so the
-   later wholesale push carries identical data and the trigger's
-   "data changed" condition does not re-notify. */
 /* Save & Close writes the finalized sheet directly to Supabase.
    Notification delivery is deliberately independent: ntfy is a
    best-effort side effect and must never decide whether a closing saves. */
-export async function syncSaveClosingVerified(key, record, previous) {
+export async function syncSaveClosingVerified(key, record) {
   const client = supaState.client;
   if(!client) return { ok: false, message: 'Cloud sync is not connected on this device.' };
   if(isOffline()) return { ok: false, message: 'This device is offline. Reconnect before closing so the record can sync to the cloud.' };
