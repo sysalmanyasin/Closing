@@ -67,7 +67,7 @@ export async function publishClosingPdf(blob, key, deps = {}) {
         for (let i = 0; i < bytes.length; i += 0x8000) {
           binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         }
-        const response = await fetch(`${getSupaUrl().replace(/\\/+$/, '')}/functions/v1/google-drive`, {
+        const response = await fetch(\`${getSupaUrl().replace(/\/+$/, '')}\` + '/functions/v1/google-drive', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
