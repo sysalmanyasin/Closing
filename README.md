@@ -216,7 +216,7 @@ need an active internet connection and cloud sync to finalize a closing.
 
 ### Closing PDFs (Storage + ntfy link)
 
-After a successful Save & Close, `js/closing-pdf.js` renders the closing sheet as a compact PDF (`renderPDF({ compact: true })`, JPEG @1.5x, typically a few hundred KB), uploads it to the **private** Storage bucket `closing-pdfs` as `<sheet key>.pdf` (`upsert`, so saving the same shift again **overwrites** its PDF), deletes everything beyond the 10 most recently updated files, and POSTs a 24-hour signed link to the ntfy topic (`Attach` header; the topic comes from the device, same as `ntfy-link.js`). It is best-effort: failures are logged and never block or undo a closing. Setup: run `supabase/closing_pdfs.sql` once (active-staff-only RLS, 5 MB limit, PDF only).
+After a successful Save & Close, `js/closing-pdf.js` renders the closing sheet as a compact PDF (`renderPDF({ compact: true })`, JPEG @1.5x, typically a few hundred KB), uploads it to the **private** Storage bucket `closing-pdfs` as `<sheet key>.pdf` (`upsert`, so saving the same shift again **overwrites** its PDF), deletes everything beyond the 10 most recently updated files, and POSTs a 24-hour signed link to the ntfy topic (`Attach` header; the topic comes from the device, same as `ntfy-link.js`). It is best-effort: failures are logged and never block or undo a closing. Setup: run `supabase/closing_pdfs.sql` once (active-staff-only RLS, 10 MiB limit, PDF only).
 
 **Debugging:** check recent responses with
 `select status_code, content, created from net._http_response order by created desc limit 10;`
