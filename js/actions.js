@@ -1264,8 +1264,7 @@ export async function closeShiftVerified() {
   try {
     const key = session.activeKey;
     const record = prepareClosingRecord();
-    const prev = db.sheets[key] ? JSON.parse(JSON.stringify(db.sheets[key])) : null;
-    const res = await syncSaveClosingVerified(key, record, prev);
+    const res = await syncSaveClosingVerified(key, record);
     if(!res.ok) {
       showAlert('⛔ Closing NOT saved. ' + res.message + '\n\nNothing was locked. Fix the problem and press Save & Close again.');
       return false;
