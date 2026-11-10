@@ -1274,6 +1274,19 @@ export async function closeShiftVerified() {
       return false;
     }
     saveSheet(false, record);
+
+    // The cloud closing is authoritative. Generate and back up its PDF
+    // only after that save succeeds; PDF/Drive failures must never undo it.
+    try {
+      const { buildClosingPdf, publishClosingPdf } = await import('./closing-pdf.js');
+      const pdfBlob = await buildClosingPdf();
+      const pdfBackup = await publishClosingPdf(pdfBlob, key);
+      if (!pdfBackup.ok || !pdfBackup.driveBackedUp) {
+        console.warn('Closing saved, but Google Drive PDF backup did not complete:', pdfBackup);
+      }
+    } catch (pdfError) {
+      console.warn('Closing saved, but automatic PDF backup failed:', pdfError);
+    }
     return true;
   } finally {
     _closeInFlight = false;
