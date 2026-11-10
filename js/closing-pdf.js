@@ -12,7 +12,7 @@
    Setup: run supabase/closing_pdfs.sql once.
 ═══════════════════════════════════════════════════════════════ */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getSupabaseClient, getSupaAnonKey, getSupaUrl } from './supabase-client.js';
 import { repoGetLocal } from './repository.js';
 
 export const PDF_BUCKET   = 'closing-pdfs';
@@ -55,6 +55,36 @@ export async function publishClosingPdf(blob, key, deps = {}) {
 
     const up = await store.upload(path, blob, { upsert: true, contentType: 'application/pdf' });
     if (up.error) throw up.error;
+
+    // Drive copy is best-effort; the private Storage copy remains authoritative.
+    try {
+      const { data: sessionData } = await sb.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (accessToken) {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        }
+        const response = await fetch(`${getSupaUrl().replace(/\\/+$/, '')}/functions/v1/google-drive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': getSupaAnonKey(),
+          },
+          body: JSON.stringify({ action: 'backup_pdf', fileKey: key, pdfBase64: btoa(binary) }),
+        });
+        if (!response.ok) {
+          const detail = await response.json().catch(() => ({}));
+          console.warn('Closing PDF Google Drive copy failed:', detail.error || response.status);
+        }
+      } else {
+        console.warn('Closing PDF Google Drive copy skipped: no active staff session.');
+      }
+    } catch (driveError) {
+      console.warn('Closing PDF Google Drive copy failed:', driveError);
+    }
 
     // Retention is housekeeping: a listing/deletion failure must not stop
     // the signed link and notification for the PDF that was just uploaded.
