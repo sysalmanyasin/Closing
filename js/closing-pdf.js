@@ -72,9 +72,12 @@ export async function publishClosingPdf(blob, key, deps = {}) {
         Title: `Closing PDF: ${key}`,
         Tags: 'page_facing_up',
         Attach: signed.signedUrl,
-        Filename: path
+        Filename: path,
+        Click: signed.signedUrl
       },
-      body: 'Closing sheet PDF attached'
+      // Keep the direct URL visible as well as using ntfy's remote-attachment
+      // feature. This guarantees a usable link even if the client hides Attach.
+      body: `Closing sheet PDF: ${signed.signedUrl}`
     });
     return { ok: true, notified: !!res?.ok };
   } catch (e) {
