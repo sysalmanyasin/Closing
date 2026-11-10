@@ -37,10 +37,36 @@ test('publish upserts, prunes and notifies with Attach', async () => {
   assert.equal(calls.upload[0][1].upsert, true);
   assert.deepEqual(calls.remove[0], ['f10.pdf']);
   assert.equal(sent[1].headers.Attach, 'https://x/signed');
+  assert.equal(sent[1].headers.Click, 'https://x/signed');
+  assert.match(sent[1].body, /https:\/\/x\/signed/);
 });
 
 test('oversize blob and failures never throw', async () => {
   assert.equal((await publishClosingPdf({ size: 11 * 1024 * 1024 }, 'k', { client: {} })).reason, 'too-large');
   const bad = { storage: { from: () => ({ upload: async () => ({ error: new Error('x') }) }) } };
   assert.equal((await publishClosingPdf({ size: 5 }, 'k', { client: bad, topic: '' })).ok, false);
+});
+
+
+test('signed URL failure is reported after a successful upload', async () => {
+  const { client } = mockClient([]);
+  const store = client.storage.from();
+  store.createSignedUrl = async () => ({ data: null, error: new Error('signing failed') });
+  const r = await publishClosingPdf({ size: 100 }, '2026-11-10_Evening', {
+    client, topic: 'tp', fetch: async () => { throw new Error('must not publish'); }
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.notified, false);
+  assert.equal(r.reason, 'signed-url-failed');
+});
+
+test('ntfy non-2xx response is reported as notification failure', async () => {
+  const { client } = mockClient([]);
+  const r = await publishClosingPdf({ size: 100 }, '2026-11-10_Evening', {
+    client, topic: 'tp', fetch: async () => ({ ok: false, status: 413 })
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.notified, false);
+  assert.equal(r.reason, 'ntfy-http-error');
+  assert.equal(r.status, 413);
 });
