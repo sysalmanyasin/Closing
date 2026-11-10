@@ -6,13 +6,13 @@
 -- shift's file when it is saved again.
 --
 -- Access = active staff only (same rule as public.sheets). The bucket is
--- NOT public; ntfy gets a 24h signed URL.
+-- NOT public; ntfy gets a 24h signed URL. Max PDF size: 10 MiB (matches js/closing-pdf.js).
 -- ═══════════════════════════════════════════════════════════════════
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('closing-pdfs', 'closing-pdfs', false, 5242880, array['application/pdf'])
+values ('closing-pdfs', 'closing-pdfs', false, 10485760, array['application/pdf'])
 on conflict (id) do update
-  set public = false, file_size_limit = 5242880, allowed_mime_types = array['application/pdf'];
+  set public = false, file_size_limit = 10485760, allowed_mime_types = array['application/pdf'];
 
 drop policy if exists "staff select closing pdfs" on storage.objects;
 create policy "staff select closing pdfs" on storage.objects for select to authenticated
