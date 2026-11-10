@@ -51,6 +51,7 @@ export async function publishClosingPdf(blob, key, deps = {}) {
     const topic   = deps.topic !== undefined ? deps.topic : repoGetLocal(NTFY_TOPIC_KEY);
 
     const path = pdfPathForKey(key);
+    let driveBackedUp = false;
     const store = sb.storage.from(PDF_BUCKET);
 
     const up = await store.upload(path, blob, { upsert: true, contentType: 'application/pdf' });
@@ -78,6 +79,8 @@ export async function publishClosingPdf(blob, key, deps = {}) {
         if (!response.ok) {
           const detail = await response.json().catch(() => ({}));
           console.warn('Closing PDF Google Drive copy failed:', detail.error || response.status);
+        } else {
+          driveBackedUp = true;
         }
       } else {
         console.warn('Closing PDF Google Drive copy skipped: no active staff session.');
@@ -98,11 +101,11 @@ export async function publishClosingPdf(blob, key, deps = {}) {
       if (removeError) console.warn('Closing PDF retention cleanup failed:', removeError);
     }
 
-    if (!topic) return { ok: true, notified: false, reason: 'no-topic' };
+    if (!topic) return { ok: true, driveBackedUp, notified: false, reason: 'no-topic' };
     const { data: signed, error: signedError } = await store.createSignedUrl(path, PDF_LINK_SECS);
     if (signedError || !signed?.signedUrl) {
       console.warn('Closing PDF signed URL failed:', signedError || 'No signed URL returned');
-      return { ok: true, notified: false, reason: 'signed-url-failed' };
+      return { ok: true, driveBackedUp, notified: false, reason: 'signed-url-failed' };
     }
 
     const res = await fetchFn(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
@@ -120,9 +123,9 @@ export async function publishClosingPdf(blob, key, deps = {}) {
     });
     if (!res?.ok) {
       console.warn('Closing PDF ntfy publish failed:', res?.status || 'unknown HTTP status');
-      return { ok: true, notified: false, reason: 'ntfy-http-error', status: res?.status || null };
+      return { ok: true, driveBackedUp, notified: false, reason: 'ntfy-http-error', status: res?.status || null };
     }
-    return { ok: true, notified: true };
+    return { ok: true, driveBackedUp, notified: true };
   } catch (e) {
     console.warn('Closing PDF upload/notify failed:', e);
     return { ok: false, reason: 'error' };
