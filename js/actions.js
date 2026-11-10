@@ -1211,13 +1211,13 @@ export function closingGateCheck({ auditVerified, cloudReady, offline }) {
   if(!cloudReady) {
     return {
       ok: false,
-      message: 'Cloud sync is not connected on this device, so the closing cannot be synced or notified. Link cloud sync in Settings, then try again.'
+      message: 'Cloud sync is not connected on this device. Link cloud sync in Settings, then try again.'
     };
   }
   if(offline) {
     return {
       ok: false,
-      message: 'This device is offline. A closing can only be saved while online so it syncs and the ntfy notification is sent. Reconnect and try again.'
+      message: 'This device is offline. Reconnect to the internet before closing so the record can sync to the cloud.'
     };
   }
   return { ok: true };
@@ -1229,7 +1229,7 @@ function setCloseBtnBusy(busy) {
   if(!btn) return;
   if(busy) {
     btn.dataset.label = btn.dataset.label || btn.innerHTML;
-    btn.innerHTML = '⏳ Syncing &amp; sending notification…';
+    btn.innerHTML = '⏳ Saving closing…';
     btn.disabled = true;
   } else {
     if(btn.dataset.label) btn.innerHTML = btn.dataset.label;
@@ -1241,8 +1241,7 @@ function setCloseBtnBusy(busy) {
 /* The ONLY path the UI uses to finalize a shift. Blocks (nothing is
    locked or saved) unless:
      1. the Inventory Audit is synced AND verified, and
-     2. the closing reached the cloud AND the closing-ntfy-notify call
-        for it was confirmed successful.
+     2. the closing reached the cloud successfully.
    On any failure the person sees a ⛔ message and the sheet stays an
    open, editable draft so they can fix the cause and press Save again. */
 export async function closeShiftVerified() {
@@ -1272,7 +1271,7 @@ export async function closeShiftVerified() {
       return false;
     }
     if(session.activeKey !== key) {
-      showAlert('⚠️ The closing was uploaded and notified, but you left this sheet before it finished. Re-open it to confirm it shows as saved.');
+      showAlert('⚠️ The closing was uploaded, but you left this sheet before it finished. Re-open it to confirm it shows as saved.');
       return false;
     }
     saveSheet(false, record);
