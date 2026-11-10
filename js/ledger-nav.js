@@ -505,7 +505,7 @@ export async function confirmSummaryAndSave() {
   }
   /* Hard gate — Inventory Audit must be synced AND verified. Checked
      here so the person is taken straight to the card; closeShiftVerified()
-     re-checks it (plus cloud sync + ntfy) as the authoritative gate. */
+     re-checks it (plus cloud sync) as the authoritative gate. */
   if (!invAuditIsVerified()) {
     closeSummaryModal();
     showAlert('⛔ Closing NOT saved. Inventory Audit is not done — tap Sync & Audit, then Verify & Confirm, before closing this shift.');
