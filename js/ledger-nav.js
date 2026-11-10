@@ -518,7 +518,16 @@ export async function confirmSummaryAndSave() {
   /* Best-effort PDF → private Storage + ntfy. Never affects the close.
      buildClosingPdf() snapshots the print sheet synchronously (before the
      person can tap OK), then rasterizes in the background. */
-  if (closed) buildClosingPdf().then(blob => publishClosingPdf(blob, key)).catch(() => {});
+  if (closed) {
+    buildClosingPdf()
+      .then(blob => publishClosingPdf(blob, key))
+      .then(result => {
+        if (!result?.ok || !result?.notified) {
+          console.warn('Closing saved, but PDF delivery was not completed:', result?.reason || 'unknown');
+        }
+      })
+      .catch(error => console.warn('Closing saved, but PDF generation failed:', error));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
