@@ -1246,10 +1246,10 @@ function setCloseBtnBusy(busy) {
    On any failure the person sees a ⛔ message and the sheet stays an
    open, editable draft so they can fix the cause and press Save again. */
 export async function closeShiftVerified() {
-  if(_closeInFlight) return;
+  if(_closeInFlight) return false;
   if(hasPermission('closing') === false) {
     showAlert("You don't have permission to close shifts. Ask an Admin to grant it in Settings → Permissions.");
-    return;
+    return false;
   }
   const gate = closingGateCheck({
     auditVerified: invAuditIsVerified(), cloudReady: syncIsReady(), offline: isOffline()
@@ -1257,7 +1257,7 @@ export async function closeShiftVerified() {
   if(!gate.ok) {
     showAlert('⛔ Closing NOT saved. ' + gate.message);
     if(gate.jump && typeof window.jumpToSection === 'function') window.jumpToSection(gate.jump);
-    return;
+    return false;
   }
 
   _closeInFlight = true;
@@ -1269,13 +1269,14 @@ export async function closeShiftVerified() {
     const res = await syncSaveClosingVerified(key, record, prev);
     if(!res.ok) {
       showAlert('⛔ Closing NOT saved. ' + res.message + '\n\nNothing was locked. Fix the problem and press Save & Close again.');
-      return;
+      return false;
     }
     if(session.activeKey !== key) {
       showAlert('⚠️ The closing was uploaded and notified, but you left this sheet before it finished. Re-open it to confirm it shows as saved.');
-      return;
+      return false;
     }
     saveSheet(false, record);
+    return true;
   } finally {
     _closeInFlight = false;
     setCloseBtnBusy(false);

@@ -13,6 +13,7 @@ import { calc, closeShiftVerified } from './actions.js';
 import { invAuditIsVerified } from './inventory-audit.js';
 import { getRealSheet, timelineStep } from './components.js';
 import { showAlert } from './notify.js';
+import { buildClosingPdf, publishClosingPdf } from './closing-pdf.js';
 
 /* ── Section registry: id, label, icon, badge element id ──────
    Order matches the real DOM order of cards in the ledger.
@@ -486,7 +487,7 @@ export function closeSummaryModal() {
   document.getElementById('summary-modal-overlay').classList.add('hidden');
 }
 
-export function confirmSummaryAndSave() {
+export async function confirmSummaryAndSave() {
   /* Hard gate — a closing cannot be finalized without a named
      Responsible Closing Person (see product notes: the person
      typing this in — cashier on mobile or a manager reviewing on
@@ -512,7 +513,12 @@ export function confirmSummaryAndSave() {
     return;
   }
   closeSummaryModal();
-  closeShiftVerified();
+  const key = session.activeKey;
+  const closed = await closeShiftVerified();
+  /* Best-effort PDF → private Storage + ntfy. Never affects the close.
+     buildClosingPdf() snapshots the print sheet synchronously (before the
+     person can tap OK), then rasterizes in the background. */
+  if (closed) buildClosingPdf().then(blob => publishClosingPdf(blob, key)).catch(() => {});
 }
 
 /* ═══════════════════════════════════════════════════════════

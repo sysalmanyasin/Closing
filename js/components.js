@@ -815,28 +815,31 @@ export function buildPrintSheet() {
 }
 
 
-export async function renderPDF() {
+/* compact:true → small file for cloud/ntfy (JPEG @1.5x + jsPDF compress,
+   typically a few hundred KB). Default keeps the original print-quality PNG. */
+export async function renderPDF({ compact = false } = {}) {
   buildPrintSheet();
   const sheet = document.getElementById('print-sheet');
   sheet.classList.add('show');
   await new Promise(r => setTimeout(r, 120));
 
   const { jsPDF } = window.jspdf;
-  const pdf   = new jsPDF('p', 'mm', 'a4');
+  const pdf   = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: compact });
   const pageW = 210; /* A4 mm */
   const pageH = 297;
 
   const pages = sheet.querySelectorAll('.ps-page');
   for(let i = 0; i < pages.length; i++) {
     const canvas = await html2canvas(pages[i], {
-      scale: 2,
+      scale: compact ? 1.5 : 2,
       useCORS: true,
       width: 794,
       height: 1123,
       windowWidth: 794
     });
     if(i > 0) pdf.addPage();
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH);
+    if(compact) pdf.addImage(canvas.toDataURL('image/jpeg', 0.72), 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST');
+    else        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH);
   }
 
   sheet.classList.remove('show');
